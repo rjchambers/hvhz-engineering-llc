@@ -16,6 +16,8 @@ import Pipeline from "./pages/admin/Pipeline";
 import WorkOrders from "./pages/admin/WorkOrders";
 import AdminUsers from "./pages/admin/Users";
 import AdminAnalytics from "./pages/admin/Analytics";
+import TechDashboard from "./pages/tech/TechDashboard";
+import TechWorkOrderDetail from "./pages/tech/TechWorkOrderDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +43,8 @@ const App = () => (
           <Route path="/admin/work-orders" element={<WorkOrders />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
+          <Route path="/tech" element={<TechDashboard />} />
+          <Route path="/tech/work-order/:id" element={<TechWorkOrderDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
