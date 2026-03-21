@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { PortalLayout } from "@/components/PortalLayout";
-import { CheckCircle2, ArrowRight, Clock, Wrench, FileCheck } from "lucide-react";
+import { CheckCircle2, ArrowRight, Clock, Wrench, FileCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 const STEPS = [
   { icon: Clock, title: "Order Review", desc: "Our team reviews your order and assigns a technician within 1 business day." },
@@ -11,7 +13,55 @@ const STEPS = [
 
 export default function OrderConfirmed() {
   const [params] = useSearchParams();
-  const orderId = params.get("order_id");
+  const sessionId = params.get("session_id");
+  const directOrderId = params.get("order_id");
+
+  const [confirming, setConfirming] = useState(!!sessionId);
+  const [orderId, setOrderId] = useState<string | null>(directOrderId);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!sessionId) return;
+
+    let attempts = 0;
+    const poll = async () => {
+      attempts++;
+      const { data } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("stripe_session_id", sessionId)
+        .maybeSingle();
+
+      if (data) {
+        setOrderId(data.id);
+        setConfirming(false);
+        return;
+      }
+
+      if (attempts < 3) {
+        setTimeout(poll, 1000);
+      } else {
+        // Payment went through but webhook may still be processing
+        setConfirming(false);
+      }
+    };
+
+    poll();
+  }, [sessionId]);
+
+  if (confirming) {
+    return (
+      <PortalLayout>
+        <div className="px-6 py-16 max-w-2xl mx-auto text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-hvhz-teal mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-primary">Confirming Payment…</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            Please wait while we verify your payment with Stripe.
+          </p>
+        </div>
+      </PortalLayout>
+    );
+  }
 
   return (
     <PortalLayout>
@@ -24,6 +74,11 @@ export default function OrderConfirmed() {
         <p className="mt-2 text-sm text-muted-foreground">
           Your order has been received and is being processed.
           {orderId && <span className="block mt-1 font-mono text-xs">Order ID: {orderId.slice(0, 8)}…</span>}
+          {!orderId && sessionId && (
+            <span className="block mt-1 text-xs">
+              Payment confirmed. Your order is being created and will appear on your dashboard shortly.
+            </span>
+          )}
         </p>
 
         <div className="mt-10 text-left">

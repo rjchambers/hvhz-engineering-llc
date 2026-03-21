@@ -91,33 +91,26 @@ export default function NewOrder() {
         terms_accepted_at: new Date().toISOString(),
       }).eq("user_id", user.id);
 
-      const total = data.selected_services.reduce((s, k) => s + getServicePrice(k), 0);
+      // Call create-stripe-checkout edge function
+      const { data: checkoutData, error: fnError } = await supabase.functions.invoke(
+        "create-stripe-checkout",
+        {
+          body: {
+            services: data.selected_services,
+            clientId: user.id,
+            jobAddress: `${data.job_address}, ${data.job_city}, FL ${data.job_zip}`,
+          },
+        }
+      );
 
-      // For now, since Stripe checkout edge function is built in Prompt 11,
-      // we create the order directly with pending_payment status
-      const { data: order, error } = await supabase.from("orders").insert({
-        client_id: user.id,
-        services: data.selected_services,
-        job_address: data.job_address,
-        job_city: data.job_city,
-        job_zip: data.job_zip,
-        job_county: data.job_county,
-        roof_data: {
-          gated_community: data.gated_community,
-          gate_code: data.gate_code,
-          roof_report_path: data.roof_report_path,
-        },
-        total_amount: total,
-        status: "pending_payment",
-        notes: data.gated_community ? `Gated community. Gate code: ${data.gate_code}` : null,
-      }).select().single();
-
-      if (error) throw error;
+      if (fnError) throw new Error(fnError.message || "Failed to create checkout session");
+      if (checkoutData?.error) throw new Error(checkoutData.error);
+      if (!checkoutData?.checkoutUrl) throw new Error("No checkout URL returned");
 
       clearWizardData();
 
-      // Redirect to confirmed page (in production, this would go through Stripe first)
-      window.location.href = `/portal/order-confirmed?order_id=${order.id}`;
+      // Redirect to Stripe Checkout
+      window.location.href = checkoutData.checkoutUrl;
     } catch (err: any) {
       toast.error(err.message);
     } finally {
