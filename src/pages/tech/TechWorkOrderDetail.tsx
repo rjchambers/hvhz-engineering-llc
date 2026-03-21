@@ -1042,13 +1042,63 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
     { key: "adhered", label: "Adhered Membrane", sub: "TAS 124" },
   ];
 
+  const needsTas105 = formData.deck_type === "LW Insulating Concrete" ||
+    (formData.construction_type === "Recover" && ["Plywood", "OSB", "Structural Concrete", "Steel Deck", "Wood Plank"].includes(formData.deck_type));
+
   return (
     <div className="space-y-6">
       <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
         Document all roof system parameters from field observation and NOA approval sheets. Your entries pre-populate the PE calculation tool.
       </p>
 
-      {/* Section 1 — Site & Building Dimensions */}
+      {/* Section 1 — Design Parameters */}
+      <details open className="border rounded-lg">
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Design Parameters</summary>
+        <div className="px-3 pb-3 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <FieldSelect label="Exposure Category *" field="exposure_category" options={["B", "C", "D"]} formData={formData} setField={setField} />
+              <p className="text-[10px] text-muted-foreground">C is mandatory for all HVHZ projects per FBC §1620</p>
+              {formData.exposure_category && formData.exposure_category !== "C" && (
+                <p className="text-[10px] text-amber-700 bg-amber-50 p-1 rounded">HVHZ requires Exposure C per FBC §1620 and ASCE 7-22 §26.7.3</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <FieldSelect label="Risk Category *" field="risk_category" options={["I", "II", "III", "IV"]} formData={formData} setField={setField} />
+              <p className="text-[10px] text-muted-foreground">From building permit — most residential = II</p>
+            </div>
+            <div className="space-y-1.5">
+              <FieldSelect label="Enclosure Classification *" field="enclosure_type" options={["Enclosed", "Partially Enclosed", "Open"]} formData={formData} setField={setField} />
+              <p className="text-[10px] text-muted-foreground">Enclosed unless building has large unprotected openings</p>
+            </div>
+            <div className="space-y-1.5">
+              <FieldInput label="Kzt — Topographic Factor" field="Kzt" type="number" formData={formData} setField={setField} />
+              <p className="text-[10px] text-muted-foreground">1.0 for flat terrain — adjust for hilltop/escarpment</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Kd — Wind Directionality</Label>
+              <div className="flex items-center h-10 px-3 bg-muted rounded text-sm">
+                <Lock className="h-3 w-3 mr-1.5 text-muted-foreground" />0.85
+                <span className="ml-auto text-[10px] text-muted-foreground">Table 26.6-1 — not user adjustable</span>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <FieldInput label="Ke — Ground Elevation Factor" field="Ke" type="number" formData={formData} setField={setField} />
+              <p className="text-[10px] text-muted-foreground">1.0 for sea level elevations (all of South Florida)</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-muted/50 rounded p-2 mt-2">
+            <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <p className="text-xs font-medium">V = 185 mph — HVHZ mandate per FBC §1620.1</p>
+            <Badge variant="outline" className="text-[10px] ml-auto">Locked</Badge>
+          </div>
+          {errors?.exposure_category && <p className="text-xs text-destructive">{errors.exposure_category}</p>}
+          {errors?.risk_category && <p className="text-xs text-destructive">{errors.risk_category}</p>}
+          {errors?.enclosure_type && <p className="text-xs text-destructive">{errors.enclosure_type}</p>}
+        </div>
+      </details>
+
+      {/* Section 2 — Site & Building Dimensions */}
       <details open className="border rounded-lg">
         <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Site & Building Dimensions</summary>
         <div className="px-3 pb-3 space-y-4">
@@ -1067,16 +1117,19 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
             <FieldInput label="Building Length (ft) *" field="building_length_ft" type="number" formData={formData} setField={setField} />
             <FieldInput label="Eave Height (ft)" field="eave_height_ft" type="number" formData={formData} setField={setField} />
             <FieldInput label="Mean Roof Height (ft) *" field="mean_roof_height_ft" type="number" formData={formData} setField={setField} />
-            <FieldInput label="Parapet Height (ft)" field="parapet_height_ft" type="number" formData={formData} setField={setField} />
+            <div className="space-y-1.5">
+              <FieldInput label="Parapet Height (ft)" field="parapet_height_ft" type="number" formData={formData} setField={setField} />
+              <p className="text-[10px] text-muted-foreground">0 if no parapet. Affects Zone 3 corner location.</p>
+            </div>
           </div>
           {errors?.building_width_ft && <p className="text-xs text-destructive">{errors.building_width_ft}</p>}
           {errors?.building_length_ft && <p className="text-xs text-destructive">{errors.building_length_ft}</p>}
           {errors?.mean_roof_height_ft && <p className="text-xs text-destructive">{errors.mean_roof_height_ft}</p>}
-          <p className="text-[10px] text-muted-foreground">Mean Roof Height = to midpoint of roof slope. Parapet Height = 0 if no parapet.</p>
+          <p className="text-[10px] text-muted-foreground">Mean Roof Height = to midpoint of roof slope.</p>
         </div>
       </details>
 
-      {/* Section 2 — Roof System */}
+      {/* Section 3 — Roof System */}
       <details open className="border rounded-lg">
         <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Roof System</summary>
         <div className="px-3 pb-3 space-y-4">
@@ -1114,11 +1167,15 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
           {formData.system_type === "adhered" && (
             <p className="text-xs text-blue-700 bg-blue-50 p-2 rounded">Adhered system — no row spacing. PE verifies adhesive bond strength vs zone pressures.</p>
           )}
+          <div className="space-y-1.5">
+            <FieldInput label="Effective Wind Area — Membrane (ft²)" field="ewa_membrane_ft2" type="number" formData={formData} setField={setField} />
+            <p className="text-[10px] text-muted-foreground">EWA = fastener spacing × tributary width. Default 10 ft² is conservative per ASCE 7-22 Fig. 30.3-2A. Leave blank for default.</p>
+          </div>
           <p className="text-[10px] text-muted-foreground">Sheet Width = full roll width incl. lap. Lap Width = width of overlap seam. Default rows: 4.</p>
         </div>
       </details>
 
-      {/* Section 3 — NOA / Product Approval */}
+      {/* Section 4 — NOA / Product Approval */}
       <details open className="border rounded-lg">
         <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">NOA / Product Approval</summary>
         <div className="px-3 pb-3 space-y-4">
@@ -1141,7 +1198,7 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
         </div>
       </details>
 
-      {/* Section 4 — Attachment System */}
+      {/* Section 5 — Attachment System */}
       <details open className="border rounded-lg">
         <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Attachment System</summary>
         <div className="px-3 pb-3 space-y-4">
@@ -1157,6 +1214,24 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
               <p className="text-[10px] text-muted-foreground">Same as membrane Fy unless separate insulation NOA</p>
             </div>
           </div>
+          {needsTas105 && (
+            <div className="space-y-3 border-t pt-3 mt-3">
+              <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
+                TAS 105 pull test may be required. If a third-party lab report has been received, enter the mean pullout value (lbf) below.
+              </p>
+              <div className="space-y-1.5">
+                <FieldInput label="Mean Pullout Value Fy from TAS 105 (lbf)" field="tas105_mean_lbf" type="number" formData={formData} setField={setField} />
+                <p className="text-[10px] text-muted-foreground">Enter mean value from lab report. Overrides NOA Fy.</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FieldInput label="Testing Agency" field="tas105_agency" formData={formData} setField={setField} />
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Test Date</Label>
+                  <Input type="date" value={formData.tas105_date ?? ""} onChange={(e) => setField("tas105_date", e.target.value)} className="h-10 text-sm" />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </details>
 
@@ -1164,7 +1239,7 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
         If a TAS 105 pull test was performed by a third-party lab, attach the lab report to the work order photos. The PE will enter test results in the calculation tool.
       </p>
 
-      {/* Section 5 — Inspector Notes */}
+      {/* Section 6 — Inspector Notes */}
       <details open className="border rounded-lg">
         <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Inspector Notes</summary>
         <div className="px-3 pb-3 space-y-3">

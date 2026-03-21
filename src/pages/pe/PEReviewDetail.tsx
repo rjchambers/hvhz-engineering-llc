@@ -305,7 +305,7 @@ export default function PEReviewDetail() {
         )}
         {wo.service_type === "fastener-calculation" && (
           <Button variant="outline" className="w-full mb-3 gap-2" onClick={() => navigate(`/pe/calculations/fastener/${id}`)}>
-            <Calculator className="h-4 w-4" /> Open Fastener Calculation Tool
+            <Eye className="h-4 w-4" /> Review Calculation →
           </Button>
         )}
         {wo.service_type === "drainage-analysis" && (
