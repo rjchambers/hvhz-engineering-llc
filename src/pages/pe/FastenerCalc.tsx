@@ -102,8 +102,10 @@ export default function FastenerCalc() {
       if (d.noa_mdp_basis) setNoaMdpBasis(d.noa_mdp_basis === "Ultimate (will be ÷2 per TAS 114)" ? "ultimate" : "asd");
       if (d.noa_asterisked) setNoaAsterisked(d.noa_asterisked);
       if (d.fy_lbf) setFyLbf(String(d.fy_lbf));
-      if (d.fy_source === "From TAS 105 Test") setFySource("tas105");
-      if (d.tas105_raw_values) setTas105Raw(d.tas105_raw_values);
+      if (d.pe_tas105_raw_values) setTas105Raw(d.pe_tas105_raw_values);
+      else if (d.tas105_raw_values) setTas105Raw(d.tas105_raw_values);
+      if (d.pe_tas105_agency) setTas105Agency(d.pe_tas105_agency);
+      if (d.pe_tas105_date) setTas105Date(d.pe_tas105_date);
       if (d.insulation_board_length_ft) setBoardLength(String(d.insulation_board_length_ft));
       if (d.insulation_board_width_ft) setBoardWidth(String(d.insulation_board_width_ft));
       if (d.insulation_fy_lbf) setInsulationFy(String(d.insulation_fy_lbf));
