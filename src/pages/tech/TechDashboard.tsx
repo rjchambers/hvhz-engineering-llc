@@ -103,7 +103,13 @@ export default function TechDashboard() {
           <TabsContent value="active" className="mt-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {active.map((wo) => <Card key={wo.id} wo={wo} />)}
-              {active.length === 0 && <p className="text-sm text-muted-foreground col-span-full py-8 text-center">No active work orders</p>}
+              {active.length === 0 && (
+                <div className="col-span-full py-16 text-center">
+                  <Wrench className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm font-medium text-primary">No assignments</p>
+                  <p className="text-xs text-muted-foreground mt-1">Check back after admin dispatches work orders to you.</p>
+                </div>
+              )}
             </div>
           </TabsContent>
           <TabsContent value="completed" className="mt-4">
