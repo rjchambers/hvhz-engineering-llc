@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,16 +13,20 @@ export function ProtectedRoute({ children, requiredRole }: Props) {
   const location = useLocation();
   const [roleLoading, setRoleLoading] = useState(!!requiredRole);
   const [hasRole, setHasRole] = useState(false);
+  const lastUserId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user || !requiredRole) { setRoleLoading(false); return; }
+    // Only re-fetch if the user id actually changed
+    if (lastUserId.current === user.id && !roleLoading) return;
+    lastUserId.current = user.id;
+
     supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
       .then(({ data }) => {
         const roles = new Set(data?.map((r) => r.role) ?? []);
-        // Admins can access any role-protected route
         setHasRole(roles.has(requiredRole) || roles.has("admin"));
         setRoleLoading(false);
       });
