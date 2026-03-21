@@ -359,6 +359,16 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle className="text-sm">Storage Maintenance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground mb-3">Remove orphaned photo files from storage that are no longer referenced by any work order.</p>
+                <CleanupButton />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
