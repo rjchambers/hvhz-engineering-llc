@@ -26,7 +26,7 @@ export function generateReport(
   fieldData: Record<string, any>,
   engineerProfile: EngineerProfile,
   peNotes: string | null
-): Blob {
+): { blob: Blob; stampBoxMm: { x: number; y: number; size: number } | null } {
   const title = SERVICE_TITLES[serviceType] || serviceType;
   const address = [workOrder.orders?.job_address, workOrder.orders?.job_city, workOrder.orders?.job_zip].filter(Boolean).join(', ');
   const jobNum = workOrder.id.slice(0, 8).toUpperCase();
@@ -69,7 +69,6 @@ export function generateReport(
     case 'drainage-analysis':
       addDrainageSections(rb, fieldData, workOrder.orders?.job_county ?? 'Other');
       break;
-      break;
     case 'special-inspection':
       addSpecialInspectionSections(rb, fieldData);
       break;
@@ -84,7 +83,7 @@ export function generateReport(
   // PE signature page
   rb.addPESignaturePage(engineerProfile, peNotes, signedDate);
 
-  return rb.toBlob();
+  return rb.toResult();
 }
 
 function addRoofInspectionSections(rb: HVHZReportBuilder, fd: Record<string, any>) {

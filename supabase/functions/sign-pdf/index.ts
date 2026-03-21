@@ -74,11 +74,19 @@ serve(async (req) => {
       });
     }
 
-    if (wo.assigned_engineer_id !== user.id) {
+    if (wo.assigned_engineer_id && wo.assigned_engineer_id !== user.id) {
       return new Response(JSON.stringify({ error: "Not assigned to this work order" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Auto-assign engineer if not yet set
+    if (!wo.assigned_engineer_id) {
+      await supabaseAdmin
+        .from("work_orders")
+        .update({ assigned_engineer_id: user.id })
+        .eq("id", workOrderId);
     }
 
     const now = new Date().toISOString();

@@ -56,6 +56,7 @@ export default function TechWorkOrderDetail() {
   const [photos, setPhotos] = useState<PhotoRow[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
 
@@ -179,6 +180,23 @@ export default function TechWorkOrderDetail() {
     await supabase.from("work_order_photos").delete().eq("id", photo.id);
     setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
     toast.success("Photo deleted");
+  };
+
+  const handleSaveDraft = async () => {
+    if (!wo || !user || !id) return;
+    setSaving(true);
+    const { error } = await supabase.from("field_data").upsert(
+      {
+        work_order_id: id,
+        service_type: wo.service_type,
+        form_data: formData as unknown as Json,
+        submitted_by: user.id,
+      },
+      { onConflict: "work_order_id" }
+    );
+    if (error) toast.error("Draft save failed");
+    else toast.success("Draft saved");
+    setSaving(false);
   };
 
   // Validate & submit
@@ -420,10 +438,18 @@ export default function TechWorkOrderDetail() {
         </section>
 
         {/* SUBMIT */}
-        <div className="flex justify-end pb-6">
+        <div className="flex justify-end gap-3 pb-6">
+          <Button
+            variant="outline"
+            onClick={handleSaveDraft}
+            disabled={saving || submitting}
+            className="min-h-[44px]"
+          >
+            {saving ? "Saving…" : "Save Draft"}
+          </Button>
           <Button
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || saving}
             className="bg-hvhz-navy hover:bg-hvhz-navy/90 px-8 min-h-[44px] text-base sm:text-sm"
           >
             {submitting ? "Submitting…" : "Submit Work Order"}

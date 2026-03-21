@@ -124,7 +124,7 @@ export default function PEReviewDetail() {
 
     try {
       // Step A+B: Generate PDF
-      const pdfBlob = generateReport(
+      const { blob: pdfBlob, stampBoxMm } = generateReport(
         wo.service_type,
         { id: wo.id, scheduled_date: wo.scheduled_date, orders: wo.orders as any },
         fieldData,
@@ -135,7 +135,18 @@ export default function PEReviewDetail() {
       // Step C: Embed stamp
       let signedBlob = pdfBlob;
       if (engineerProfile.stamp_image_url) {
-        signedBlob = await embedStampOnPdf(pdfBlob, engineerProfile.stamp_image_url);
+        // Resolve to a signed URL valid for 60s
+        let resolvedStampUrl = engineerProfile.stamp_image_url;
+        if (!resolvedStampUrl.startsWith('http')) {
+          const { data: signedData, error: signErr } = await supabase.storage
+            .from("engineer-assets")
+            .createSignedUrl(resolvedStampUrl, 60);
+          if (signErr || !signedData?.signedUrl) {
+            throw new Error("Could not resolve PE stamp URL. Check your stamp upload in Profile.");
+          }
+          resolvedStampUrl = signedData.signedUrl;
+        }
+        signedBlob = await embedStampOnPdf(pdfBlob, resolvedStampUrl, stampBoxMm);
       }
 
       // Step D: Upload

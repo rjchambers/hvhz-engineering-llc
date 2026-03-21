@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
@@ -41,24 +42,24 @@ const App = () => (
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/portal/new-order" element={<NewOrder />} />
-          <Route path="/portal/order-confirmed" element={<OrderConfirmed />} />
-          <Route path="/portal/dashboard" element={<Dashboard />} />
-          <Route path="/portal/orders" element={<Dashboard />} />
-          <Route path="/portal/profile" element={<MyProfile />} />
-          <Route path="/admin" element={<Pipeline />} />
-          <Route path="/admin/work-orders" element={<WorkOrders />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
-          <Route path="/admin/analytics" element={<AdminAnalytics />} />
-          <Route path="/admin/settings" element={<AdminSettings />} />
-          <Route path="/tech" element={<TechDashboard />} />
-          <Route path="/tech/work-order/:id" element={<TechWorkOrderDetail />} />
-          <Route path="/pe" element={<PEReviewQueue />} />
-          <Route path="/pe/review/:id" element={<PEReviewDetail />} />
-          <Route path="/pe/calculations/wind-mitigation/:id" element={<WindMitigationCalc />} />
-          <Route path="/pe/calculations/fastener/:id" element={<FastenerCalc />} />
-          <Route path="/pe/calculations/drainage-analysis/:id" element={<DrainageCalc />} />
-          <Route path="/pe/profile" element={<PEProfile />} />
+          <Route path="/portal/new-order" element={<ProtectedRoute requiredRole="client"><NewOrder /></ProtectedRoute>} />
+          <Route path="/portal/order-confirmed" element={<ProtectedRoute requiredRole="client"><OrderConfirmed /></ProtectedRoute>} />
+          <Route path="/portal/dashboard" element={<ProtectedRoute requiredRole="client"><Dashboard /></ProtectedRoute>} />
+          <Route path="/portal/orders" element={<ProtectedRoute requiredRole="client"><Dashboard /></ProtectedRoute>} />
+          <Route path="/portal/profile" element={<ProtectedRoute requiredRole="client"><MyProfile /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><Pipeline /></ProtectedRoute>} />
+          <Route path="/admin/work-orders" element={<ProtectedRoute requiredRole="admin"><WorkOrders /></ProtectedRoute>} />
+          <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
+          <Route path="/admin/analytics" element={<ProtectedRoute requiredRole="admin"><AdminAnalytics /></ProtectedRoute>} />
+          <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
+          <Route path="/tech" element={<ProtectedRoute requiredRole="technician"><TechDashboard /></ProtectedRoute>} />
+          <Route path="/tech/work-order/:id" element={<ProtectedRoute requiredRole="technician"><TechWorkOrderDetail /></ProtectedRoute>} />
+          <Route path="/pe" element={<ProtectedRoute requiredRole="engineer"><PEReviewQueue /></ProtectedRoute>} />
+          <Route path="/pe/review/:id" element={<ProtectedRoute requiredRole="engineer"><PEReviewDetail /></ProtectedRoute>} />
+          <Route path="/pe/calculations/wind-mitigation/:id" element={<ProtectedRoute requiredRole="engineer"><WindMitigationCalc /></ProtectedRoute>} />
+          <Route path="/pe/calculations/fastener/:id" element={<ProtectedRoute requiredRole="engineer"><FastenerCalc /></ProtectedRoute>} />
+          <Route path="/pe/calculations/drainage-analysis/:id" element={<ProtectedRoute requiredRole="engineer"><DrainageCalc /></ProtectedRoute>} />
+          <Route path="/pe/profile" element={<ProtectedRoute requiredRole="engineer"><PEProfile /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

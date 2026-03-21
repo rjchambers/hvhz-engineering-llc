@@ -1,3 +1,7 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
 import {
   Crosshair,
@@ -27,6 +31,24 @@ const services = [
 ];
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (loading || !user) return;
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .then(({ data }) => {
+        const roles = new Set(data?.map((r) => r.role) ?? []);
+        if (roles.has("admin")) navigate("/admin", { replace: true });
+        else if (roles.has("engineer")) navigate("/pe", { replace: true });
+        else if (roles.has("technician")) navigate("/tech", { replace: true });
+        else if (roles.has("client")) navigate("/portal/dashboard", { replace: true });
+      });
+  }, [user, loading, navigate]);
+
   return (
     <AppLayout>
       {/* Hero */}

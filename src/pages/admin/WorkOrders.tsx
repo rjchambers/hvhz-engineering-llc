@@ -1,4 +1,5 @@
 import { AdminLayout } from "@/components/AdminLayout";
+import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { STATUS_LABELS, STATUS_BADGE_CLASSES, isOutsourced, daysSince } from "@/lib/work-order-helpers";
 import { getServiceName } from "@/lib/services";
-import { CalendarIcon, ChevronLeft, ChevronRight, Upload, ChevronDown, AlertTriangle, ExternalLink } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, Upload, ChevronDown, AlertTriangle, ExternalLink, FlaskConical } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -53,6 +54,7 @@ interface OutsourcePartner {
 }
 
 export default function WorkOrders() {
+  const { user } = useAuth();
   const [workOrders, setWorkOrders] = useState<WO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -70,6 +72,7 @@ export default function WorkOrders() {
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dispatching, setDispatching] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
 
   const fetchWOs = useCallback(async () => {
@@ -141,6 +144,52 @@ export default function WorkOrders() {
 
   useEffect(() => { fetchWOs(); }, [fetchWOs]);
   useEffect(() => { fetchRoles(); fetchPartners(); }, [fetchRoles, fetchPartners]);
+
+  const handleSeedTestWO = async () => {
+    if (!user) return;
+    setSeeding(true);
+    try {
+      const { data: order, error: orderErr } = await supabase
+        .from("orders")
+        .insert({
+          client_id: user.id,
+          services: ["fastener-calculation"],
+          job_address: "750 E Sample Rd",
+          job_city: "Pompano Beach",
+          job_zip: "33064",
+          job_county: "Broward",
+          roof_area_sqft: 2400,
+          total_amount: 350,
+          status: "paid",
+          notes: "TEST WORK ORDER — created via admin seed tool",
+          roof_data: {
+            area: 2400,
+            pitch: "flat",
+            type: "Modified Bitumen",
+          },
+        })
+        .select()
+        .single();
+
+      if (orderErr || !order) throw new Error(orderErr?.message ?? "Order insert failed");
+
+      const { error: woErr } = await supabase.from("work_orders").insert({
+        order_id: order.id,
+        client_id: user.id,
+        service_type: "fastener-calculation",
+        status: "dispatched",
+        scheduled_date: new Date(Date.now() + 86400000).toISOString().split("T")[0],
+      });
+
+      if (woErr) throw new Error(woErr.message);
+
+      toast.success("Test work order created — assign tech and engineer in the table below.");
+      fetchWOs();
+    } catch (err: any) {
+      toast.error("Seed failed: " + err.message);
+    }
+    setSeeding(false);
+  };
 
   const selectedPartner = partners.find((p) => p.id === selectedPartnerId);
 
@@ -259,6 +308,16 @@ export default function WorkOrders() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-dashed text-muted-foreground"
+            onClick={handleSeedTestWO}
+            disabled={seeding}
+          >
+            <FlaskConical className="h-4 w-4" />
+            {seeding ? "Creating…" : "Create Test WO"}
+          </Button>
         </div>
 
         {/* Table */}
