@@ -128,6 +128,8 @@ export default function FastenerCalc() {
   const mdp = parseFloat(noaMdp) || 0;
   const canCalc = W > 0 && L > 0 && h > 0 && mdp !== 0;
 
+  const derivedFySource = tas105Raw.length > 0 ? "tas105" : "noa";
+
   const calcOutputs: FastenerOutputs | null = useMemo(() => {
     if (!canCalc) return null;
     const inputs: FastenerInputs = {
@@ -136,14 +138,14 @@ export default function FastenerCalc() {
       parapetHeight: parseFloat(parapetHeight) || 0, systemType: systemType as RoofSystemType,
       deckType: deckType as DeckType, constructionType: constructionType as ConstructionType,
       existingLayers, sheetWidth_in: parseFloat(sheetWidth) || 39.375, lapWidth_in: parseFloat(lapWidth) || 4,
-      Fy_lbf: parseFloat(fyLbf) || 29.48, fySource: fySource as any, initialRows: parseInt(initialRows) || 4,
+      Fy_lbf: parseFloat(fyLbf) || 29.48, fySource: derivedFySource as any, initialRows: parseInt(initialRows) || 4,
       noa: { approvalType: noaApprovalType as any, approvalNumber: noaNumber, manufacturer: noaManufacturer, productName: noaProduct, systemNumber: noaSystemNumber, mdp_psf: mdp, mdp_basis: noaMdpBasis, asterisked: noaAsterisked },
       boardLength_ft: parseFloat(boardLength) || 4, boardWidth_ft: parseFloat(boardWidth) || 8,
       insulation_Fy_lbf: parseFloat(insulationFy) || 29.48, county: county as any, isHVHZ: true,
       ewa_membrane_ft2: ewaMembrane ? parseFloat(ewaMembrane) : undefined,
     };
     return calculateFastener(inputs);
-  }, [canCalc, W, L, h, exposureCategory, Kzt, Ke, enclosure, riskCategory, parapetHeight, systemType, deckType, constructionType, existingLayers, sheetWidth, lapWidth, fyLbf, fySource, initialRows, noaApprovalType, noaNumber, noaManufacturer, noaProduct, noaSystemNumber, mdp, noaMdpBasis, noaAsterisked, boardLength, boardWidth, insulationFy, county, ewaMembrane]);
+  }, [canCalc, W, L, h, exposureCategory, Kzt, Ke, enclosure, riskCategory, parapetHeight, systemType, deckType, constructionType, existingLayers, sheetWidth, lapWidth, fyLbf, derivedFySource, initialRows, noaApprovalType, noaNumber, noaManufacturer, noaProduct, noaSystemNumber, mdp, noaMdpBasis, noaAsterisked, boardLength, boardWidth, insulationFy, county, ewaMembrane]);
 
   const tas105Result = useMemo(() => {
     if (tas105Raw.length === 0) return null;
