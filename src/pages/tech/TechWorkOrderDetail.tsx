@@ -202,6 +202,14 @@ export default function TechWorkOrderDetail() {
       if (!formData.secondary_drains?.length) newErrors.secondary_drains = "Secondary drain required (FBC §1502.3)";
       if (!formData.drainage_zones?.length) newErrors.drainage_zones = "At least 1 drainage zone required";
     }
+    if (wo.service_type === "fastener-calculation") {
+      if (!formData.building_width_ft) newErrors.building_width_ft = "Required";
+      if (!formData.building_length_ft) newErrors.building_length_ft = "Required";
+      if (!formData.mean_roof_height_ft) newErrors.mean_roof_height_ft = "Required";
+      if (!formData.noa_number) newErrors.noa_number = "NOA/approval number required";
+      if (!formData.noa_mdp_psf) newErrors.noa_mdp_psf = "NOA MDP required";
+      if (!formData.system_type) newErrors.system_type = "Roof system type required";
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);

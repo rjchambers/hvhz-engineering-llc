@@ -35,7 +35,7 @@ export const MIN_PHOTO_COUNTS: Record<string, number> = {
   "drainage-analysis": 5,
   "special-inspection": 3,
   "wind-mitigation-permit": 4,
-  "fastener-calculation": 3,
+  "fastener-calculation": 5,
 };
 
 // Standard FBC checklist items by special-inspection type
