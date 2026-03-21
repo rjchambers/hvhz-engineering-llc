@@ -16,6 +16,7 @@ import Pipeline from "./pages/admin/Pipeline";
 import WorkOrders from "./pages/admin/WorkOrders";
 import AdminUsers from "./pages/admin/Users";
 import AdminAnalytics from "./pages/admin/Analytics";
+import AdminSettings from "./pages/admin/Settings";
 import TechDashboard from "./pages/tech/TechDashboard";
 import TechWorkOrderDetail from "./pages/tech/TechWorkOrderDetail";
 import PEReviewQueue from "./pages/pe/PEReviewQueue";
