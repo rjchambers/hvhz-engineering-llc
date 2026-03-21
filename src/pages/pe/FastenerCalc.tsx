@@ -152,6 +152,13 @@ export default function FastenerCalc() {
     return calculateTAS105({ rawValues_lbf: tas105Raw });
   }, [tas105Raw]);
 
+  // Auto-update Fy to MCRF when TAS 105 passes
+  useEffect(() => {
+    if (tas105Result?.pass) {
+      setFyLbf(String(tas105Result.MCRF_lbf));
+    }
+  }, [tas105Result]);
+
   const mdpEff = noaMdpBasis === "ultimate" ? mdp / 2 : mdp;
 
   const handleSave = async () => {
