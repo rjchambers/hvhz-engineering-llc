@@ -1037,13 +1037,18 @@ function WindMitigationForm({ formData, setField }: { formData: Record<string, a
 // ─── FASTENER CALCULATION ───────────────────────────────────────────────────────
 function FastenerCalcForm({ formData, setField, errors }: { formData: Record<string, any>; setField: (k: string, v: any) => void; errors?: Record<string, string> }) {
   const tas105Raw: number[] = formData.tas105_raw_values ?? [];
-  
-  const parseTas105 = () => {
-    if (tas105Raw.length === 0) return null;
-    const { calculateTAS105 } = require("@/lib/fastener-engine");
-    return calculateTAS105({ rawValues_lbf: tas105Raw });
-  };
-  const tas105Result = (formData.fy_source === "From TAS 105 Test" && tas105Raw.length > 0) ? parseTas105() : null;
+
+  const tas105Result = (() => {
+    if (formData.fy_source !== "From TAS 105 Test" || tas105Raw.length === 0) return null;
+    const n = tas105Raw.length;
+    const mean = tas105Raw.reduce((a: number, b: number) => a + b, 0) / n;
+    const variance = tas105Raw.reduce((s: number, v: number) => s + (v - mean) ** 2, 0) / (n - 1);
+    const stdDev = Math.sqrt(variance || 0);
+    const T_TABLE: Record<number, number> = { 3:2.920,4:2.353,5:2.132,6:2.015,7:1.943,8:1.895,9:1.860,10:1.833,11:1.812,12:1.796,15:1.761,20:1.725,25:1.708,30:1.697 };
+    let tFactor = n <= 2 ? 3.078 : n >= 30 ? 1.645 : T_TABLE[n] ?? 2.0;
+    const MCRF = mean - tFactor * stdDev;
+    return { n, mean_lbf: Math.round(mean * 10) / 10, stdDev_lbf: Math.round(stdDev * 10) / 10, tFactor, MCRF_lbf: Math.round(MCRF * 10) / 10, pass: MCRF >= 275 };
+  })();
 
   const parseRawValues = (text: string) => {
     const vals = text.split(/[,\n]+/).map((s: string) => parseFloat(s.trim())).filter((n: number) => !isNaN(n));

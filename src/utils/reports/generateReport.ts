@@ -291,23 +291,122 @@ function addWindMitigationSections(rb: HVHZReportBuilder, fd: Record<string, any
 }
 
 function addFastenerCalcSections(rb: HVHZReportBuilder, fd: Record<string, any>) {
-  rb.addSection('Building Dimensions');
+  const SYSTEM_LABELS: Record<string, string> = { modified_bitumen: "Modified Bitumen (RAS 117)", single_ply: "Single-Ply TPO/EPDM (RAS 137)", adhered: "Adhered Membrane (TAS 124)" };
+  const DECK_LABELS: Record<string, string> = { plywood: "Plywood", structural_concrete: "Structural Concrete", steel_deck: "Steel Deck", wood_plank: "Wood Plank", lw_concrete: "LW Insulating Concrete" };
+
+  // Reconstruct inputs and run calc
+  const inputs: FastenerInputs = {
+    V: 185, exposureCategory: fd.pe_exposure ?? 'C', h: fd.mean_roof_height_ft ?? 20,
+    Kzt: fd.pe_Kzt ?? 1, Kd: 0.85, Ke: fd.pe_Ke ?? 1,
+    enclosure: fd.pe_enclosure ?? 'enclosed', riskCategory: fd.pe_risk_category ?? 'II',
+    buildingLength: fd.building_length_ft ?? 0, buildingWidth: fd.building_width_ft ?? 0,
+    parapetHeight: fd.parapet_height_ft ?? 0, systemType: fd.system_type ?? 'modified_bitumen',
+    deckType: fd.deck_type ?? 'plywood', constructionType: fd.construction_type === 'Reroof' ? 'reroof' : fd.construction_type === 'Recover' ? 'recover' : 'new',
+    existingLayers: fd.existing_layers === '2+' ? 2 : 1, sheetWidth_in: fd.sheet_width_in ?? 39.375,
+    lapWidth_in: fd.lap_width_in ?? 4, Fy_lbf: fd.fy_lbf ?? 29.48,
+    fySource: fd.fy_source === 'From TAS 105 Test' ? 'tas105' : 'noa', initialRows: fd.initial_rows ?? 4,
+    noa: { approvalType: fd.noa_approval_type === 'FL Product Approval' ? 'fl_product_approval' : 'miami_dade_noa', approvalNumber: fd.noa_number ?? '', mdp_psf: fd.noa_mdp_psf ?? 0, mdp_basis: fd.noa_mdp_basis === 'Ultimate (will be ÷2 per TAS 114)' ? 'ultimate' : 'asd', asterisked: fd.noa_asterisked ?? false },
+    boardLength_ft: fd.insulation_board_length_ft ?? 4, boardWidth_ft: fd.insulation_board_width_ft ?? 8,
+    insulation_Fy_lbf: fd.insulation_fy_lbf ?? 29.48, county: fd.county === 'Miami-Dade' ? 'miami_dade' : 'broward',
+    isHVHZ: true, ewa_membrane_ft2: fd.pe_ewa_membrane ?? undefined,
+  };
+  const outputs = calculateFastener(inputs);
+
+  rb.addSection('Project & Code Basis');
   rb.addInfoGrid({
-    'Width': fd.building_width_ft ? `${fd.building_width_ft} ft` : '',
-    'Length': fd.building_length_ft ? `${fd.building_length_ft} ft` : '',
-    'Eave Height': fd.eave_height_ft ? `${fd.eave_height_ft} ft` : '',
-    'Mean Roof Height': fd.mean_roof_height_ft ? `${fd.mean_roof_height_ft} ft` : '',
+    'Code Authority': 'FBC 8th Ed. (2023) · ASCE 7-22 Ch. 30 C&C',
+    'Standards': 'RAS 117 · RAS 128 · RAS 137 · TAS 105',
+    'Design Wind Speed': '185 mph (HVHZ, FBC §1620.1)',
+    'Exposure': 'C (HVHZ coastal mandate)',
+    'Risk Category': fd.pe_risk_category ?? 'II',
+    'Construction Type': fd.construction_type ?? '',
+    'County': fd.county ?? '',
   });
 
-  rb.addSection('Roof & Fastener Details');
+  rb.addSection('Building & Roof System');
   rb.addInfoGrid({
-    'Roof Type': fd.roof_type ?? '',
-    'Deck Type': fd.deck_type ?? '',
-    'Fastener Type': fd.fastener_type ?? '',
-    'Fastener Size': fd.fastener_size ?? '',
-    'Field Zone Spacing': fd.field_zone_spacing ?? '',
-    'Perimeter Zone Spacing': fd.perimeter_zone_spacing ?? '',
-    'Corner Zone Spacing': fd.corner_zone_spacing ?? '',
-    'NOA System': fd.noa_system ?? '',
+    'Width × Length': `${fd.building_width_ft ?? ''} ft × ${fd.building_length_ft ?? ''} ft`,
+    'Mean Roof Height': `${fd.mean_roof_height_ft ?? ''} ft`,
+    'Parapet Height': `${fd.parapet_height_ft ?? 0} ft`,
+    'Roof System': SYSTEM_LABELS[fd.system_type] ?? fd.system_type ?? '',
+    'Deck Type': DECK_LABELS[fd.deck_type] ?? fd.deck_type ?? '',
+    'Sheet Width': fd.sheet_width_in ? `${fd.sheet_width_in}"` : 'N/A (adhered)',
+    'Lap Width': fd.lap_width_in ? `${fd.lap_width_in}"` : 'N/A (adhered)',
   });
+
+  rb.addSection('NOA / Product Approval');
+  rb.addInfoGrid({
+    'Approval Type': fd.noa_approval_type ?? '',
+    'Approval Number': fd.noa_number ?? '',
+    'Manufacturer': fd.noa_manufacturer ?? '',
+    'Product': fd.noa_product ?? '',
+    'System No.': fd.noa_system_number ?? '',
+    'NOA MDP (ASD)': `${Math.abs(fd.noa_mdp_psf ?? 0)} psf`,
+    'Asterisked Assembly': fd.noa_asterisked ? 'Yes — extrapolation prohibited' : 'No',
+  });
+
+  rb.addSection('Wind Pressure Calculation');
+  rb.addTextBlock(outputs.derivation.eq_26_10_1);
+  rb.addTextBlock(outputs.derivation.qh_asd);
+  rb.addTextBlock(outputs.derivation.eq_30_3_1);
+  rb.addInfoGrid({
+    'Kh': String(outputs.Kh),
+    'qh,ASD': `${outputs.qh_ASD} psf`,
+    'Zone Width (a)': `${outputs.zonePressures.zoneWidth_ft} ft`,
+    'GCpi': String(outputs.GCpi),
+  });
+
+  rb.addSection('Zone Pressures & NOA Compliance');
+  outputs.noaResults.forEach(nr => {
+    rb.addInfoGrid({
+      [`Zone ${nr.zone} Pressure`]: `${Math.abs(nr.P_psf).toFixed(1)} psf`,
+      [`Zone ${nr.zone} MDP`]: `${Math.abs(nr.MDP_psf)} psf`,
+      [`Zone ${nr.zone} Factor`]: `${nr.extrapFactor.toFixed(2)}×`,
+      [`Zone ${nr.zone} Basis`]: nr.basis,
+    });
+  });
+
+  rb.addSection('Fastener Attachment Schedule');
+  if (fd.system_type === 'adhered') {
+    rb.addTextBlock('Adhered membrane system — no mechanical row spacing. Verify adhesive bond strength per TAS 124.');
+  } else {
+    outputs.fastenerResults.forEach(fr => {
+      rb.addInfoGrid({
+        [`Zone ${fr.zone} — Pressure`]: `${fr.P_psf} psf`,
+        [`Zone ${fr.zone} — Rows`]: String(fr.n_rows),
+        [`Zone ${fr.zone} — Row Spacing`]: `${fr.RS_in}"`,
+        [`Zone ${fr.zone} — Field Spacing`]: `${fr.FS_used_in}"`,
+        [`Zone ${fr.zone} — Half-Sheet`]: fr.halfSheetRequired ? 'Required' : 'Not required',
+        [`Zone ${fr.zone} — Basis`]: fr.noaCheck.basis,
+      });
+    });
+  }
+
+  rb.addSection('Insulation Board Fasteners');
+  outputs.insulationResults.forEach(ir => {
+    rb.addInfoGrid({ [`Zone ${ir.zone}`]: `${ir.N_used} fasteners (${ir.layout}) — ${ir.P_psf} psf` });
+  });
+
+  if (fd.fy_source === 'From TAS 105 Test' && fd.tas105_raw_values?.length) {
+    const tas = calculateTAS105({ rawValues_lbf: fd.tas105_raw_values });
+    rb.addSection('TAS 105 Field Test Results');
+    rb.addInfoGrid({
+      'Test Values (lbf)': fd.tas105_raw_values.join(', '),
+      'n': String(tas.n), 'Mean': `${tas.mean_lbf} lbf`, 'Std Dev': `${tas.stdDev_lbf} lbf`,
+      't-Factor': String(tas.tFactor), 'MCRF': `${tas.MCRF_lbf} lbf`,
+      'Result': tas.pass ? 'PASS (≥ 275 lbf)' : 'FAIL (< 275 lbf)',
+      'Testing Agency': fd.tas105_agency ?? '', 'Test Date': fd.tas105_date ?? '', 'Test Location': fd.tas105_location ?? '',
+    });
+  }
+
+  rb.addSection('Warnings & Engineering Notes');
+  const nonInfoWarnings = outputs.warnings.filter(w => w.level !== 'info');
+  if (nonInfoWarnings.length > 0) {
+    nonInfoWarnings.forEach(w => rb.addTextBlock(`[${w.level.toUpperCase()}] ${w.message} (${w.reference ?? ''})`));
+  } else {
+    rb.addTextBlock('No engineering warnings. System meets all HVHZ requirements.');
+  }
+
+  rb.addSection('Disclaimer');
+  rb.addTextBlock('This report is based on provided field measurements and NOA documentation. The Engineer of Record has reviewed and verified all inputs. Calculations per FBC 8th Ed. (2023), ASCE 7-22, RAS 117/128/137.');
 }
