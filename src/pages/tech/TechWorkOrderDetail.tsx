@@ -438,10 +438,18 @@ export default function TechWorkOrderDetail() {
         </section>
 
         {/* SUBMIT */}
-        <div className="flex justify-end pb-6">
+        <div className="flex justify-end gap-3 pb-6">
+          <Button
+            variant="outline"
+            onClick={handleSaveDraft}
+            disabled={saving || submitting}
+            className="min-h-[44px]"
+          >
+            {saving ? "Saving…" : "Save Draft"}
+          </Button>
           <Button
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || saving}
             className="bg-hvhz-navy hover:bg-hvhz-navy/90 px-8 min-h-[44px] text-base sm:text-sm"
           >
             {submitting ? "Submitting…" : "Submit Work Order"}
