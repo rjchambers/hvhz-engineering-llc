@@ -9,6 +9,7 @@ import {
 
 const peItems = [
   { title: "Review Queue", url: "/pe", icon: FileSearch },
+  { title: "My Profile & Credentials", url: "/pe/profile", icon: User },
 ];
 
 export function PESidebar() {
