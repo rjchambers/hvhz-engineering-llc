@@ -105,7 +105,13 @@ export default function PEReviewQueue() {
           <TabsContent value="active" className="mt-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {active.map((wo) => <Card key={wo.id} wo={wo} />)}
-              {active.length === 0 && <p className="text-sm text-muted-foreground col-span-full py-8 text-center">No work orders pending review</p>}
+              {active.length === 0 && (
+                <div className="col-span-full py-16 text-center">
+                  <CheckCircle2 className="mx-auto h-10 w-10 text-hvhz-green/40 mb-3" />
+                  <p className="text-sm font-medium text-primary">All caught up</p>
+                  <p className="text-xs text-muted-foreground mt-1">No reports awaiting review.</p>
+                </div>
+              )}
             </div>
           </TabsContent>
           <TabsContent value="completed" className="mt-4">
