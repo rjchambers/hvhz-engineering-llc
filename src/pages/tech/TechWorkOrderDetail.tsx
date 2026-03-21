@@ -156,7 +156,7 @@ export default function TechWorkOrderDetail() {
       if (photoData) {
         const withUrls = await Promise.all(
           photoData.map(async (p) => {
-            const { data: urlData } = await supabase.storage.from("field-photos").createSignedUrl(p.storage_path, 3600);
+            const { data: urlData } = await supabase.storage.from("field-photos").createSignedUrl(p.storage_path, 43200);
             return { ...p, url: urlData?.signedUrl ?? "" };
           })
         );
