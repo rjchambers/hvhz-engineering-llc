@@ -347,32 +347,18 @@ export default function Settings() {
             </div>
           </TabsContent>
 
-          {/* ─── Notifications (placeholder) ─── */}
+          {/* ─── Notifications (placeholder — Fix 10) ─── */}
           <TabsContent value="notifications" className="mt-4">
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Email Notification Settings</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm">Client notification emails</Label>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm">PE assignment email</Label>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm">TAS lab dispatch email</Label>
-                  <Switch defaultChecked />
-                </div>
-                <div className="space-y-1.5 pt-2 border-t">
-                  <Label className="text-xs">From email address</Label>
-                  <Input defaultValue="noreply@hvhzengineering.com" className="max-w-sm" />
-                </div>
-                <div className="pt-2">
-                  <Button disabled className="opacity-50">Save</Button>
-                  <p className="text-xs text-muted-foreground mt-1">Email provider configuration — connect Resend in a future prompt.</p>
+              <CardContent>
+                <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-6 text-center">
+                  <p className="text-sm font-medium text-muted-foreground">Coming soon</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                    Notification settings will be configurable once an email provider (Resend or SendGrid) is connected. Settings saved here will take effect automatically.
+                  </p>
                 </div>
               </CardContent>
             </Card>
