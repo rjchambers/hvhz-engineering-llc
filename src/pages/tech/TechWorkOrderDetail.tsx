@@ -202,6 +202,14 @@ export default function TechWorkOrderDetail() {
       if (!formData.secondary_drains?.length) newErrors.secondary_drains = "Secondary drain required (FBC §1502.3)";
       if (!formData.drainage_zones?.length) newErrors.drainage_zones = "At least 1 drainage zone required";
     }
+    if (wo.service_type === "fastener-calculation") {
+      if (!formData.building_width_ft) newErrors.building_width_ft = "Required";
+      if (!formData.building_length_ft) newErrors.building_length_ft = "Required";
+      if (!formData.mean_roof_height_ft) newErrors.mean_roof_height_ft = "Required";
+      if (!formData.noa_number) newErrors.noa_number = "NOA/approval number required";
+      if (!formData.noa_mdp_psf) newErrors.noa_mdp_psf = "NOA MDP required";
+      if (!formData.system_type) newErrors.system_type = "Roof system type required";
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -437,7 +445,7 @@ function ServiceForm({ serviceType, formData, setField, errors }: {
     case "drainage-analysis": return <DrainageAnalysisForm formData={formData} setField={setField} errors={errors} />;
     case "special-inspection": return <SpecialInspectionForm formData={formData} setField={setField} errors={errors} />;
     case "wind-mitigation-permit": return <WindMitigationForm formData={formData} setField={setField} />;
-    case "fastener-calculation": return <FastenerCalcForm formData={formData} setField={setField} />;
+    case "fastener-calculation": return <FastenerCalcForm formData={formData} setField={setField} errors={errors} />;
     default: return <p className="text-sm text-muted-foreground">No specific form for this service type.</p>;
   }
 }
@@ -1027,24 +1035,184 @@ function WindMitigationForm({ formData, setField }: { formData: Record<string, a
 }
 
 // ─── FASTENER CALCULATION ───────────────────────────────────────────────────────
-function FastenerCalcForm({ formData, setField }: { formData: Record<string, any>; setField: (k: string, v: any) => void }) {
+function FastenerCalcForm({ formData, setField, errors }: { formData: Record<string, any>; setField: (k: string, v: any) => void; errors?: Record<string, string> }) {
+  const tas105Raw: number[] = formData.tas105_raw_values ?? [];
+
+  const tas105Result = (() => {
+    if (formData.fy_source !== "From TAS 105 Test" || tas105Raw.length === 0) return null;
+    const n = tas105Raw.length;
+    const mean = tas105Raw.reduce((a: number, b: number) => a + b, 0) / n;
+    const variance = tas105Raw.reduce((s: number, v: number) => s + (v - mean) ** 2, 0) / (n - 1);
+    const stdDev = Math.sqrt(variance || 0);
+    const T_TABLE: Record<number, number> = { 3:2.920,4:2.353,5:2.132,6:2.015,7:1.943,8:1.895,9:1.860,10:1.833,11:1.812,12:1.796,15:1.761,20:1.725,25:1.708,30:1.697 };
+    let tFactor = n <= 2 ? 3.078 : n >= 30 ? 1.645 : T_TABLE[n] ?? 2.0;
+    const MCRF = mean - tFactor * stdDev;
+    return { n, mean_lbf: Math.round(mean * 10) / 10, stdDev_lbf: Math.round(stdDev * 10) / 10, tFactor, MCRF_lbf: Math.round(MCRF * 10) / 10, pass: MCRF >= 275 };
+  })();
+
+  const parseRawValues = (text: string) => {
+    const vals = text.split(/[,\n]+/).map((s: string) => parseFloat(s.trim())).filter((n: number) => !isNaN(n));
+    setField("tas105_raw_values", vals);
+  };
+
+  const SYSTEM_TYPES = [
+    { key: "modified_bitumen", label: "Modified Bitumen", sub: "RAS 117" },
+    { key: "single_ply", label: "Single-Ply TPO/EPDM", sub: "RAS 137" },
+    { key: "adhered", label: "Adhered Membrane", sub: "TAS 124" },
+  ];
+
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">Field measurements only. PE performs all calculations.</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <FieldInput label="Building Width (ft)" field="building_width_ft" type="number" formData={formData} setField={setField} />
-        <FieldInput label="Building Length (ft)" field="building_length_ft" type="number" formData={formData} setField={setField} />
-        <FieldInput label="Eave Height (ft)" field="eave_height_ft" type="number" formData={formData} setField={setField} />
-        <FieldInput label="Mean Roof Height (ft)" field="mean_roof_height_ft" type="number" formData={formData} setField={setField} />
-        <FieldSelect label="Roof Type" field="roof_type" options={["Hip", "Gable", "Flat"]} formData={formData} setField={setField} />
-        <FieldSelect label="Deck Type" field="deck_type" options={["OSB", "Plywood", "Concrete"]} formData={formData} setField={setField} />
-        <FieldInput label="Fastener Type" field="fastener_type" formData={formData} setField={setField} />
-        <FieldInput label="Fastener Size" field="fastener_size" formData={formData} setField={setField} />
-        <FieldInput label="Field Zone Spacing" field="field_zone_spacing" formData={formData} setField={setField} />
-        <FieldInput label="Perimeter Zone Spacing" field="perimeter_zone_spacing" formData={formData} setField={setField} />
-        <FieldInput label="Corner Zone Spacing" field="corner_zone_spacing" formData={formData} setField={setField} />
-        <FieldInput label="NOA System" field="noa_system" formData={formData} setField={setField} />
-      </div>
+    <div className="space-y-6">
+      <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
+        Document all roof system parameters from field observation and NOA approval sheets. Your entries pre-populate the PE calculation tool.
+      </p>
+
+      {/* Section 1 — Site & Building Dimensions */}
+      <details open className="border rounded-lg">
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Site & Building Dimensions</summary>
+        <div className="px-3 pb-3 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FieldSelect label="County" field="county" options={["Miami-Dade", "Broward", "Palm Beach", "Other"]} formData={formData} setField={setField} />
+            <FieldSelect label="Construction Type" field="construction_type" options={["New Construction", "Reroof", "Recover"]} formData={formData} setField={setField} />
+            {formData.construction_type === "Recover" && (
+              <div className="space-y-1.5">
+                <FieldSelect label="Existing Roof Layers" field="existing_layers" options={["1", "2+"]} formData={formData} setField={setField} />
+                {formData.existing_layers === "2+" && (
+                  <p className="text-[10px] text-destructive">FBC §1521 prohibits recover over more than 1 layer in HVHZ</p>
+                )}
+              </div>
+            )}
+            <FieldInput label="Building Width (ft) *" field="building_width_ft" type="number" formData={formData} setField={setField} />
+            <FieldInput label="Building Length (ft) *" field="building_length_ft" type="number" formData={formData} setField={setField} />
+            <FieldInput label="Eave Height (ft)" field="eave_height_ft" type="number" formData={formData} setField={setField} />
+            <FieldInput label="Mean Roof Height (ft) *" field="mean_roof_height_ft" type="number" formData={formData} setField={setField} />
+            <FieldInput label="Parapet Height (ft)" field="parapet_height_ft" type="number" formData={formData} setField={setField} />
+          </div>
+          {errors?.building_width_ft && <p className="text-xs text-destructive">{errors.building_width_ft}</p>}
+          {errors?.building_length_ft && <p className="text-xs text-destructive">{errors.building_length_ft}</p>}
+          {errors?.mean_roof_height_ft && <p className="text-xs text-destructive">{errors.mean_roof_height_ft}</p>}
+          <p className="text-[10px] text-muted-foreground">Mean Roof Height = to midpoint of roof slope. Parapet Height = 0 if no parapet.</p>
+        </div>
+      </details>
+
+      {/* Section 2 — Roof System */}
+      <details open className="border rounded-lg">
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Roof System</summary>
+        <div className="px-3 pb-3 space-y-4">
+          <div>
+            <Label className="text-xs mb-2 block">System Type *</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {SYSTEM_TYPES.map((st) => (
+                <button
+                  key={st.key}
+                  type="button"
+                  className={cn(
+                    "rounded-lg border p-3 text-left transition-colors text-xs",
+                    formData.system_type === st.key
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card hover:bg-muted"
+                  )}
+                  onClick={() => setField("system_type", st.key)}
+                >
+                  <p className="font-semibold">{st.label}</p>
+                  <p className={cn("text-[10px]", formData.system_type === st.key ? "text-primary-foreground/70" : "text-muted-foreground")}>{st.sub}</p>
+                </button>
+              ))}
+            </div>
+            {errors?.system_type && <p className="text-xs text-destructive mt-1">{errors.system_type}</p>}
+          </div>
+          <FieldSelect label="Deck Type" field="deck_type" options={["Plywood", "OSB", "Structural Concrete", "Steel Deck", "Wood Plank", "LW Insulating Concrete"]} formData={formData} setField={setField} />
+          <FieldInput label="Roof Membrane Product" field="membrane_product" formData={formData} setField={setField} />
+          {(formData.system_type === "modified_bitumen" || formData.system_type === "single_ply") && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <FieldInput label="Sheet Width (in) *" field="sheet_width_in" type="number" formData={formData} setField={setField} />
+              <FieldInput label="Lap Width (in) *" field="lap_width_in" type="number" formData={formData} setField={setField} />
+              <FieldInput label="Initial Fastener Rows" field="initial_rows" type="number" formData={formData} setField={setField} />
+            </div>
+          )}
+          {formData.system_type === "adhered" && (
+            <p className="text-xs text-blue-700 bg-blue-50 p-2 rounded">Adhered system — no row spacing. PE verifies adhesive bond strength vs zone pressures.</p>
+          )}
+          <p className="text-[10px] text-muted-foreground">Sheet Width = full roll width incl. lap. Lap Width = width of overlap seam. Default rows: 4.</p>
+        </div>
+      </details>
+
+      {/* Section 3 — NOA / Product Approval */}
+      <details open className="border rounded-lg">
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">NOA / Product Approval</summary>
+        <div className="px-3 pb-3 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FieldSelect label="Approval Type" field="noa_approval_type" options={["Miami-Dade NOA", "FL Product Approval"]} formData={formData} setField={setField} />
+            <FieldInput label="Approval Number *" field="noa_number" formData={formData} setField={setField} />
+            <FieldInput label="Manufacturer" field="noa_manufacturer" formData={formData} setField={setField} />
+            <FieldInput label="Product / System Name" field="noa_product" formData={formData} setField={setField} />
+            <FieldInput label="System Number" field="noa_system_number" formData={formData} setField={setField} />
+            <FieldInput label="NOA MDP (psf) *" field="noa_mdp_psf" type="number" formData={formData} setField={setField} />
+            <FieldSelect label="MDP Basis" field="noa_mdp_basis" options={["ASD Level", "Ultimate (will be ÷2 per TAS 114)"]} formData={formData} setField={setField} />
+          </div>
+          {errors?.noa_number && <p className="text-xs text-destructive">{errors.noa_number}</p>}
+          {errors?.noa_mdp_psf && <p className="text-xs text-destructive">{errors.noa_mdp_psf}</p>}
+          <div className="flex items-center gap-2">
+            <Switch checked={!!formData.noa_asterisked} onCheckedChange={(c) => setField("noa_asterisked", c)} />
+            <Label className="text-xs">(*) marked in NOA — extrapolation prohibited</Label>
+          </div>
+          <p className="text-[10px] text-muted-foreground">Enter MDP as negative, e.g. -60. ASD-level Maximum Design Pressure from NOA.</p>
+        </div>
+      </details>
+
+      {/* Section 4 — Fastener & Insulation */}
+      <details open className="border rounded-lg">
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Fastener & Insulation</summary>
+        <div className="px-3 pb-3 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FieldInput label="Fastener Withdrawal Value Fy (lbf)" field="fy_lbf" type="number" formData={formData} setField={setField} />
+            <FieldSelect label="Fy Source" field="fy_source" options={["From NOA", "From TAS 105 Test"]} formData={formData} setField={setField} />
+          </div>
+          {formData.fy_source === "From TAS 105 Test" && (
+            <div className="space-y-3 border rounded p-3 bg-muted/30">
+              <p className="text-xs text-muted-foreground">Enter raw TAS 105 pull test readings (lbf), comma-separated.</p>
+              <Textarea rows={3} placeholder="350, 412, 389, 401, 378, 445, 362" defaultValue={tas105Raw.join(", ")} onBlur={(e) => parseRawValues(e.target.value)} />
+              {tas105Result && (
+                <div className="bg-card border rounded p-3 font-mono text-xs space-y-1">
+                  <p>n: {tas105Result.n}</p>
+                  <p>Mean: {tas105Result.mean_lbf} lbf</p>
+                  <p>Std Dev: {tas105Result.stdDev_lbf} lbf</p>
+                  <p>t-Factor: {tas105Result.tFactor}</p>
+                  <p>MCRF: {tas105Result.MCRF_lbf} lbf</p>
+                  <p>Status: <span className={cn("font-bold", tas105Result.pass ? "text-green-600" : "text-destructive")}>{tas105Result.pass ? "PASS" : "FAIL"}</span></p>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <FieldInput label="Insulation Board Length (ft)" field="insulation_board_length_ft" type="number" formData={formData} setField={setField} />
+            <FieldInput label="Insulation Board Width (ft)" field="insulation_board_width_ft" type="number" formData={formData} setField={setField} />
+            <FieldInput label="Insulation Fastener Fy (lbf)" field="insulation_fy_lbf" type="number" formData={formData} setField={setField} />
+          </div>
+          <p className="text-[10px] text-muted-foreground">Default Fy: 29.48 lbf. Same as membrane Fy unless separate insulation fastener NOA.</p>
+        </div>
+      </details>
+
+      {/* Section 5 — Inspector Notes */}
+      <details open className="border rounded-lg">
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Inspector Notes</summary>
+        <div className="px-3 pb-3 space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Field Observations</Label>
+            <Textarea rows={3} placeholder="Note deck conditions, existing attachment, visible damage, moisture, ponding..." value={formData.field_observations ?? ""} onChange={(e) => setField("field_observations", e.target.value)} />
+          </div>
+          <FieldInput label="TAS 105 Test Location Description" field="tas105_location" formData={formData} setField={setField} />
+          {formData.fy_source === "From TAS 105 Test" && (
+            <>
+              <FieldInput label="Testing Agency" field="tas105_agency" formData={formData} setField={setField} />
+              <div className="space-y-1.5">
+                <Label className="text-xs">Test Date</Label>
+                <Input type="date" value={formData.tas105_date ?? ""} onChange={(e) => setField("tas105_date", e.target.value)} />
+              </div>
+            </>
+          )}
+        </div>
+      </details>
     </div>
   );
 }

@@ -23,7 +23,9 @@ export const PHOTO_SECTION_TAGS: Record<string, string[]> = {
     "Opening Protection", "Garage Door", "Overview",
   ],
   "fastener-calculation": [
-    "Fastener Field Zone", "Fastener Perimeter", "Fastener Corner", "Overview",
+    "Fastener Field Zone", "Fastener Perimeter Zone", "Fastener Corner Zone",
+    "Deck Condition", "Existing Membrane", "NOA Label / Approval Tag",
+    "TAS 105 Test Location", "Overview",
   ],
 };
 
@@ -33,7 +35,7 @@ export const MIN_PHOTO_COUNTS: Record<string, number> = {
   "drainage-analysis": 5,
   "special-inspection": 3,
   "wind-mitigation-permit": 4,
-  "fastener-calculation": 3,
+  "fastener-calculation": 5,
 };
 
 // Standard FBC checklist items by special-inspection type

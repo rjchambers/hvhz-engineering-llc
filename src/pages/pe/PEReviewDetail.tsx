@@ -42,7 +42,7 @@ const REQUIRED_KEYS: Record<string, string[]> = {
   "drainage-analysis": ["total_roof_area_sqft", "primary_drains", "secondary_drains", "drainage_zones", "inspection_date"],
   "special-inspection": ["inspection_type", "inspector_certification_accepted", "inspection_date"],
   "wind-mitigation-permit": ["year_built", "roof_shape", "deck_type", "roof_to_wall_connection", "inspection_date"],
-  "fastener-calculation": ["building_width_ft", "building_length_ft", "roof_type", "deck_type", "inspection_date"],
+  "fastener-calculation": ["building_width_ft", "building_length_ft", "mean_roof_height_ft", "noa_number", "noa_mdp_psf", "system_type", "inspection_date"],
 };
 
 export default function PEReviewDetail() {
