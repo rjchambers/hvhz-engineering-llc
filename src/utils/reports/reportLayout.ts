@@ -73,7 +73,12 @@ export class HVHZReportBuilder {
       this.doc.text(k + ':', x, this.yPos);
       this.doc.setTextColor(15, 23, 42);
       const val = String(v);
-      this.doc.text(val.substring(0, 50), x + 40, this.yPos);
+      const maxWidth = this.cw / 2 - 42;
+      const valLines = this.doc.splitTextToSize(val, maxWidth);
+      this.doc.text(valLines, x + 40, this.yPos);
+      if (valLines.length > 1 && i % 2 === 1) {
+        this.yPos += (valLines.length - 1) * 4.5;
+      }
     });
     this.yPos += 8;
   }
