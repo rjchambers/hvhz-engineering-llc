@@ -8,6 +8,10 @@ import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import NewOrder from "./pages/portal/NewOrder";
+import OrderConfirmed from "./pages/portal/OrderConfirmed";
+import MyOrders from "./pages/portal/MyOrders";
+import MyProfile from "./pages/portal/MyProfile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +28,10 @@ const App = () => (
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/portal/new-order" element={<NewOrder />} />
+          <Route path="/portal/order-confirmed" element={<OrderConfirmed />} />
+          <Route path="/portal/orders" element={<MyOrders />} />
+          <Route path="/portal/profile" element={<MyProfile />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
