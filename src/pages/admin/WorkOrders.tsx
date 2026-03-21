@@ -145,6 +145,52 @@ export default function WorkOrders() {
   useEffect(() => { fetchWOs(); }, [fetchWOs]);
   useEffect(() => { fetchRoles(); fetchPartners(); }, [fetchRoles, fetchPartners]);
 
+  const handleSeedTestWO = async () => {
+    if (!user) return;
+    setSeeding(true);
+    try {
+      const { data: order, error: orderErr } = await supabase
+        .from("orders")
+        .insert({
+          client_id: user.id,
+          services: ["fastener-calculation"],
+          job_address: "750 E Sample Rd",
+          job_city: "Pompano Beach",
+          job_zip: "33064",
+          job_county: "Broward",
+          roof_area_sqft: 2400,
+          total_amount: 350,
+          status: "paid",
+          notes: "TEST WORK ORDER — created via admin seed tool",
+          roof_data: {
+            area: 2400,
+            pitch: "flat",
+            type: "Modified Bitumen",
+          },
+        })
+        .select()
+        .single();
+
+      if (orderErr || !order) throw new Error(orderErr?.message ?? "Order insert failed");
+
+      const { error: woErr } = await supabase.from("work_orders").insert({
+        order_id: order.id,
+        client_id: user.id,
+        service_type: "fastener-calculation",
+        status: "dispatched",
+        scheduled_date: new Date(Date.now() + 86400000).toISOString().split("T")[0],
+      });
+
+      if (woErr) throw new Error(woErr.message);
+
+      toast.success("Test work order created — assign tech and engineer in the table below.");
+      fetchWOs();
+    } catch (err: any) {
+      toast.error("Seed failed: " + err.message);
+    }
+    setSeeding(false);
+  };
+
   const selectedPartner = partners.find((p) => p.id === selectedPartnerId);
 
   const availablePartners = selected
