@@ -1,6 +1,9 @@
-import { ClipboardList, CheckCircle } from "lucide-react";
+import { ClipboardList, ArrowLeft } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Sidebar,
   SidebarContent,
@@ -23,6 +26,14 @@ export function TechSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin")
+      .maybeSingle().then(({ data }) => setIsAdmin(!!data));
+  }, [user]);
 
   return (
     <Sidebar collapsible="icon">
@@ -48,6 +59,22 @@ export function TechSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/admin" className="hover:bg-sidebar-accent text-muted-foreground">
+                      <ArrowLeft className="h-4 w-4" />
+                      {!collapsed && <span>Back to Admin</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/50 text-[11px] uppercase tracking-wider">
             Technician
