@@ -30,7 +30,7 @@ export const PHOTO_SECTION_TAGS: Record<string, string[]> = {
 export const MIN_PHOTO_COUNTS: Record<string, number> = {
   "roof-inspection": 6,
   "roof-certification": 6,
-  "drainage-analysis": 4,
+  "drainage-analysis": 5,
   "special-inspection": 3,
   "wind-mitigation-permit": 4,
   "fastener-calculation": 3,
