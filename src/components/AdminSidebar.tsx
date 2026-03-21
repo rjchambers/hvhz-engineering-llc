@@ -1,4 +1,4 @@
-import { Kanban, List, Users, BarChart3, Settings } from "lucide-react";
+import { Kanban, List, Users, BarChart3, Settings, HardHat, FileCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -21,6 +21,11 @@ const adminItems = [
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
   { title: "Settings", url: "/admin/settings", icon: Settings },
+];
+
+const roleViews = [
+  { title: "Tech Dashboard", url: "/tech", icon: HardHat },
+  { title: "PE Review Queue", url: "/pe", icon: FileCheck },
 ];
 
 export function AdminSidebar() {
