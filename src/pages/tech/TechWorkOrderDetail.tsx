@@ -209,6 +209,9 @@ export default function TechWorkOrderDetail() {
       if (!formData.noa_number) newErrors.noa_number = "NOA/approval number required";
       if (!formData.noa_mdp_psf) newErrors.noa_mdp_psf = "NOA MDP required";
       if (!formData.system_type) newErrors.system_type = "Roof system type required";
+      if (!formData.exposure_category) newErrors.exposure_category = "Required";
+      if (!formData.risk_category) newErrors.risk_category = "Required";
+      if (!formData.enclosure_type) newErrors.enclosure_type = "Required";
     }
 
     if (Object.keys(newErrors).length > 0) {
