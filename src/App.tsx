@@ -51,6 +51,8 @@ const App = () => (
           <Route path="/tech/work-order/:id" element={<TechWorkOrderDetail />} />
           <Route path="/pe" element={<PEReviewQueue />} />
           <Route path="/pe/review/:id" element={<PEReviewDetail />} />
+          <Route path="/pe/calculations/wind-mitigation/:id" element={<WindMitigationCalc />} />
+          <Route path="/pe/calculations/fastener/:id" element={<FastenerCalc />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
