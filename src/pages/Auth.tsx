@@ -20,10 +20,29 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Signed in successfully");
-        navigate("/");
+
+        // Redirect based on role
+        if (signInData.user) {
+          const { data: roles } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", signInData.user.id);
+          const roleSet = new Set(roles?.map((r) => r.role) ?? []);
+          if (roleSet.has("admin")) {
+            navigate("/admin");
+          } else if (roleSet.has("engineer")) {
+            navigate("/pe");
+          } else if (roleSet.has("technician")) {
+            navigate("/tech");
+          } else {
+            navigate("/portal/dashboard");
+          }
+        } else {
+          navigate("/portal/dashboard");
+        }
       } else {
         const { error } = await supabase.auth.signUp({
           email,
