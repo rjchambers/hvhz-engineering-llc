@@ -149,6 +149,23 @@ function PartnerDialog({
   );
 }
 
+// ─── Cleanup Button ───
+function CleanupButton() {
+  const [cleaning, setCleaning] = useState(false);
+  const handleCleanup = async () => {
+    setCleaning(true);
+    const { data, error } = await supabase.functions.invoke("cleanup-orphaned-photos");
+    if (error) toast.error("Cleanup failed: " + error.message);
+    else toast.success(`Cleanup complete — ${data.deleted} orphaned files removed`);
+    setCleaning(false);
+  };
+  return (
+    <Button variant="outline" onClick={handleCleanup} disabled={cleaning} className="gap-2">
+      {cleaning ? "Cleaning…" : "Clean Up Orphaned Photos"}
+    </Button>
+  );
+}
+
 // ─── Main Settings Page ───
 export default function Settings() {
   // Partners tab
