@@ -72,6 +72,7 @@ export default function WorkOrders() {
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dispatching, setDispatching] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
 
   const fetchWOs = useCallback(async () => {
