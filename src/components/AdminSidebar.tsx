@@ -88,7 +88,33 @@ export function AdminSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-      </SidebarContent>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/50 text-[11px] uppercase tracking-wider">
+            Role Views
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {roleViews.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location.pathname.startsWith(item.url)}
+                  >
+                    <NavLink
+                      to={item.url}
+                      className="hover:bg-sidebar-accent"
+                      activeClassName="bg-sidebar-accent text-hvhz-teal font-medium"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
         {!collapsed && (

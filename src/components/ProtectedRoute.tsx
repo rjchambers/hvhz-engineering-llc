@@ -20,10 +20,10 @@ export function ProtectedRoute({ children, requiredRole }: Props) {
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .eq("role", requiredRole)
-      .maybeSingle()
       .then(({ data }) => {
-        setHasRole(!!data);
+        const roles = new Set(data?.map((r) => r.role) ?? []);
+        // Admins can access any role-protected route
+        setHasRole(roles.has(requiredRole) || roles.has("admin"));
         setRoleLoading(false);
       });
   }, [user, requiredRole]);
