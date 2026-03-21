@@ -387,15 +387,16 @@ function addFastenerCalcSections(rb: HVHZReportBuilder, fd: Record<string, any>)
     rb.addInfoGrid({ [`Zone ${ir.zone}`]: `${ir.N_used} fasteners (${ir.layout}) — ${ir.P_psf} psf` });
   });
 
-  if (fd.fy_source === 'From TAS 105 Test' && fd.tas105_raw_values?.length) {
-    const tas = calculateTAS105({ rawValues_lbf: fd.tas105_raw_values });
-    rb.addSection('TAS 105 Field Test Results');
+  if (fd.pe_tas105_raw_values?.length > 0) {
+    const tas = calculateTAS105({ rawValues_lbf: fd.pe_tas105_raw_values });
+    rb.addSection('TAS 105 Laboratory Test Results');
     rb.addInfoGrid({
-      'Test Values (lbf)': fd.tas105_raw_values.join(', '),
+      'Test Values (lbf)': fd.pe_tas105_raw_values.join(', '),
       'n': String(tas.n), 'Mean': `${tas.mean_lbf} lbf`, 'Std Dev': `${tas.stdDev_lbf} lbf`,
       't-Factor': String(tas.tFactor), 'MCRF': `${tas.MCRF_lbf} lbf`,
       'Result': tas.pass ? 'PASS (≥ 275 lbf)' : 'FAIL (< 275 lbf)',
-      'Testing Agency': fd.tas105_agency ?? '', 'Test Date': fd.tas105_date ?? '', 'Test Location': fd.tas105_location ?? '',
+      'Testing Agency': fd.pe_tas105_agency ?? '(see attached lab report)', 'Test Date': fd.pe_tas105_date ?? '',
+      'Source': 'Third-party laboratory report',
     });
   }
 

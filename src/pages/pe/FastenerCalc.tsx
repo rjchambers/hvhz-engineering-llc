@@ -14,7 +14,8 @@ import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { ArrowLeft, Calculator, Loader2, Lock, AlertTriangle, XCircle, Info, CheckCircle, ChevronDown } from "lucide-react";
-import { calculateFastener, calculateTAS105, type FastenerInputs, type FastenerOutputs, type RoofSystemType, type DeckType, type ConstructionType } from "@/lib/fastener-engine";
+import { calculateFastener, calculateTAS105, isTAS105Required, type FastenerInputs, type FastenerOutputs, type RoofSystemType, type DeckType, type ConstructionType } from "@/lib/fastener-engine";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -64,8 +65,9 @@ export default function FastenerCalc() {
   const [noaMdpBasis, setNoaMdpBasis] = useState<"asd"|"ultimate">("asd");
   const [noaAsterisked, setNoaAsterisked] = useState(false);
   const [fyLbf, setFyLbf] = useState("29.48");
-  const [fySource, setFySource] = useState("noa");
   const [tas105Raw, setTas105Raw] = useState<number[]>([]);
+  const [tas105Agency, setTas105Agency] = useState("");
+  const [tas105Date, setTas105Date] = useState("");
   const [boardLength, setBoardLength] = useState("4");
   const [boardWidth, setBoardWidth] = useState("8");
   const [insulationFy, setInsulationFy] = useState("29.48");
@@ -100,8 +102,10 @@ export default function FastenerCalc() {
       if (d.noa_mdp_basis) setNoaMdpBasis(d.noa_mdp_basis === "Ultimate (will be ÷2 per TAS 114)" ? "ultimate" : "asd");
       if (d.noa_asterisked) setNoaAsterisked(d.noa_asterisked);
       if (d.fy_lbf) setFyLbf(String(d.fy_lbf));
-      if (d.fy_source === "From TAS 105 Test") setFySource("tas105");
-      if (d.tas105_raw_values) setTas105Raw(d.tas105_raw_values);
+      if (d.pe_tas105_raw_values) setTas105Raw(d.pe_tas105_raw_values);
+      else if (d.tas105_raw_values) setTas105Raw(d.tas105_raw_values);
+      if (d.pe_tas105_agency) setTas105Agency(d.pe_tas105_agency);
+      if (d.pe_tas105_date) setTas105Date(d.pe_tas105_date);
       if (d.insulation_board_length_ft) setBoardLength(String(d.insulation_board_length_ft));
       if (d.insulation_board_width_ft) setBoardWidth(String(d.insulation_board_width_ft));
       if (d.insulation_fy_lbf) setInsulationFy(String(d.insulation_fy_lbf));
@@ -124,6 +128,8 @@ export default function FastenerCalc() {
   const mdp = parseFloat(noaMdp) || 0;
   const canCalc = W > 0 && L > 0 && h > 0 && mdp !== 0;
 
+  const derivedFySource = tas105Raw.length > 0 ? "tas105" : "noa";
+
   const calcOutputs: FastenerOutputs | null = useMemo(() => {
     if (!canCalc) return null;
     const inputs: FastenerInputs = {
@@ -132,19 +138,26 @@ export default function FastenerCalc() {
       parapetHeight: parseFloat(parapetHeight) || 0, systemType: systemType as RoofSystemType,
       deckType: deckType as DeckType, constructionType: constructionType as ConstructionType,
       existingLayers, sheetWidth_in: parseFloat(sheetWidth) || 39.375, lapWidth_in: parseFloat(lapWidth) || 4,
-      Fy_lbf: parseFloat(fyLbf) || 29.48, fySource: fySource as any, initialRows: parseInt(initialRows) || 4,
+      Fy_lbf: parseFloat(fyLbf) || 29.48, fySource: derivedFySource as any, initialRows: parseInt(initialRows) || 4,
       noa: { approvalType: noaApprovalType as any, approvalNumber: noaNumber, manufacturer: noaManufacturer, productName: noaProduct, systemNumber: noaSystemNumber, mdp_psf: mdp, mdp_basis: noaMdpBasis, asterisked: noaAsterisked },
       boardLength_ft: parseFloat(boardLength) || 4, boardWidth_ft: parseFloat(boardWidth) || 8,
       insulation_Fy_lbf: parseFloat(insulationFy) || 29.48, county: county as any, isHVHZ: true,
       ewa_membrane_ft2: ewaMembrane ? parseFloat(ewaMembrane) : undefined,
     };
     return calculateFastener(inputs);
-  }, [canCalc, W, L, h, exposureCategory, Kzt, Ke, enclosure, riskCategory, parapetHeight, systemType, deckType, constructionType, existingLayers, sheetWidth, lapWidth, fyLbf, fySource, initialRows, noaApprovalType, noaNumber, noaManufacturer, noaProduct, noaSystemNumber, mdp, noaMdpBasis, noaAsterisked, boardLength, boardWidth, insulationFy, county, ewaMembrane]);
+  }, [canCalc, W, L, h, exposureCategory, Kzt, Ke, enclosure, riskCategory, parapetHeight, systemType, deckType, constructionType, existingLayers, sheetWidth, lapWidth, fyLbf, derivedFySource, initialRows, noaApprovalType, noaNumber, noaManufacturer, noaProduct, noaSystemNumber, mdp, noaMdpBasis, noaAsterisked, boardLength, boardWidth, insulationFy, county, ewaMembrane]);
 
   const tas105Result = useMemo(() => {
     if (tas105Raw.length === 0) return null;
     return calculateTAS105({ rawValues_lbf: tas105Raw });
   }, [tas105Raw]);
+
+  // Auto-update Fy to MCRF when TAS 105 passes
+  useEffect(() => {
+    if (tas105Result?.pass) {
+      setFyLbf(String(tas105Result.MCRF_lbf));
+    }
+  }, [tas105Result]);
 
   const mdpEff = noaMdpBasis === "ultimate" ? mdp / 2 : mdp;
 
@@ -158,6 +171,10 @@ export default function FastenerCalc() {
       pe_Kzt: parseFloat(Kzt), pe_Kd: 0.85, pe_Ke: parseFloat(Ke),
       pe_noa_mdp_eff: mdpEff, pe_ewa_membrane: ewaMembrane ? parseFloat(ewaMembrane) : null,
       pe_calc_outputs: calcOutputs ? JSON.parse(JSON.stringify(calcOutputs)) : null,
+      pe_tas105_raw_values: tas105Raw.length > 0 ? tas105Raw : null,
+      pe_tas105_agency: tas105Agency || null,
+      pe_tas105_date: tas105Date || null,
+      fy_source: derivedFySource === "tas105" ? "From TAS 105 Test" : "From NOA",
     };
     const { error } = await supabase.from("field_data").upsert({
       ...(fieldDataId ? { id: fieldDataId } : {}),
@@ -287,17 +304,68 @@ export default function FastenerCalc() {
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Fy (lbf)" value={fyLbf} onChange={setFyLbf} type="number" />
-                  <div><Label className="text-xs text-muted-foreground">Source</Label><Badge variant="outline">{fySource === "tas105" ? "TAS 105" : "NOA"}</Badge></div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Source</Label>
+                    <Badge variant="outline" className={cn(tas105Result && !tas105Result.pass ? "text-destructive border-destructive" : "")}>
+                      {tas105Raw.length === 0 ? "NOA" : tas105Result?.pass ? "TAS 105 (MCRF)" : "TAS 105 (FAIL)"}
+                    </Badge>
+                  </div>
                   <Field label="Board Length (ft)" value={boardLength} onChange={setBoardLength} type="number" />
                   <Field label="Board Width (ft)" value={boardWidth} onChange={setBoardWidth} type="number" />
                   <Field label="Insulation Fy (lbf)" value={insulationFy} onChange={setInsulationFy} type="number" />
                   <Field label="EWA membrane (ft²)" value={ewaMembrane} onChange={setEwaMembrane} type="number" />
                 </div>
-                {tas105Result && (
-                  <div className="bg-muted/50 rounded p-3 font-mono text-xs space-y-0.5">
-                    <p>TAS 105: n={tas105Result.n}, Mean={tas105Result.mean_lbf}, σ={tas105Result.stdDev_lbf}, MCRF={tas105Result.MCRF_lbf} lbf — <span className={tas105Result.pass?"text-green-600":"text-destructive"}>{tas105Result.pass?"PASS":"FAIL"}</span></p>
-                  </div>
-                )}
+                {(() => {
+                  const tas105Req = isTAS105Required(deckType as DeckType, constructionType as ConstructionType);
+                  const showFullBlock = deckType === "lw_concrete" || (tas105Req.required && constructionType === "recover");
+                  const showAmberNote = !showFullBlock && tas105Req.required;
+
+                  if (showFullBlock) return (
+                    <div className="space-y-3 border rounded p-3 bg-muted/30">
+                      <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
+                        {deckType === "lw_concrete"
+                          ? "LW insulating concrete requires TAS 105 field testing per RAS 117. Enter results from third-party lab report."
+                          : `TAS 105 may be required for ${DECK_LABELS[deckType] ?? deckType} recover per RAS 117. If a lab report was submitted, enter results above.`}
+                      </p>
+                      <Field label="Testing Agency" value={tas105Agency} onChange={setTas105Agency} />
+                      <div><Label className="text-xs text-muted-foreground">Test Date</Label><Input type="date" value={tas105Date} onChange={e => setTas105Date(e.target.value)} className="h-9 text-sm" /></div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Raw Pull Test Values (lbf)</Label>
+                        <Textarea rows={2} placeholder="350, 412, 389, 401, 378" defaultValue={tas105Raw.join(", ")} onBlur={(e) => {
+                          const vals = e.target.value.split(/[,\n]+/).map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+                          setTas105Raw(vals);
+                        }} />
+                      </div>
+                      {tas105Result && (
+                        <div className="bg-card border rounded p-3 font-mono text-xs space-y-1">
+                          <p>n: {tas105Result.n} | Mean: {tas105Result.mean_lbf} lbf | Std Dev: {tas105Result.stdDev_lbf} lbf</p>
+                          <p>t-Factor: {tas105Result.tFactor} | MCRF: {tas105Result.MCRF_lbf} lbf</p>
+                          <Badge className={cn("text-xs", tas105Result.pass ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
+                            {tas105Result.pass ? "PASS — MCRF ≥ 275 lbf" : "FAIL — MCRF < 275 lbf"}
+                          </Badge>
+                          {tas105Result.pass && (
+                            <p className="text-xs text-blue-600 mt-1">Fy updated to MCRF from TAS 105.</p>
+                          )}
+                          {!tas105Result.pass && (
+                            <p className="text-xs text-destructive mt-1 font-semibold">TAS 105 FAILURE — Permit cannot be issued until deck is repaired and re-tested. See FBC §1520.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+
+                  if (showAmberNote) return (
+                    <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
+                      TAS 105 may be required for {DECK_LABELS[deckType] ?? deckType} recover per RAS 117. If a lab report was submitted, enter results above.
+                    </p>
+                  );
+
+                  return (
+                    <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                      TAS 105 not required for {DECK_LABELS[deckType] ?? deckType} {constructionType}. Using NOA Fy = {fyLbf} lbf.
+                    </p>
+                  );
+                })()}
               </CardContent>
             </Card>
           </div>
@@ -351,7 +419,7 @@ export default function FastenerCalc() {
                 <Card>
                   <CardHeader className="pb-3"><CardTitle className="text-sm">Fastener Pattern — RAS {systemType === "single_ply" ? "137" : "117"}</CardTitle></CardHeader>
                   <CardContent>
-                    <p className="text-xs text-muted-foreground mb-2">Fy = {fyLbf} lbf ({fySource === "tas105" ? "TAS 105" : "NOA"})</p>
+                    <p className="text-xs text-muted-foreground mb-2">Fy = {fyLbf} lbf ({derivedFySource === "tas105" ? "TAS 105" : "NOA"})</p>
                     <div className="border rounded-lg overflow-hidden">
                       <table className="w-full text-xs">
                         <thead className="bg-muted/60"><tr><th className="p-2">Zone</th><th className="text-right p-2">P</th><th className="text-right p-2">Rows</th><th className="text-right p-2">RS</th><th className="text-right p-2">FS</th><th className="text-right p-2">DR</th><th className="p-2">½-Sheet</th></tr></thead>
