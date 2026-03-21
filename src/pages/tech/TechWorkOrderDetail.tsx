@@ -182,6 +182,23 @@ export default function TechWorkOrderDetail() {
     toast.success("Photo deleted");
   };
 
+  const handleSaveDraft = async () => {
+    if (!wo || !user || !id) return;
+    setSaving(true);
+    const { error } = await supabase.from("field_data").upsert(
+      {
+        work_order_id: id,
+        service_type: wo.service_type,
+        form_data: formData as unknown as Json,
+        submitted_by: user.id,
+      },
+      { onConflict: "work_order_id" }
+    );
+    if (error) toast.error("Draft save failed");
+    else toast.success("Draft saved");
+    setSaving(false);
+  };
+
   // Validate & submit
   const handleSubmit = async () => {
     if (!wo || !user || !id) return;
