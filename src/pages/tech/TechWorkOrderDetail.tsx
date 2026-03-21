@@ -228,7 +228,23 @@ export default function TechWorkOrderDetail() {
   };
 
   if (!loaded) {
-    return <TechLayout><div className="p-6"><p className="text-sm text-muted-foreground">Loading…</p></div></TechLayout>;
+    return (
+      <TechLayout>
+        <div className="p-6 max-w-4xl mx-auto space-y-6">
+          <div className="h-8 w-24 bg-muted animate-pulse rounded" />
+          <div className="bg-card border rounded-lg p-5 space-y-3">
+            <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-muted animate-pulse rounded" />)}
+            </div>
+          </div>
+          <div className="bg-card border rounded-lg p-5 space-y-3">
+            <div className="h-6 w-48 bg-muted animate-pulse rounded" />
+            {[1, 2, 3].map(i => <div key={i} className="h-10 bg-muted animate-pulse rounded" />)}
+          </div>
+        </div>
+      </TechLayout>
+    );
   }
 
   if (!wo) {
