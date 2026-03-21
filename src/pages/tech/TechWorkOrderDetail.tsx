@@ -19,7 +19,7 @@ import { PHOTO_SECTION_TAGS, MIN_PHOTO_COUNTS, SPECIAL_INSPECTION_CHECKLISTS, co
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CalendarIcon, Camera, Trash2, Plus, ArrowLeft, AlertCircle } from "lucide-react";
+import { CalendarIcon, Camera, Trash2, Plus, ArrowLeft, AlertCircle, Lock } from "lucide-react";
 import type { Json } from "@/integrations/supabase/types";
 
 interface WOData {
