@@ -412,7 +412,7 @@ export default function FastenerCalc() {
                 <Card>
                   <CardHeader className="pb-3"><CardTitle className="text-sm">Fastener Pattern — RAS {systemType === "single_ply" ? "137" : "117"}</CardTitle></CardHeader>
                   <CardContent>
-                    <p className="text-xs text-muted-foreground mb-2">Fy = {fyLbf} lbf ({fySource === "tas105" ? "TAS 105" : "NOA"})</p>
+                    <p className="text-xs text-muted-foreground mb-2">Fy = {fyLbf} lbf ({derivedFySource === "tas105" ? "TAS 105" : "NOA"})</p>
                     <div className="border rounded-lg overflow-hidden">
                       <table className="w-full text-xs">
                         <thead className="bg-muted/60"><tr><th className="p-2">Zone</th><th className="text-right p-2">P</th><th className="text-right p-2">Rows</th><th className="text-right p-2">RS</th><th className="text-right p-2">FS</th><th className="text-right p-2">DR</th><th className="p-2">½-Sheet</th></tr></thead>
