@@ -1036,25 +1036,6 @@ function WindMitigationForm({ formData, setField }: { formData: Record<string, a
 
 // ─── FASTENER CALCULATION ───────────────────────────────────────────────────────
 function FastenerCalcForm({ formData, setField, errors }: { formData: Record<string, any>; setField: (k: string, v: any) => void; errors?: Record<string, string> }) {
-  const tas105Raw: number[] = formData.tas105_raw_values ?? [];
-
-  const tas105Result = (() => {
-    if (formData.fy_source !== "From TAS 105 Test" || tas105Raw.length === 0) return null;
-    const n = tas105Raw.length;
-    const mean = tas105Raw.reduce((a: number, b: number) => a + b, 0) / n;
-    const variance = tas105Raw.reduce((s: number, v: number) => s + (v - mean) ** 2, 0) / (n - 1);
-    const stdDev = Math.sqrt(variance || 0);
-    const T_TABLE: Record<number, number> = { 3:2.920,4:2.353,5:2.132,6:2.015,7:1.943,8:1.895,9:1.860,10:1.833,11:1.812,12:1.796,15:1.761,20:1.725,25:1.708,30:1.697 };
-    let tFactor = n <= 2 ? 3.078 : n >= 30 ? 1.645 : T_TABLE[n] ?? 2.0;
-    const MCRF = mean - tFactor * stdDev;
-    return { n, mean_lbf: Math.round(mean * 10) / 10, stdDev_lbf: Math.round(stdDev * 10) / 10, tFactor, MCRF_lbf: Math.round(MCRF * 10) / 10, pass: MCRF >= 275 };
-  })();
-
-  const parseRawValues = (text: string) => {
-    const vals = text.split(/[,\n]+/).map((s: string) => parseFloat(s.trim())).filter((n: number) => !isNaN(n));
-    setField("tas105_raw_values", vals);
-  };
-
   const SYSTEM_TYPES = [
     { key: "modified_bitumen", label: "Modified Bitumen", sub: "RAS 117" },
     { key: "single_ply", label: "Single-Ply TPO/EPDM", sub: "RAS 137" },
@@ -1160,38 +1141,28 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
         </div>
       </details>
 
-      {/* Section 4 — Fastener & Insulation */}
+      {/* Section 4 — Attachment System */}
       <details open className="border rounded-lg">
-        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Fastener & Insulation</summary>
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Attachment System</summary>
         <div className="px-3 pb-3 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
             <FieldInput label="Fastener Withdrawal Value Fy (lbf)" field="fy_lbf" type="number" formData={formData} setField={setField} />
-            <FieldSelect label="Fy Source" field="fy_source" options={["From NOA", "From TAS 105 Test"]} formData={formData} setField={setField} />
+            <p className="text-[10px] text-muted-foreground">From NOA approval sheet — typically 29.48 lbf for #12 fasteners per RAS 117 Table 1</p>
           </div>
-          {formData.fy_source === "From TAS 105 Test" && (
-            <div className="space-y-3 border rounded p-3 bg-muted/30">
-              <p className="text-xs text-muted-foreground">Enter raw TAS 105 pull test readings (lbf), comma-separated.</p>
-              <Textarea rows={3} placeholder="350, 412, 389, 401, 378, 445, 362" defaultValue={tas105Raw.join(", ")} onBlur={(e) => parseRawValues(e.target.value)} />
-              {tas105Result && (
-                <div className="bg-card border rounded p-3 font-mono text-xs space-y-1">
-                  <p>n: {tas105Result.n}</p>
-                  <p>Mean: {tas105Result.mean_lbf} lbf</p>
-                  <p>Std Dev: {tas105Result.stdDev_lbf} lbf</p>
-                  <p>t-Factor: {tas105Result.tFactor}</p>
-                  <p>MCRF: {tas105Result.MCRF_lbf} lbf</p>
-                  <p>Status: <span className={cn("font-bold", tas105Result.pass ? "text-green-600" : "text-destructive")}>{tas105Result.pass ? "PASS" : "FAIL"}</span></p>
-                </div>
-              )}
-            </div>
-          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <FieldInput label="Insulation Board Length (ft)" field="insulation_board_length_ft" type="number" formData={formData} setField={setField} />
             <FieldInput label="Insulation Board Width (ft)" field="insulation_board_width_ft" type="number" formData={formData} setField={setField} />
-            <FieldInput label="Insulation Fastener Fy (lbf)" field="insulation_fy_lbf" type="number" formData={formData} setField={setField} />
+            <div className="space-y-1.5">
+              <FieldInput label="Insulation Fastener Fy (lbf)" field="insulation_fy_lbf" type="number" formData={formData} setField={setField} />
+              <p className="text-[10px] text-muted-foreground">Same as membrane Fy unless separate insulation NOA</p>
+            </div>
           </div>
-          <p className="text-[10px] text-muted-foreground">Default Fy: 29.48 lbf. Same as membrane Fy unless separate insulation fastener NOA.</p>
         </div>
       </details>
+
+      <p className="text-xs text-blue-700 bg-blue-50 p-2 rounded">
+        If a TAS 105 pull test was performed by a third-party lab, attach the lab report to the work order photos. The PE will enter test results in the calculation tool.
+      </p>
 
       {/* Section 5 — Inspector Notes */}
       <details open className="border rounded-lg">
@@ -1201,16 +1172,6 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
             <Label className="text-xs">Field Observations</Label>
             <Textarea rows={3} placeholder="Note deck conditions, existing attachment, visible damage, moisture, ponding..." value={formData.field_observations ?? ""} onChange={(e) => setField("field_observations", e.target.value)} />
           </div>
-          <FieldInput label="TAS 105 Test Location Description" field="tas105_location" formData={formData} setField={setField} />
-          {formData.fy_source === "From TAS 105 Test" && (
-            <>
-              <FieldInput label="Testing Agency" field="tas105_agency" formData={formData} setField={setField} />
-              <div className="space-y-1.5">
-                <Label className="text-xs">Test Date</Label>
-                <Input type="date" value={formData.tas105_date ?? ""} onChange={(e) => setField("tas105_date", e.target.value)} />
-              </div>
-            </>
-          )}
         </div>
       </details>
     </div>

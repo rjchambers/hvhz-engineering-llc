@@ -297,17 +297,68 @@ export default function FastenerCalc() {
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Fy (lbf)" value={fyLbf} onChange={setFyLbf} type="number" />
-                  <div><Label className="text-xs text-muted-foreground">Source</Label><Badge variant="outline">{fySource === "tas105" ? "TAS 105" : "NOA"}</Badge></div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Source</Label>
+                    <Badge variant="outline" className={cn(tas105Result && !tas105Result.pass ? "text-destructive border-destructive" : "")}>
+                      {tas105Raw.length === 0 ? "NOA" : tas105Result?.pass ? "TAS 105 (MCRF)" : "TAS 105 (FAIL)"}
+                    </Badge>
+                  </div>
                   <Field label="Board Length (ft)" value={boardLength} onChange={setBoardLength} type="number" />
                   <Field label="Board Width (ft)" value={boardWidth} onChange={setBoardWidth} type="number" />
                   <Field label="Insulation Fy (lbf)" value={insulationFy} onChange={setInsulationFy} type="number" />
                   <Field label="EWA membrane (ft²)" value={ewaMembrane} onChange={setEwaMembrane} type="number" />
                 </div>
-                {tas105Result && (
-                  <div className="bg-muted/50 rounded p-3 font-mono text-xs space-y-0.5">
-                    <p>TAS 105: n={tas105Result.n}, Mean={tas105Result.mean_lbf}, σ={tas105Result.stdDev_lbf}, MCRF={tas105Result.MCRF_lbf} lbf — <span className={tas105Result.pass?"text-green-600":"text-destructive"}>{tas105Result.pass?"PASS":"FAIL"}</span></p>
-                  </div>
-                )}
+                {(() => {
+                  const tas105Req = isTAS105Required(deckType as DeckType, constructionType as ConstructionType);
+                  const showFullBlock = deckType === "lw_concrete" || (tas105Req.required && constructionType === "recover");
+                  const showAmberNote = !showFullBlock && tas105Req.required;
+
+                  if (showFullBlock) return (
+                    <div className="space-y-3 border rounded p-3 bg-muted/30">
+                      <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
+                        {deckType === "lw_concrete"
+                          ? "LW insulating concrete requires TAS 105 field testing per RAS 117. Enter results from third-party lab report."
+                          : `TAS 105 may be required for ${DECK_LABELS[deckType] ?? deckType} recover per RAS 117. If a lab report was submitted, enter results above.`}
+                      </p>
+                      <Field label="Testing Agency" value={tas105Agency} onChange={setTas105Agency} />
+                      <div><Label className="text-xs text-muted-foreground">Test Date</Label><Input type="date" value={tas105Date} onChange={e => setTas105Date(e.target.value)} className="h-9 text-sm" /></div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Raw Pull Test Values (lbf)</Label>
+                        <Textarea rows={2} placeholder="350, 412, 389, 401, 378" defaultValue={tas105Raw.join(", ")} onBlur={(e) => {
+                          const vals = e.target.value.split(/[,\n]+/).map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+                          setTas105Raw(vals);
+                        }} />
+                      </div>
+                      {tas105Result && (
+                        <div className="bg-card border rounded p-3 font-mono text-xs space-y-1">
+                          <p>n: {tas105Result.n} | Mean: {tas105Result.mean_lbf} lbf | Std Dev: {tas105Result.stdDev_lbf} lbf</p>
+                          <p>t-Factor: {tas105Result.tFactor} | MCRF: {tas105Result.MCRF_lbf} lbf</p>
+                          <Badge className={cn("text-xs", tas105Result.pass ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
+                            {tas105Result.pass ? "PASS — MCRF ≥ 275 lbf" : "FAIL — MCRF < 275 lbf"}
+                          </Badge>
+                          {tas105Result.pass && (
+                            <p className="text-xs text-blue-600 mt-1">Fy updated to MCRF from TAS 105.</p>
+                          )}
+                          {!tas105Result.pass && (
+                            <p className="text-xs text-destructive mt-1 font-semibold">TAS 105 FAILURE — Permit cannot be issued until deck is repaired and re-tested. See FBC §1520.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+
+                  if (showAmberNote) return (
+                    <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
+                      TAS 105 may be required for {DECK_LABELS[deckType] ?? deckType} recover per RAS 117. If a lab report was submitted, enter results above.
+                    </p>
+                  );
+
+                  return (
+                    <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                      TAS 105 not required for {DECK_LABELS[deckType] ?? deckType} {constructionType}. Using NOA Fy = {fyLbf} lbf.
+                    </p>
+                  );
+                })()}
               </CardContent>
             </Card>
           </div>
