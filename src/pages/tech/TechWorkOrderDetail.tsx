@@ -308,7 +308,7 @@ export default function TechWorkOrderDetail() {
               <Label className="text-xs">Inspection Date *</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.inspection_date && "text-muted-foreground")}>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal min-h-[44px] text-base sm:text-sm", !formData.inspection_date && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {formData.inspection_date ? format(new Date(formData.inspection_date), "PPP") : "Pick date"}
                   </Button>
@@ -326,20 +326,20 @@ export default function TechWorkOrderDetail() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Temperature (°F)</Label>
-              <Input type="number" value={formData.temperature_f ?? ""} onChange={(e) => setField("temperature_f", Number(e.target.value))} />
+              <Input className="min-h-[44px] text-base sm:text-sm" type="number" value={formData.temperature_f ?? ""} onChange={(e) => setField("temperature_f", Number(e.target.value))} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Weather Notes</Label>
-              <Input value={formData.weather_notes ?? ""} onChange={(e) => setField("weather_notes", e.target.value)} />
+              <Input className="min-h-[44px] text-base sm:text-sm" value={formData.weather_notes ?? ""} onChange={(e) => setField("weather_notes", e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Inspector Name *</Label>
-              <Input value={formData.inspector_name ?? ""} onChange={(e) => setField("inspector_name", e.target.value)} />
+              <Input className="min-h-[44px] text-base sm:text-sm" value={formData.inspector_name ?? ""} onChange={(e) => setField("inspector_name", e.target.value)} />
               {errors.inspector_name && <p className="text-xs text-destructive">{errors.inspector_name}</p>}
             </div>
             <div className="sm:col-span-2 space-y-1.5">
               <Label className="text-xs">Notes</Label>
-              <Textarea value={formData.notes ?? ""} onChange={(e) => setField("notes", e.target.value)} rows={3} />
+              <Textarea className="text-base sm:text-sm" value={formData.notes ?? ""} onChange={(e) => setField("notes", e.target.value)} rows={3} />
             </div>
           </div>
         </section>
