@@ -149,6 +149,23 @@ function PartnerDialog({
   );
 }
 
+// ─── Cleanup Button ───
+function CleanupButton() {
+  const [cleaning, setCleaning] = useState(false);
+  const handleCleanup = async () => {
+    setCleaning(true);
+    const { data, error } = await supabase.functions.invoke("cleanup-orphaned-photos");
+    if (error) toast.error("Cleanup failed: " + error.message);
+    else toast.success(`Cleanup complete — ${data.deleted} orphaned files removed`);
+    setCleaning(false);
+  };
+  return (
+    <Button variant="outline" onClick={handleCleanup} disabled={cleaning} className="gap-2">
+      {cleaning ? "Cleaning…" : "Clean Up Orphaned Photos"}
+    </Button>
+  );
+}
+
 // ─── Main Settings Page ───
 export default function Settings() {
   // Partners tab
@@ -357,6 +374,16 @@ export default function Settings() {
                   <Button disabled className="opacity-50">Save</Button>
                   <p className="text-xs text-muted-foreground mt-1">Email provider configuration — connect Resend in a future prompt.</p>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle className="text-sm">Storage Maintenance</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground mb-3">Remove orphaned photo files from storage that are no longer referenced by any work order.</p>
+                <CleanupButton />
               </CardContent>
             </Card>
           </TabsContent>

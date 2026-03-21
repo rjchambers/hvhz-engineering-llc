@@ -1,5 +1,11 @@
 import jsPDF from 'jspdf';
 
+export interface PhotoData {
+  base64DataUrl: string;
+  section_tag: string | null;
+  caption: string | null;
+}
+
 export class HVHZReportBuilder {
   doc: jsPDF;
   yPos = 46;
@@ -97,6 +103,101 @@ export class HVHZReportBuilder {
     this.yPos += 3;
   }
 
+  addPhotoPage(photos: PhotoData[]) {
+    if (!photos.length) return;
+
+    this.doc.addPage();
+    this.doc.setFillColor(27, 42, 74);
+    this.doc.rect(0, 0, this.pageW, 12, 'F');
+    this.doc.setTextColor(255, 255, 255);
+    this.doc.setFontSize(9);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.text('HVHZ ENGINEERING — Photo Documentation', this.ml, 8);
+
+    this.doc.setTextColor(27, 42, 74);
+    this.doc.setFontSize(11);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.text('Field Photo Documentation', this.ml, 22);
+    this.doc.setDrawColor(27, 42, 74);
+    this.doc.setLineWidth(0.3);
+    this.doc.line(this.ml, 23, this.ml + this.cw, 23);
+
+    const colW = 85;
+    const imgH = 58;
+    const textH = 9;
+    const cellH = imgH + textH + 4;
+    const gutter = 7;
+    const cols = [this.ml, this.ml + colW + gutter];
+    const topMargin = 28;
+    const bottomLimit = this.pageH - 18;
+
+    let col = 0;
+    let yRow = topMargin;
+    let lastTag = '';
+
+    for (let i = 0; i < photos.length; i++) {
+      const photo = photos[i];
+      const tag = photo.section_tag ?? 'General';
+
+      if (tag !== lastTag && col === 0) {
+        if (yRow + 6 + cellH > bottomLimit) {
+          this.doc.addPage();
+          this.drawContinuationHeader();
+          yRow = 20;
+          col = 0;
+        }
+        this.doc.setFontSize(8);
+        this.doc.setFont('helvetica', 'bold');
+        this.doc.setTextColor(27, 42, 74);
+        this.doc.text(tag.toUpperCase(), this.ml, yRow + 4);
+        yRow += 7;
+        lastTag = tag;
+      }
+
+      const x = cols[col];
+
+      if (col === 0 && yRow + cellH > bottomLimit) {
+        this.doc.addPage();
+        this.drawContinuationHeader();
+        yRow = 20;
+        lastTag = '';
+      }
+
+      this.doc.setDrawColor(220, 220, 220);
+      this.doc.setLineWidth(0.3);
+      this.doc.rect(x, yRow, colW, imgH, 'S');
+
+      try {
+        this.doc.addImage(photo.base64DataUrl, 'JPEG', x, yRow, colW, imgH);
+      } catch {
+        this.doc.setFillColor(245, 245, 245);
+        this.doc.rect(x, yRow, colW, imgH, 'F');
+        this.doc.setFontSize(7);
+        this.doc.setTextColor(180, 180, 180);
+        this.doc.text('[Photo unavailable]', x + colW / 2, yRow + imgH / 2, { align: 'center' });
+      }
+
+      this.doc.setFontSize(7.5);
+      this.doc.setFont('helvetica', 'normal');
+      this.doc.setTextColor(80, 80, 80);
+      const captionY = yRow + imgH + 5;
+
+      if (photo.caption) {
+        const captionLines = this.doc.splitTextToSize(photo.caption, colW - 2);
+        this.doc.text(captionLines[0], x + 1, captionY);
+      } else {
+        this.doc.setTextColor(160, 160, 160);
+        this.doc.text(tag, x + 1, captionY);
+      }
+
+      col++;
+      if (col >= 2) {
+        col = 0;
+        yRow += cellH + 4;
+      }
+    }
+  }
+
   addPESignaturePage(
     peProfile: { full_name: string; pe_license_number: string | null },
     peNotes: string | null,
@@ -128,7 +229,6 @@ export class HVHZReportBuilder {
       this.yPos += noteLines.length * 5 + 10;
     }
 
-    // Signature fields
     this.doc.setDrawColor(27, 42, 74);
     this.doc.setLineWidth(0.3);
     this.doc.line(this.ml, this.yPos + 20, this.ml + 80, this.yPos + 20);
@@ -142,7 +242,6 @@ export class HVHZReportBuilder {
     this.doc.text('FL PE #' + (peProfile.pe_license_number ?? ''), this.ml, this.yPos);
     this.doc.text(peProfile.full_name, this.ml + 100, this.yPos);
 
-    // Stamp placeholder box
     this.doc.setDrawColor(150, 150, 150);
     this.doc.setLineWidth(0.5);
     this.doc.rect(this.ml, this.yPos + 10, 64, 64, 'S');

@@ -1,4 +1,4 @@
-import { HVHZReportBuilder } from './reportLayout';
+import { HVHZReportBuilder, type PhotoData } from './reportLayout';
 import { format } from 'date-fns';
 import { runDrainageCalc, DESIGN_RAINFALL, type DrainageCalcInputs } from '@/lib/drainage-calc';
 import { calculateFastener, calculateTAS105, type FastenerInputs } from '@/lib/fastener-engine';
@@ -25,7 +25,8 @@ export function generateReport(
   workOrder: { id: string; scheduled_date: string | null; orders?: { job_address?: string | null; job_city?: string | null; job_zip?: string | null; job_county?: string | null } | null },
   fieldData: Record<string, any>,
   engineerProfile: EngineerProfile,
-  peNotes: string | null
+  peNotes: string | null,
+  photos?: PhotoData[]
 ): { blob: Blob; stampBoxMm: { x: number; y: number; size: number } | null } {
   const title = SERVICE_TITLES[serviceType] || serviceType;
   const address = [workOrder.orders?.job_address, workOrder.orders?.job_city, workOrder.orders?.job_zip].filter(Boolean).join(', ');
@@ -78,6 +79,11 @@ export function generateReport(
     case 'fastener-calculation':
       addFastenerCalcSections(rb, fieldData);
       break;
+  }
+
+  // Embed photo page ONLY for wind-mitigation-permit
+  if (serviceType === 'wind-mitigation-permit' && photos && photos.length > 0) {
+    rb.addPhotoPage(photos);
   }
 
   // PE signature page
