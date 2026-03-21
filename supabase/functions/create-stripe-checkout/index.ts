@@ -6,17 +6,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const PRICE_MAP: Record<string, string> = {
-  "tas-105": "STRIPE_PRICE_TAS105",
-  "tas-106": "STRIPE_PRICE_TAS106",
-  "tas-124": "STRIPE_PRICE_TAS124",
-  "tas-126": "STRIPE_PRICE_TAS126",
-  "roof-inspection": "STRIPE_PRICE_ROOF_INSPECTION",
-  "roof-certification": "STRIPE_PRICE_ROOF_CERT",
-  "drainage-analysis": "STRIPE_PRICE_DRAINAGE",
-  "special-inspection": "STRIPE_PRICE_SPECIAL_INSPECTION",
-  "wind-mitigation-permit": "STRIPE_PRICE_WIND_MIT",
-  "fastener-calculation": "STRIPE_PRICE_FASTENER",
+const SERVICE_CATALOG: Record<string, { name: string; price: number }> = {
+  "tas-105": { name: "TAS-105 Fastener Withdrawal Test", price: 450 },
+  "tas-106": { name: "TAS-106 Tile Bonding Verification", price: 450 },
+  "tas-124": { name: "TAS-124 Bonded Pull Test", price: 450 },
+  "tas-126": { name: "TAS-126 Moisture Survey", price: 450 },
+  "roof-inspection": { name: "Roof Inspection", price: 350 },
+  "roof-certification": { name: "Roof Certification", price: 450 },
+  "drainage-analysis": { name: "Drainage Analysis", price: 550 },
+  "special-inspection": { name: "Special Inspection", price: 400 },
+  "wind-mitigation": { name: "Wind Mitigation (Roofing Permit)", price: 500 },
+  "fastener-calc": { name: "Fastener Uplift Calculation", price: 350 },
 };
 
 serve(async (req) => {
@@ -33,7 +33,6 @@ serve(async (req) => {
       });
     }
 
-    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -63,16 +62,9 @@ serve(async (req) => {
       });
     }
 
-    const lineItems = services.map((svc: string) => {
-      const envVar = PRICE_MAP[svc];
-      const priceId = envVar ? Deno.env.get(envVar) : null;
-      if (!priceId) throw new Error(`Price not configured for service: ${svc}`);
-      return { price: priceId, quantity: 1 };
-    });
-
     const appUrl = Deno.env.get("APP_URL") || "https://hvhzengineering.com";
 
-    // Create Stripe checkout session via API
+    // Build line items using price_data (no pre-created Price IDs needed)
     const params = new URLSearchParams();
     params.append("mode", "payment");
     params.append("success_url", `${appUrl}/portal/order-confirmed?session_id={CHECKOUT_SESSION_ID}`);
@@ -81,9 +73,13 @@ serve(async (req) => {
     params.append("metadata[services]", JSON.stringify(services));
     params.append("metadata[jobAddress]", jobAddress || "");
 
-    lineItems.forEach((item: { price: string; quantity: number }, i: number) => {
-      params.append(`line_items[${i}][price]`, item.price);
-      params.append(`line_items[${i}][quantity]`, String(item.quantity));
+    services.forEach((svc: string, i: number) => {
+      const catalog = SERVICE_CATALOG[svc];
+      if (!catalog) throw new Error(`Unknown service: ${svc}`);
+      params.append(`line_items[${i}][price_data][currency]`, "usd");
+      params.append(`line_items[${i}][price_data][product_data][name]`, catalog.name);
+      params.append(`line_items[${i}][price_data][unit_amount]`, String(catalog.price * 100));
+      params.append(`line_items[${i}][quantity]`, "1");
     });
 
     const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
