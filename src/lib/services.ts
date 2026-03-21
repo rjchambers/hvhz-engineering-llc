@@ -7,8 +7,8 @@ export const SERVICES = [
   { key: "roof-certification", name: "Roof Certification", price: 450 },
   { key: "drainage-analysis", name: "Drainage Analysis", price: 550 },
   { key: "special-inspection", name: "Special Inspection", price: 400 },
-  { key: "wind-mitigation", name: "Wind Mitigation (Roofing Permit)", price: 500 },
-  { key: "fastener-calc", name: "Fastener Uplift Calculation", price: 350 },
+  { key: "wind-mitigation-permit", name: "Wind Mitigation (Roofing Permit)", price: 500 },
+  { key: "fastener-calculation", name: "Fastener Uplift Calculation", price: 350 },
 ] as const;
 
 export type ServiceKey = (typeof SERVICES)[number]["key"];
