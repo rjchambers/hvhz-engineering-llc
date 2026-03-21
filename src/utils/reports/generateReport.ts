@@ -26,7 +26,7 @@ export function generateReport(
   fieldData: Record<string, any>,
   engineerProfile: EngineerProfile,
   peNotes: string | null
-): Blob {
+): { blob: Blob; stampBoxMm: { x: number; y: number; size: number } | null } {
   const title = SERVICE_TITLES[serviceType] || serviceType;
   const address = [workOrder.orders?.job_address, workOrder.orders?.job_city, workOrder.orders?.job_zip].filter(Boolean).join(', ');
   const jobNum = workOrder.id.slice(0, 8).toUpperCase();
