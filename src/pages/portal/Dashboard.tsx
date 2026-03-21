@@ -230,8 +230,11 @@ export default function Dashboard() {
         ) : orders.length === 0 ? (
           <div className="mt-8 rounded-lg border bg-card p-12 text-center">
             <PackageOpen className="mx-auto h-10 w-10 text-muted-foreground/40 mb-3" />
-            <p className="text-sm font-medium text-primary">No orders yet</p>
+            <p className="text-sm font-medium text-primary">Ready to get started?</p>
             <p className="text-xs text-muted-foreground mt-1">Place your first order to see it here.</p>
+            <Button asChild className="mt-4 bg-hvhz-teal text-white hover:bg-hvhz-teal/90">
+              <a href="/portal/new-order">Place Your First Order</a>
+            </Button>
           </div>
         ) : (
           <div className="mt-6 rounded-lg border bg-card overflow-hidden">

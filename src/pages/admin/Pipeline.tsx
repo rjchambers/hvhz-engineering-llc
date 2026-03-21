@@ -2,6 +2,7 @@ import { AdminLayout } from "@/components/AdminLayout";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { PackageOpen } from "lucide-react";
 import {
   KANBAN_COLUMNS,
   STATUS_LABELS,

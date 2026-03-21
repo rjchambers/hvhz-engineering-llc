@@ -359,8 +359,8 @@ export default function TechWorkOrderDetail() {
           </p>
           {errors.photos && <p className="text-xs text-destructive mb-2 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.photos}</p>}
 
-          {/* Upload per section tag */}
-          <div className="flex flex-wrap gap-2 mb-4">
+          {/* Upload per section tag — large touch targets on mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
             {sectionTags.map((tag) => (
               <label key={tag} className="relative">
                 <input
@@ -372,15 +372,15 @@ export default function TechWorkOrderDetail() {
                   onChange={(e) => handlePhotoUpload(e, tag)}
                   disabled={uploading}
                 />
-                <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded-md cursor-pointer hover:bg-muted transition-colors">
-                  <Camera className="h-3 w-3" /> {tag}
+                <span className="flex items-center justify-center gap-2 w-full min-h-[44px] px-4 py-3 text-sm font-medium border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted transition-colors active:scale-[0.98]">
+                  <Camera className="h-5 w-5" /> {tag}
                 </span>
               </label>
             ))}
           </div>
-          {uploading && <p className="text-xs text-muted-foreground mb-2">Uploading…</p>}
+          {uploading && <p className="text-xs text-muted-foreground mb-2 animate-pulse">Uploading…</p>}
 
-          {/* Photo grid */}
+          {/* Photo grid — 2 cols on mobile */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {photos.map((p) => (
               <div key={p.id} className="border rounded-md overflow-hidden">
@@ -388,12 +388,12 @@ export default function TechWorkOrderDetail() {
                 <div className="p-2 space-y-1">
                   <p className="text-[10px] text-muted-foreground">{p.section_tag}</p>
                   <Input
-                    className="h-7 text-xs"
+                    className="h-8 text-xs"
                     placeholder="Caption"
                     defaultValue={p.caption ?? ""}
                     onBlur={(e) => updateCaption(p.id, e.target.value)}
                   />
-                  <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive w-full" onClick={() => deletePhoto(p)}>
+                  <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive w-full min-h-[44px] sm:min-h-0" onClick={() => deletePhoto(p)}>
                     <Trash2 className="h-3 w-3 mr-1" /> Delete
                   </Button>
                 </div>
@@ -403,11 +403,11 @@ export default function TechWorkOrderDetail() {
         </section>
 
         {/* SUBMIT */}
-        <div className="flex justify-end">
+        <div className="flex justify-end pb-6">
           <Button
             onClick={handleSubmit}
             disabled={submitting}
-            className="bg-hvhz-navy hover:bg-hvhz-navy/90 px-8"
+            className="bg-hvhz-navy hover:bg-hvhz-navy/90 px-8 min-h-[44px] text-base sm:text-sm"
           >
             {submitting ? "Submitting…" : "Submit Work Order"}
           </Button>

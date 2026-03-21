@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { STATUS_BADGE_CLASSES, STATUS_LABELS, daysSince } from "@/lib/work-order-helpers";
 import { cn } from "@/lib/utils";
-import { Clock, MapPin } from "lucide-react";
+import { Clock, MapPin, CheckCircle2 } from "lucide-react";
 
 interface WO {
   id: string;
