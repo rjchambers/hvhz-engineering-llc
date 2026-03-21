@@ -437,7 +437,7 @@ function ServiceForm({ serviceType, formData, setField, errors }: {
     case "drainage-analysis": return <DrainageAnalysisForm formData={formData} setField={setField} errors={errors} />;
     case "special-inspection": return <SpecialInspectionForm formData={formData} setField={setField} errors={errors} />;
     case "wind-mitigation-permit": return <WindMitigationForm formData={formData} setField={setField} />;
-    case "fastener-calculation": return <FastenerCalcForm formData={formData} setField={setField} />;
+    case "fastener-calculation": return <FastenerCalcForm formData={formData} setField={setField} errors={errors} />;
     default: return <p className="text-sm text-muted-foreground">No specific form for this service type.</p>;
   }
 }
