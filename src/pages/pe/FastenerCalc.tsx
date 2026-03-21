@@ -164,6 +164,10 @@ export default function FastenerCalc() {
       pe_Kzt: parseFloat(Kzt), pe_Kd: 0.85, pe_Ke: parseFloat(Ke),
       pe_noa_mdp_eff: mdpEff, pe_ewa_membrane: ewaMembrane ? parseFloat(ewaMembrane) : null,
       pe_calc_outputs: calcOutputs ? JSON.parse(JSON.stringify(calcOutputs)) : null,
+      pe_tas105_raw_values: tas105Raw.length > 0 ? tas105Raw : null,
+      pe_tas105_agency: tas105Agency || null,
+      pe_tas105_date: tas105Date || null,
+      fy_source: derivedFySource === "tas105" ? "From TAS 105 Test" : "From NOA",
     };
     const { error } = await supabase.from("field_data").upsert({
       ...(fieldDataId ? { id: fieldDataId } : {}),
