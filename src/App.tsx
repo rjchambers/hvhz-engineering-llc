@@ -18,6 +18,8 @@ import AdminUsers from "./pages/admin/Users";
 import AdminAnalytics from "./pages/admin/Analytics";
 import TechDashboard from "./pages/tech/TechDashboard";
 import TechWorkOrderDetail from "./pages/tech/TechWorkOrderDetail";
+import PEReviewQueue from "./pages/pe/PEReviewQueue";
+import PEReviewDetail from "./pages/pe/PEReviewDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +47,8 @@ const App = () => (
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="/tech" element={<TechDashboard />} />
           <Route path="/tech/work-order/:id" element={<TechWorkOrderDetail />} />
+          <Route path="/pe" element={<PEReviewQueue />} />
+          <Route path="/pe/review/:id" element={<PEReviewDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
