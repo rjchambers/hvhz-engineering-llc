@@ -14,7 +14,8 @@ import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { ArrowLeft, Calculator, Loader2, Lock, AlertTriangle, XCircle, Info, CheckCircle, ChevronDown } from "lucide-react";
-import { calculateFastener, calculateTAS105, type FastenerInputs, type FastenerOutputs, type RoofSystemType, type DeckType, type ConstructionType } from "@/lib/fastener-engine";
+import { calculateFastener, calculateTAS105, isTAS105Required, type FastenerInputs, type FastenerOutputs, type RoofSystemType, type DeckType, type ConstructionType } from "@/lib/fastener-engine";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { Json } from "@/integrations/supabase/types";
 
