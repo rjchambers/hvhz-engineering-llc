@@ -109,7 +109,7 @@ export default function TechWorkOrderDetail() {
         photoData.map(async (p) => {
           const { data: urlData } = await supabase.storage
             .from("field-photos")
-            .createSignedUrl(p.storage_path, 3600);
+            .createSignedUrl(p.storage_path, 43200);
           return { ...p, url: urlData?.signedUrl ?? "" };
         })
       );
