@@ -1,4 +1,4 @@
-import { PlusCircle, ClipboardList, User } from "lucide-react";
+import { PlusCircle, LayoutDashboard, User } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -17,7 +17,7 @@ import {
 
 const portalItems = [
   { title: "New Order", url: "/portal/new-order", icon: PlusCircle },
-  { title: "My Orders", url: "/portal/orders", icon: ClipboardList },
+  { title: "My Orders", url: "/portal/dashboard", icon: LayoutDashboard },
   { title: "My Profile", url: "/portal/profile", icon: User },
 ];
 

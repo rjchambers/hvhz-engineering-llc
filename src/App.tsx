@@ -10,7 +10,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import NewOrder from "./pages/portal/NewOrder";
 import OrderConfirmed from "./pages/portal/OrderConfirmed";
-import MyOrders from "./pages/portal/MyOrders";
+import Dashboard from "./pages/portal/Dashboard";
 import MyProfile from "./pages/portal/MyProfile";
 import NotFound from "./pages/NotFound";
 
@@ -30,7 +30,8 @@ const App = () => (
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/portal/new-order" element={<NewOrder />} />
           <Route path="/portal/order-confirmed" element={<OrderConfirmed />} />
-          <Route path="/portal/orders" element={<MyOrders />} />
+          <Route path="/portal/dashboard" element={<Dashboard />} />
+          <Route path="/portal/orders" element={<Dashboard />} />
           <Route path="/portal/profile" element={<MyProfile />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
