@@ -24,8 +24,7 @@ export const PHOTO_SECTION_TAGS: Record<string, string[]> = {
   ],
   "fastener-calculation": [
     "Fastener Field Zone", "Fastener Perimeter Zone", "Fastener Corner Zone",
-    "Deck Condition", "Existing Membrane", "NOA Label / Approval Tag",
-    "TAS 105 Test Location", "Overview",
+    "Deck Condition", "Existing Membrane", "Lab Report / NOA Label", "Overview",
   ],
 };
 
