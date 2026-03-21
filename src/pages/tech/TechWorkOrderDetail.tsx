@@ -228,7 +228,23 @@ export default function TechWorkOrderDetail() {
   };
 
   if (!loaded) {
-    return <TechLayout><div className="p-6"><p className="text-sm text-muted-foreground">Loading…</p></div></TechLayout>;
+    return (
+      <TechLayout>
+        <div className="p-6 max-w-4xl mx-auto space-y-6">
+          <div className="h-8 w-24 bg-muted animate-pulse rounded" />
+          <div className="bg-card border rounded-lg p-5 space-y-3">
+            <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-muted animate-pulse rounded" />)}
+            </div>
+          </div>
+          <div className="bg-card border rounded-lg p-5 space-y-3">
+            <div className="h-6 w-48 bg-muted animate-pulse rounded" />
+            {[1, 2, 3].map(i => <div key={i} className="h-10 bg-muted animate-pulse rounded" />)}
+          </div>
+        </div>
+      </TechLayout>
+    );
   }
 
   if (!wo) {
@@ -292,7 +308,7 @@ export default function TechWorkOrderDetail() {
               <Label className="text-xs">Inspection Date *</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.inspection_date && "text-muted-foreground")}>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal min-h-[44px] text-base sm:text-sm", !formData.inspection_date && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {formData.inspection_date ? format(new Date(formData.inspection_date), "PPP") : "Pick date"}
                   </Button>
@@ -310,20 +326,20 @@ export default function TechWorkOrderDetail() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Temperature (°F)</Label>
-              <Input type="number" value={formData.temperature_f ?? ""} onChange={(e) => setField("temperature_f", Number(e.target.value))} />
+              <Input className="min-h-[44px] text-base sm:text-sm" type="number" value={formData.temperature_f ?? ""} onChange={(e) => setField("temperature_f", Number(e.target.value))} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Weather Notes</Label>
-              <Input value={formData.weather_notes ?? ""} onChange={(e) => setField("weather_notes", e.target.value)} />
+              <Input className="min-h-[44px] text-base sm:text-sm" value={formData.weather_notes ?? ""} onChange={(e) => setField("weather_notes", e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Inspector Name *</Label>
-              <Input value={formData.inspector_name ?? ""} onChange={(e) => setField("inspector_name", e.target.value)} />
+              <Input className="min-h-[44px] text-base sm:text-sm" value={formData.inspector_name ?? ""} onChange={(e) => setField("inspector_name", e.target.value)} />
               {errors.inspector_name && <p className="text-xs text-destructive">{errors.inspector_name}</p>}
             </div>
             <div className="sm:col-span-2 space-y-1.5">
               <Label className="text-xs">Notes</Label>
-              <Textarea value={formData.notes ?? ""} onChange={(e) => setField("notes", e.target.value)} rows={3} />
+              <Textarea className="text-base sm:text-sm" value={formData.notes ?? ""} onChange={(e) => setField("notes", e.target.value)} rows={3} />
             </div>
           </div>
         </section>
@@ -343,8 +359,8 @@ export default function TechWorkOrderDetail() {
           </p>
           {errors.photos && <p className="text-xs text-destructive mb-2 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.photos}</p>}
 
-          {/* Upload per section tag */}
-          <div className="flex flex-wrap gap-2 mb-4">
+          {/* Upload per section tag — large touch targets on mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
             {sectionTags.map((tag) => (
               <label key={tag} className="relative">
                 <input
@@ -356,15 +372,15 @@ export default function TechWorkOrderDetail() {
                   onChange={(e) => handlePhotoUpload(e, tag)}
                   disabled={uploading}
                 />
-                <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded-md cursor-pointer hover:bg-muted transition-colors">
-                  <Camera className="h-3 w-3" /> {tag}
+                <span className="flex items-center justify-center gap-2 w-full min-h-[44px] px-4 py-3 text-sm font-medium border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted transition-colors active:scale-[0.98]">
+                  <Camera className="h-5 w-5" /> {tag}
                 </span>
               </label>
             ))}
           </div>
-          {uploading && <p className="text-xs text-muted-foreground mb-2">Uploading…</p>}
+          {uploading && <p className="text-xs text-muted-foreground mb-2 animate-pulse">Uploading…</p>}
 
-          {/* Photo grid */}
+          {/* Photo grid — 2 cols on mobile */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {photos.map((p) => (
               <div key={p.id} className="border rounded-md overflow-hidden">
@@ -372,12 +388,12 @@ export default function TechWorkOrderDetail() {
                 <div className="p-2 space-y-1">
                   <p className="text-[10px] text-muted-foreground">{p.section_tag}</p>
                   <Input
-                    className="h-7 text-xs"
+                    className="h-8 text-xs"
                     placeholder="Caption"
                     defaultValue={p.caption ?? ""}
                     onBlur={(e) => updateCaption(p.id, e.target.value)}
                   />
-                  <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive w-full" onClick={() => deletePhoto(p)}>
+                  <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive w-full min-h-[44px] sm:min-h-0" onClick={() => deletePhoto(p)}>
                     <Trash2 className="h-3 w-3 mr-1" /> Delete
                   </Button>
                 </div>
@@ -387,11 +403,11 @@ export default function TechWorkOrderDetail() {
         </section>
 
         {/* SUBMIT */}
-        <div className="flex justify-end">
+        <div className="flex justify-end pb-6">
           <Button
             onClick={handleSubmit}
             disabled={submitting}
-            className="bg-hvhz-navy hover:bg-hvhz-navy/90 px-8"
+            className="bg-hvhz-navy hover:bg-hvhz-navy/90 px-8 min-h-[44px] text-base sm:text-sm"
           >
             {submitting ? "Submitting…" : "Submit Work Order"}
           </Button>
