@@ -14,8 +14,11 @@ export function PELayout({ children }: PELayoutProps) {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "engineer")
-      .maybeSingle().then(({ data }) => setIsEngineer(!!data));
+    supabase.from("user_roles").select("role").eq("user_id", user.id)
+      .then(({ data }) => {
+        const roles = new Set(data?.map((r) => r.role) ?? []);
+        setIsEngineer(roles.has("engineer") || roles.has("admin"));
+      });
   }, [user]);
 
   if (loading || isEngineer === null)

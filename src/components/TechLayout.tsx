@@ -20,9 +20,10 @@ export function TechLayout({ children }: TechLayoutProps) {
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .eq("role", "technician")
-      .maybeSingle()
-      .then(({ data }) => setIsTech(!!data));
+      .then(({ data }) => {
+        const roles = new Set(data?.map((r) => r.role) ?? []);
+        setIsTech(roles.has("technician") || roles.has("admin"));
+      });
   }, [user]);
 
   if (loading || isTech === null) {
