@@ -23,6 +23,7 @@ import PEReviewQueue from "./pages/pe/PEReviewQueue";
 import PEReviewDetail from "./pages/pe/PEReviewDetail";
 import WindMitigationCalc from "./pages/pe/WindMitigationCalc";
 import FastenerCalc from "./pages/pe/FastenerCalc";
+import DrainageCalc from "./pages/pe/DrainageCalc";
 import PEProfile from "./pages/pe/PEProfile";
 import NotFound from "./pages/NotFound";
 
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="/pe/review/:id" element={<PEReviewDetail />} />
           <Route path="/pe/calculations/wind-mitigation/:id" element={<WindMitigationCalc />} />
           <Route path="/pe/calculations/fastener/:id" element={<FastenerCalc />} />
+          <Route path="/pe/calculations/drainage-analysis/:id" element={<DrainageCalc />} />
           <Route path="/pe/profile" element={<PEProfile />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

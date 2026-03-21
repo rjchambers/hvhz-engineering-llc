@@ -196,6 +196,12 @@ export default function TechWorkOrderDetail() {
     if (wo.service_type === "special-inspection" && !formData.inspector_certification_accepted) {
       newErrors.inspector_certification_accepted = "Must accept certification";
     }
+    if (wo.service_type === "drainage-analysis") {
+      if (!formData.total_roof_area_sqft) newErrors.total_roof_area_sqft = "Required";
+      if (!formData.primary_drains?.length) newErrors.primary_drains = "At least 1 primary drain required";
+      if (!formData.secondary_drains?.length) newErrors.secondary_drains = "Secondary drain required (FBC §1502.3)";
+      if (!formData.drainage_zones?.length) newErrors.drainage_zones = "At least 1 drainage zone required";
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -428,7 +434,7 @@ function ServiceForm({ serviceType, formData, setField, errors }: {
   switch (serviceType) {
     case "roof-inspection": return <RoofInspectionForm formData={formData} setField={setField} />;
     case "roof-certification": return <RoofCertificationForm formData={formData} setField={setField} />;
-    case "drainage-analysis": return <DrainageAnalysisForm formData={formData} setField={setField} />;
+    case "drainage-analysis": return <DrainageAnalysisForm formData={formData} setField={setField} errors={errors} />;
     case "special-inspection": return <SpecialInspectionForm formData={formData} setField={setField} errors={errors} />;
     case "wind-mitigation-permit": return <WindMitigationForm formData={formData} setField={setField} />;
     case "fastener-calculation": return <FastenerCalcForm formData={formData} setField={setField} />;
@@ -562,52 +568,334 @@ function RoofCertificationForm({ formData, setField }: { formData: Record<string
 }
 
 // ─── DRAINAGE ANALYSIS ──────────────────────────────────────────────────────────
-function DrainageAnalysisForm({ formData, setField }: { formData: Record<string, any>; setField: (k: string, v: any) => void }) {
+function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record<string, any>; setField: (k: string, v: any) => void; errors?: Record<string, string> }) {
+  const zones: any[] = formData.drainage_zones ?? [];
+  const primaryDrains: any[] = formData.primary_drains ?? [];
+  const secondaryDrains: any[] = formData.secondary_drains ?? [];
   const slopes: any[] = formData.slope_measurements ?? [];
-  const addSlope = () => setField("slope_measurements", [...slopes, { location: "", slope_percent: "" }]);
-  const updateSlope = (i: number, key: string, val: string) => {
-    const updated = [...slopes];
-    updated[i] = { ...updated[i], [key]: val };
-    setField("slope_measurements", updated);
+  const pondingAreas: any[] = formData.ponding_areas ?? [];
+  const zoneCount = parseInt(formData.zone_count ?? "1") || 1;
+
+  const ZONE_LETTERS = ["A", "B", "C", "D", "E", "F"];
+  const PIPE_DIAMETERS = ["2", "3", "4", "5", "6", "8", "10"];
+  const CONDITIONS = ["Good", "Fair", "Obstructed", "Damaged"];
+  const SLOPES = ['1/16', '1/8', '1/4', '1/2'];
+
+  const handleZoneCountChange = (val: string) => {
+    const count = parseInt(val) || 1;
+    setField("zone_count", val);
+    const newZones = Array.from({ length: count }, (_, i) => {
+      const existing = zones[i];
+      return existing ?? { zone_id: ZONE_LETTERS[i], description: "", area_sqft: "", lowest_point: "" };
+    });
+    setField("drainage_zones", newZones);
+  };
+
+  const updateZone = (i: number, key: string, val: any) => {
+    const updated = [...zones]; updated[i] = { ...updated[i], [key]: val }; setField("drainage_zones", updated);
+  };
+
+  // Primary drains
+  const addPrimary = () => {
+    const id = `D${primaryDrains.length + 1}`;
+    setField("primary_drains", [...primaryDrains, {
+      drain_id: id, zone_id: zones[0]?.zone_id ?? "A", location_description: "",
+      drain_type: "Interior", pipe_diameter_in: 4, leader_type: "Vertical",
+      pipe_slope: "1/8", condition: "Good", strainer_present: false, strainer_condition: "", photo_tag: `Primary Drain ${id}`,
+    }]);
+  };
+  const updatePrimary = (i: number, key: string, val: any) => {
+    const updated = [...primaryDrains]; updated[i] = { ...updated[i], [key]: val }; setField("primary_drains", updated);
+  };
+  const removePrimary = (i: number) => setField("primary_drains", primaryDrains.filter((_, idx) => idx !== i));
+
+  // Secondary drains
+  const addSecondary = () => {
+    const id = `OD${secondaryDrains.length + 1}`;
+    setField("secondary_drains", [...secondaryDrains, {
+      drain_id: id, zone_id: zones[0]?.zone_id ?? "A", secondary_type: "Overflow Drain",
+      location_description: "", pipe_diameter_in: 4, height_above_primary_in: 2,
+      condition: "Good", photo_tag: `Secondary ${id}`,
+    }]);
+  };
+  const updateSecondary = (i: number, key: string, val: any) => {
+    const updated = [...secondaryDrains]; updated[i] = { ...updated[i], [key]: val }; setField("secondary_drains", updated);
+  };
+  const removeSecondary = (i: number) => setField("secondary_drains", secondaryDrains.filter((_, idx) => idx !== i));
+
+  // Slopes
+  const addSlope = () => setField("slope_measurements", [...slopes, { location: "", slope_percent: "", method: "Digital level" }]);
+  const updateSlope = (i: number, key: string, val: any) => {
+    const updated = [...slopes]; updated[i] = { ...updated[i], [key]: val }; setField("slope_measurements", updated);
   };
   const removeSlope = (i: number) => setField("slope_measurements", slopes.filter((_, idx) => idx !== i));
 
+  // Ponding
+  const addPonding = () => setField("ponding_areas", [...pondingAreas, { location: "", area_sqft: "", depth_in: "", hours_after_rain: "" }]);
+  const updatePonding = (i: number, key: string, val: any) => {
+    const updated = [...pondingAreas]; updated[i] = { ...updated[i], [key]: val }; setField("ponding_areas", updated);
+  };
+  const removePonding = (i: number) => setField("ponding_areas", pondingAreas.filter((_, idx) => idx !== i));
+
+  const zoneOptions = zones.length > 0 ? zones.map((z: any) => z.zone_id) : ["A"];
+
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">PE will perform all drainage flow calculations during review.</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <FieldInput label="Roof Area (sqft)" field="roof_area_sqft" type="number" formData={formData} setField={setField} />
-        <FieldInput label="Number of Drains" field="number_of_drains" type="number" formData={formData} setField={setField} />
-        <FieldSelect label="Drain Type" field="drain_type" options={["Interior", "Scupper", "Edge", "Overflow"]} formData={formData} setField={setField} />
-        <FieldInput label="Drain Size (inches)" field="drain_size_inches" type="number" formData={formData} setField={setField} />
-        <FieldInput label="Number of Overflow Drains" field="number_overflow_drains" type="number" formData={formData} setField={setField} />
-        <FieldInput label="Lowest Point Location" field="lowest_point_location" formData={formData} setField={setField} />
-      </div>
+    <div className="space-y-6">
+      <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
+        Collect exact pipe sizes, types, and locations. Calculations are auto-generated from your field data for permit submittal.
+      </p>
 
-      <div className="flex items-center gap-2">
-        <Label className="text-xs">Ponding Evidence</Label>
-        <Switch checked={!!formData.ponding_evidence} onCheckedChange={(c) => setField("ponding_evidence", c)} />
-      </div>
-      {formData.ponding_evidence && (
-        <div className="space-y-1.5">
-          <Label className="text-xs">Ponding Notes</Label>
-          <Textarea value={formData.ponding_notes ?? ""} onChange={(e) => setField("ponding_notes", e.target.value)} rows={2} />
-        </div>
-      )}
-
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <Label className="text-xs font-semibold">Slope Measurements</Label>
-          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addSlope}><Plus className="h-3 w-3" /> Add Measurement</Button>
-        </div>
-        {slopes.map((s, i) => (
-          <div key={i} className="flex gap-2 mb-2">
-            <Input className="h-7 text-xs flex-1" placeholder="Location" value={s.location} onChange={(e) => updateSlope(i, "location", e.target.value)} />
-            <Input className="h-7 text-xs w-24" placeholder="Slope %" value={s.slope_percent} onChange={(e) => updateSlope(i, "slope_percent", e.target.value)} />
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => removeSlope(i)}><Trash2 className="h-3 w-3" /></Button>
+      {/* Section 1 — Roof Information */}
+      <details open className="border rounded-lg">
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">
+          Roof Information
+        </summary>
+        <div className="px-3 pb-3 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FieldSelect label="Roof Type" field="roof_type" options={["Low-Slope", "Flat", "Sloped", "Other"]} formData={formData} setField={setField} />
+            <FieldSelect label="Roof Membrane" field="roof_membrane" options={["Modified Bitumen", "TPO", "EPDM", "BUR", "Metal", "Other"]} formData={formData} setField={setField} />
+            <FieldInput label="Total Roof Area (sqft) *" field="total_roof_area_sqft" type="number" formData={formData} setField={setField} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Number of Drainage Zones</Label>
+              <Select value={formData.zone_count ?? "1"} onValueChange={handleZoneCountChange}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["1", "2", "3", "4"].map((n) => <SelectItem key={n} value={n}>{n}{n === "4" ? "+" : ""}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        ))}
-      </div>
+          {errors?.total_roof_area_sqft && <p className="text-xs text-destructive">{errors.total_roof_area_sqft}</p>}
+          {errors?.drainage_zones && <p className="text-xs text-destructive">{errors.drainage_zones}</p>}
+          {zones.map((z: any, i: number) => (
+            <div key={i} className="border rounded p-3 space-y-2 bg-muted/30">
+              <p className="text-xs font-semibold">Zone {z.zone_id}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <Input className="h-9 text-sm" placeholder="Description" value={z.description} onChange={(e) => updateZone(i, "description", e.target.value)} />
+                <Input className="h-9 text-sm" placeholder="Area (sqft)" type="number" value={z.area_sqft} onChange={(e) => updateZone(i, "area_sqft", Number(e.target.value))} />
+                <Input className="h-9 text-sm" placeholder="Lowest point" value={z.lowest_point} onChange={(e) => updateZone(i, "lowest_point", e.target.value)} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </details>
+
+      {/* Section 2 — Primary Drains */}
+      <details open className="border rounded-lg">
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">
+          Primary Drains ({primaryDrains.length})
+        </summary>
+        <div className="px-3 pb-3 space-y-3">
+          {errors?.primary_drains && <p className="text-xs text-destructive">{errors.primary_drains}</p>}
+          {primaryDrains.map((d: any, i: number) => (
+            <div key={i} className="border rounded p-3 space-y-2 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold">{d.drain_id}</p>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => removePrimary(i)}><Trash2 className="h-3 w-3" /></Button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Zone</Label>
+                  <Select value={d.zone_id} onValueChange={(v) => updatePrimary(i, "zone_id", v)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{zoneOptions.map((z: string) => <SelectItem key={z} value={z}>{z}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Drain Type</Label>
+                  <Select value={d.drain_type} onValueChange={(v) => updatePrimary(i, "drain_type", v)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{["Interior", "Edge", "Parapet"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Pipe Diameter</Label>
+                  <Select value={String(d.pipe_diameter_in)} onValueChange={(v) => updatePrimary(i, "pipe_diameter_in", Number(v))}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{PIPE_DIAMETERS.map((d) => <SelectItem key={d} value={d}>{d}"</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Leader Type</Label>
+                  <Select value={d.leader_type} onValueChange={(v) => updatePrimary(i, "leader_type", v)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Vertical">Vertical (conductor)</SelectItem>
+                      <SelectItem value="Horizontal">Horizontal (leader)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {d.leader_type === "Horizontal" && (
+                  <div className="space-y-1">
+                    <Label className="text-[10px]">Pipe Slope</Label>
+                    <Select value={d.pipe_slope ?? "1/8"} onValueChange={(v) => updatePrimary(i, "pipe_slope", v)}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>{SLOPES.map((s) => <SelectItem key={s} value={s}>{s}" per ft</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Condition</Label>
+                  <Select value={d.condition} onValueChange={(v) => updatePrimary(i, "condition", v)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{CONDITIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Input className="h-8 text-xs" placeholder="Location description (e.g. NE quadrant, center)" value={d.location_description} onChange={(e) => updatePrimary(i, "location_description", e.target.value)} />
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <Switch checked={!!d.strainer_present} onCheckedChange={(c) => updatePrimary(i, "strainer_present", c)} />
+                  <Label className="text-[10px]">Strainer</Label>
+                </div>
+                {d.strainer_present && (
+                  <Select value={d.strainer_condition ?? ""} onValueChange={(v) => updatePrimary(i, "strainer_condition", v)}>
+                    <SelectTrigger className="h-7 w-40 text-[10px]"><SelectValue placeholder="Condition" /></SelectTrigger>
+                    <SelectContent>{["Clean", "Partial blockage", "Fully blocked", "Missing"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground">Photo tag: {d.photo_tag}</p>
+            </div>
+          ))}
+          <Button variant="outline" size="sm" className="gap-1" onClick={addPrimary}><Plus className="h-3 w-3" /> Add Drain</Button>
+        </div>
+      </details>
+
+      {/* Section 3 — Secondary / Overflow Drains */}
+      <details open className="border rounded-lg">
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">
+          Secondary Drains ({secondaryDrains.length})
+        </summary>
+        <div className="px-3 pb-3 space-y-3">
+          <p className="text-[10px] text-muted-foreground">FBC §1502.3 requires independent secondary drainage for all HVHZ roofs.</p>
+          {errors?.secondary_drains && <p className="text-xs text-destructive">{errors.secondary_drains}</p>}
+          {secondaryDrains.map((d: any, i: number) => (
+            <div key={i} className="border rounded p-3 space-y-2 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold">{d.drain_id}</p>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => removeSecondary(i)}><Trash2 className="h-3 w-3" /></Button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Zone</Label>
+                  <Select value={d.zone_id} onValueChange={(v) => updateSecondary(i, "zone_id", v)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{zoneOptions.map((z: string) => <SelectItem key={z} value={z}>{z}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Type</Label>
+                  <Select value={d.secondary_type} onValueChange={(v) => updateSecondary(i, "secondary_type", v)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{["Overflow Drain", "Scupper", "Emergency Overflow"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                {d.secondary_type === "Scupper" ? (
+                  <>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Width (in)</Label>
+                      <Input className="h-8 text-xs" type="number" value={d.scupper_width_in ?? ""} onChange={(e) => updateSecondary(i, "scupper_width_in", Number(e.target.value))} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Depth (in)</Label>
+                      <Input className="h-8 text-xs" type="number" value={d.scupper_depth_in ?? ""} onChange={(e) => updateSecondary(i, "scupper_depth_in", Number(e.target.value))} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-1">
+                    <Label className="text-[10px]">Pipe Diameter</Label>
+                    <Select value={String(d.pipe_diameter_in ?? 4)} onValueChange={(v) => updateSecondary(i, "pipe_diameter_in", Number(v))}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>{["2", "3", "4", "5", "6", "8"].map((s) => <SelectItem key={s} value={s}>{s}"</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Height Above Primary (in)</Label>
+                  <Input className="h-8 text-xs" type="number" value={d.height_above_primary_in ?? ""} onChange={(e) => updateSecondary(i, "height_above_primary_in", Number(e.target.value))} />
+                  {d.height_above_primary_in != null && d.height_above_primary_in < 2 && (
+                    <p className="text-[10px] text-destructive">Below 2" minimum (FBC §1101.7)</p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Condition</Label>
+                  <Select value={d.condition} onValueChange={(v) => updateSecondary(i, "condition", v)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{CONDITIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Input className="h-8 text-xs" placeholder="Location description" value={d.location_description} onChange={(e) => updateSecondary(i, "location_description", e.target.value)} />
+              <p className="text-[10px] text-muted-foreground">2" min per FBC §1101.7 · Photo tag: {d.photo_tag}</p>
+            </div>
+          ))}
+          <Button variant="outline" size="sm" className="gap-1" onClick={addSecondary}><Plus className="h-3 w-3" /> Add Secondary Drain</Button>
+        </div>
+      </details>
+
+      {/* Section 4 — Slope Observations */}
+      <details open className="border rounded-lg">
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">
+          Slope Observations ({slopes.length})
+        </summary>
+        <div className="px-3 pb-3 space-y-3">
+          {slopes.map((s: any, i: number) => (
+            <div key={i} className="flex flex-wrap gap-2 items-end">
+              <Input className="h-8 text-xs flex-1 min-w-[100px]" placeholder="Location" value={s.location} onChange={(e) => updateSlope(i, "location", e.target.value)} />
+              <Input className="h-8 text-xs w-20" placeholder="Slope %" type="number" step="0.1" value={s.slope_percent} onChange={(e) => updateSlope(i, "slope_percent", e.target.value)} />
+              <Select value={s.method ?? "Digital level"} onValueChange={(v) => updateSlope(i, "method", v)}>
+                <SelectTrigger className="h-8 text-xs w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>{["Digital level", "4ft level + ruler", "Estimate"].map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+              </Select>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive" onClick={() => removeSlope(i)}><Trash2 className="h-3 w-3" /></Button>
+            </div>
+          ))}
+          <Button variant="outline" size="sm" className="gap-1" onClick={addSlope}><Plus className="h-3 w-3" /> Add Measurement</Button>
+
+          <div className="flex items-center gap-2 pt-2 border-t">
+            <Switch checked={!!formData.ponding_observed} onCheckedChange={(c) => setField("ponding_observed", c)} />
+            <Label className="text-xs">Ponding Observed</Label>
+          </div>
+          {formData.ponding_observed && (
+            <div className="space-y-2">
+              {pondingAreas.map((p: any, i: number) => (
+                <div key={i} className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2 bg-muted/30 rounded">
+                  <Input className="h-8 text-xs" placeholder="Location" value={p.location} onChange={(e) => updatePonding(i, "location", e.target.value)} />
+                  <Input className="h-8 text-xs" placeholder="Area (sqft)" type="number" value={p.area_sqft} onChange={(e) => updatePonding(i, "area_sqft", e.target.value)} />
+                  <Input className="h-8 text-xs" placeholder="Depth (in)" type="number" value={p.depth_in} onChange={(e) => updatePonding(i, "depth_in", e.target.value)} />
+                  <div className="flex gap-1">
+                    <Input className="h-8 text-xs flex-1" placeholder="Hrs after rain" type="number" value={p.hours_after_rain} onChange={(e) => updatePonding(i, "hours_after_rain", e.target.value)} />
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive" onClick={() => removePonding(i)}><Trash2 className="h-3 w-3" /></Button>
+                  </div>
+                </div>
+              ))}
+              <Button variant="outline" size="sm" className="gap-1" onClick={addPonding}><Plus className="h-3 w-3" /> Add Ponding Area</Button>
+            </div>
+          )}
+        </div>
+      </details>
+
+      {/* Section 5 — Conditions and Notes */}
+      <details open className="border rounded-lg">
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">
+          Conditions & Notes
+        </summary>
+        <div className="px-3 pb-3 space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Drain Conditions Summary</Label>
+            <Textarea rows={3} placeholder="Overall drainage system condition..." value={formData.drain_conditions_summary ?? ""} onChange={(e) => setField("drain_conditions_summary", e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Deficiencies Observed</Label>
+            <Textarea rows={3} placeholder="List any blockages, damage, improper installations..." value={formData.deficiencies_observed ?? ""} onChange={(e) => setField("deficiencies_observed", e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Recommendations</Label>
+            <Textarea rows={3} value={formData.recommendations ?? ""} onChange={(e) => setField("recommendations", e.target.value)} />
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

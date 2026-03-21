@@ -11,8 +11,9 @@ export const PHOTO_SECTION_TAGS: Record<string, string[]> = {
     "Defect - 1", "Defect - 2", "Defect - 3", "Interior/Attic",
   ],
   "drainage-analysis": [
-    "Drain Location 1", "Drain Location 2", "Drain Location 3",
-    "Slope Measurement", "Ponding Area", "Overview",
+    "Primary Drain D1", "Primary Drain D2", "Primary Drain D3",
+    "Secondary OD1", "Secondary OD2",
+    "Slope Measurement", "Ponding Area", "Overview", "Parapet / Edge Detail",
   ],
   "special-inspection": [
     "Fastener Pattern", "Deck Attachment", "Roof Covering", "General",
@@ -29,7 +30,7 @@ export const PHOTO_SECTION_TAGS: Record<string, string[]> = {
 export const MIN_PHOTO_COUNTS: Record<string, number> = {
   "roof-inspection": 6,
   "roof-certification": 6,
-  "drainage-analysis": 4,
+  "drainage-analysis": 5,
   "special-inspection": 3,
   "wind-mitigation-permit": 4,
   "fastener-calculation": 3,
