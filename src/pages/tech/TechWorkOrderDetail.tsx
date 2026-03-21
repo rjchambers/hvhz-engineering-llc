@@ -56,6 +56,7 @@ export default function TechWorkOrderDetail() {
   const [photos, setPhotos] = useState<PhotoRow[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
 
