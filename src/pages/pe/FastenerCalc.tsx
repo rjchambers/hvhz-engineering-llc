@@ -4,23 +4,15 @@ import { PELayout } from "@/components/PELayout";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { toast } from "sonner";
-import { ArrowLeft, Calculator, Loader2, Lock, AlertTriangle, XCircle, Info, CheckCircle, ChevronDown } from "lucide-react";
-import { calculateFastener, calculateTAS105, isTAS105Required, type FastenerInputs, type FastenerOutputs, type RoofSystemType, type DeckType, type ConstructionType } from "@/lib/fastener-engine";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { ArrowLeft, Loader2, AlertTriangle, XCircle, Info, Eye } from "lucide-react";
+import { calculateFastener, type FastenerInputs, type FastenerOutputs } from "@/lib/fastener-engine";
 import type { Json } from "@/integrations/supabase/types";
 
 const SYSTEM_LABELS: Record<string, string> = { modified_bitumen: "Modified Bitumen (RAS 117)", single_ply: "Single-Ply TPO/EPDM (RAS 137)", adhered: "Adhered Membrane (TAS 124)" };
-const DECK_LABELS: Record<string, string> = { plywood: "Plywood", structural_concrete: "Structural Concrete", steel_deck: "Steel Deck", wood_plank: "Wood Plank", lw_concrete: "LW Insulating Concrete" };
+const DECK_LABELS: Record<string, string> = { plywood: "Plywood", structural_concrete: "Structural Concrete", steel_deck: "Steel Deck", wood_plank: "Wood Plank", lw_concrete: "LW Insulating Concrete", Plywood: "Plywood", OSB: "Plywood (OSB)", "Structural Concrete": "Structural Concrete", "Steel Deck": "Steel Deck", "Wood Plank": "Wood Plank", "LW Insulating Concrete": "LW Insulating Concrete" };
 const ZONE_COLORS: Record<string, string> = { "1'": "bg-blue-50 border-blue-200", "1": "bg-yellow-50 border-yellow-200", "2": "bg-amber-50 border-amber-200", "3": "bg-red-50 border-red-200" };
 const BASIS_BADGES: Record<string, { cls: string; label: string }> = {
   prescriptive: { cls: "bg-blue-100 text-blue-800", label: "NOA Prescriptive" },
@@ -29,494 +21,310 @@ const BASIS_BADGES: Record<string, { cls: string; label: string }> = {
   asterisked_fail: { cls: "bg-red-100 text-red-800", label: "Asterisked — Blocked" },
 };
 
+function normDeckType(v: string): string {
+  const map: Record<string, string> = { Plywood: "plywood", OSB: "plywood", "Structural Concrete": "structural_concrete", "Steel Deck": "steel_deck", "Wood Plank": "wood_plank", "LW Insulating Concrete": "lw_concrete" };
+  return map[v] ?? v;
+}
+function normConstructionType(v: string): string {
+  const map: Record<string, string> = { "New Construction": "new", Reroof: "reroof", Recover: "recover" };
+  return map[v] ?? v;
+}
+function normEnclosure(v: string): string {
+  const map: Record<string, string> = { Enclosed: "enclosed", "Partially Enclosed": "partially_enclosed", Open: "open" };
+  return map[v] ?? v;
+}
+
 export default function FastenerCalc() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loaded, setLoaded] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [fieldDataId, setFieldDataId] = useState<string | null>(null);
   const [woData, setWoData] = useState<any>(null);
-
-  // Inputs
-  const [county, setCounty] = useState("broward");
-  const [constructionType, setConstructionType] = useState<string>("new");
-  const [existingLayers, setExistingLayers] = useState(1);
-  const [buildingWidth, setBuildingWidth] = useState("");
-  const [buildingLength, setBuildingLength] = useState("");
-  const [meanRoofHeight, setMeanRoofHeight] = useState("");
-  const [parapetHeight, setParapetHeight] = useState("0");
-  const [exposureCategory, setExposureCategory] = useState<"B"|"C"|"D">("C");
-  const [riskCategory, setRiskCategory] = useState("II");
-  const [enclosure, setEnclosure] = useState<"enclosed"|"partially_enclosed"|"open">("enclosed");
-  const [Kzt, setKzt] = useState("1.0");
-  const [Ke, setKe] = useState("1.0");
-  const [systemType, setSystemType] = useState<string>("modified_bitumen");
-  const [deckType, setDeckType] = useState<string>("plywood");
-  const [sheetWidth, setSheetWidth] = useState("39.375");
-  const [lapWidth, setLapWidth] = useState("4");
-  const [initialRows, setInitialRows] = useState("4");
-  const [noaApprovalType, setNoaApprovalType] = useState("miami_dade_noa");
-  const [noaNumber, setNoaNumber] = useState("");
-  const [noaManufacturer, setNoaManufacturer] = useState("");
-  const [noaProduct, setNoaProduct] = useState("");
-  const [noaSystemNumber, setNoaSystemNumber] = useState("");
-  const [noaMdp, setNoaMdp] = useState("");
-  const [noaMdpBasis, setNoaMdpBasis] = useState<"asd"|"ultimate">("asd");
-  const [noaAsterisked, setNoaAsterisked] = useState(false);
-  const [fyLbf, setFyLbf] = useState("29.48");
-  const [tas105Raw, setTas105Raw] = useState<number[]>([]);
-  const [tas105Agency, setTas105Agency] = useState("");
-  const [tas105Date, setTas105Date] = useState("");
-  const [boardLength, setBoardLength] = useState("4");
-  const [boardWidth, setBoardWidth] = useState("8");
-  const [insulationFy, setInsulationFy] = useState("29.48");
-  const [ewaMembrane, setEwaMembrane] = useState("");
+  const [fd, setFd] = useState<Record<string, any>>({});
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
     const { data: wo } = await supabase.from("work_orders").select("id, service_type, status, scheduled_date, orders(job_address, job_city, job_zip, job_county)").eq("id", id).single();
     if (!wo) return;
     setWoData(wo);
-    const { data: fd } = await supabase.from("field_data").select("id, form_data, work_order_id").eq("work_order_id", id).maybeSingle();
-    if (fd) {
-      setFieldDataId(fd.id);
-      const d = fd.form_data as Record<string, any>;
-      if (d.county) setCounty(d.county === "Miami-Dade" ? "miami_dade" : d.county.toLowerCase());
-      if (d.construction_type) setConstructionType(d.construction_type === "New Construction" ? "new" : d.construction_type === "Reroof" ? "reroof" : "recover");
-      if (d.existing_layers) setExistingLayers(d.existing_layers === "2+" ? 2 : 1);
-      if (d.building_width_ft) setBuildingWidth(String(d.building_width_ft));
-      if (d.building_length_ft) setBuildingLength(String(d.building_length_ft));
-      if (d.mean_roof_height_ft) setMeanRoofHeight(String(d.mean_roof_height_ft));
-      if (d.parapet_height_ft) setParapetHeight(String(d.parapet_height_ft));
-      if (d.system_type) setSystemType(d.system_type);
-      if (d.deck_type) setDeckType(d.deck_type === "Plywood" ? "plywood" : d.deck_type === "OSB" ? "plywood" : d.deck_type === "Structural Concrete" ? "structural_concrete" : d.deck_type === "Steel Deck" ? "steel_deck" : d.deck_type === "Wood Plank" ? "wood_plank" : d.deck_type === "LW Insulating Concrete" ? "lw_concrete" : "plywood");
-      if (d.sheet_width_in) setSheetWidth(String(d.sheet_width_in));
-      if (d.lap_width_in) setLapWidth(String(d.lap_width_in));
-      if (d.initial_rows) setInitialRows(String(d.initial_rows));
-      if (d.noa_number) setNoaNumber(d.noa_number);
-      if (d.noa_manufacturer) setNoaManufacturer(d.noa_manufacturer);
-      if (d.noa_product) setNoaProduct(d.noa_product);
-      if (d.noa_system_number) setNoaSystemNumber(d.noa_system_number);
-      if (d.noa_mdp_psf) setNoaMdp(String(d.noa_mdp_psf));
-      if (d.noa_mdp_basis) setNoaMdpBasis(d.noa_mdp_basis === "Ultimate (will be ÷2 per TAS 114)" ? "ultimate" : "asd");
-      if (d.noa_asterisked) setNoaAsterisked(d.noa_asterisked);
-      if (d.fy_lbf) setFyLbf(String(d.fy_lbf));
-      if (d.pe_tas105_raw_values) setTas105Raw(d.pe_tas105_raw_values);
-      else if (d.tas105_raw_values) setTas105Raw(d.tas105_raw_values);
-      if (d.pe_tas105_agency) setTas105Agency(d.pe_tas105_agency);
-      if (d.pe_tas105_date) setTas105Date(d.pe_tas105_date);
-      if (d.insulation_board_length_ft) setBoardLength(String(d.insulation_board_length_ft));
-      if (d.insulation_board_width_ft) setBoardWidth(String(d.insulation_board_width_ft));
-      if (d.insulation_fy_lbf) setInsulationFy(String(d.insulation_fy_lbf));
-      // PE overrides
-      if (d.pe_exposure) setExposureCategory(d.pe_exposure);
-      if (d.pe_risk_category) setRiskCategory(d.pe_risk_category);
-      if (d.pe_enclosure) setEnclosure(d.pe_enclosure);
-      if (d.pe_Kzt) setKzt(String(d.pe_Kzt));
-      if (d.pe_Ke) setKe(String(d.pe_Ke));
-      if (d.pe_ewa_membrane) setEwaMembrane(String(d.pe_ewa_membrane));
-    }
+    const { data: fdRow } = await supabase.from("field_data").select("form_data").eq("work_order_id", id).maybeSingle();
+    if (fdRow) setFd(fdRow.form_data as Record<string, any>);
     setLoaded(true);
   }, [id, user]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const W = parseFloat(buildingWidth) || 0;
-  const L = parseFloat(buildingLength) || 0;
-  const h = parseFloat(meanRoofHeight) || 0;
-  const mdp = parseFloat(noaMdp) || 0;
-  const canCalc = W > 0 && L > 0 && h > 0 && mdp !== 0;
+  // Build inputs from tech-submitted field data
+  const fyValue = fd.tas105_mean_lbf ?? fd.fy_lbf ?? 29.48;
+  const fySource = fd.tas105_mean_lbf ? "tas105" : "noa";
 
-  const derivedFySource = tas105Raw.length > 0 ? "tas105" : "noa";
+  const inputs: FastenerInputs | null = useMemo(() => {
+    const W = parseFloat(fd.building_width_ft) || 0;
+    const L = parseFloat(fd.building_length_ft) || 0;
+    const h = parseFloat(fd.mean_roof_height_ft) || 0;
+    const mdp = parseFloat(fd.noa_mdp_psf) || 0;
+    if (!W || !L || !h) return null;
+    return {
+      V: 185,
+      exposureCategory: (fd.exposure_category ?? "C") as "B" | "C" | "D",
+      h,
+      Kzt: parseFloat(fd.Kzt) || 1.0,
+      Kd: 0.85,
+      Ke: parseFloat(fd.Ke) || 1.0,
+      enclosure: normEnclosure(fd.enclosure_type ?? "Enclosed") as any,
+      riskCategory: (fd.risk_category ?? "II") as any,
+      buildingLength: L,
+      buildingWidth: W,
+      parapetHeight: parseFloat(fd.parapet_height_ft) || 0,
+      systemType: (fd.system_type ?? "modified_bitumen") as any,
+      deckType: normDeckType(fd.deck_type ?? "Plywood") as any,
+      constructionType: normConstructionType(fd.construction_type ?? "New Construction") as any,
+      existingLayers: fd.existing_layers === "2+" ? 2 : 1,
+      sheetWidth_in: parseFloat(fd.sheet_width_in) || 39.375,
+      lapWidth_in: parseFloat(fd.lap_width_in) || 4,
+      Fy_lbf: parseFloat(String(fyValue)) || 29.48,
+      fySource: fySource as any,
+      initialRows: parseInt(fd.initial_rows) || 4,
+      noa: {
+        approvalType: (fd.noa_approval_type === "FL Product Approval" ? "fl_product_approval" : "miami_dade_noa") as any,
+        approvalNumber: fd.noa_number ?? "",
+        manufacturer: fd.noa_manufacturer,
+        productName: fd.noa_product,
+        systemNumber: fd.noa_system_number,
+        mdp_psf: mdp,
+        mdp_basis: (fd.noa_mdp_basis === "Ultimate (will be ÷2 per TAS 114)" ? "ultimate" : "asd") as any,
+        asterisked: fd.noa_asterisked ?? false,
+      },
+      boardLength_ft: parseFloat(fd.insulation_board_length_ft) || 4,
+      boardWidth_ft: parseFloat(fd.insulation_board_width_ft) || 8,
+      insulation_Fy_lbf: parseFloat(fd.insulation_fy_lbf) || parseFloat(String(fyValue)) || 29.48,
+      county: (fd.county === "Miami-Dade" ? "miami_dade" : fd.county?.toLowerCase() ?? "broward") as any,
+      isHVHZ: true,
+      ewa_membrane_ft2: fd.ewa_membrane_ft2 ? parseFloat(fd.ewa_membrane_ft2) : 10,
+    };
+  }, [fd, fyValue, fySource]);
 
   const calcOutputs: FastenerOutputs | null = useMemo(() => {
-    if (!canCalc) return null;
-    const inputs: FastenerInputs = {
-      V: 185, exposureCategory, h, Kzt: parseFloat(Kzt) || 1, Kd: 0.85, Ke: parseFloat(Ke) || 1,
-      enclosure, riskCategory: riskCategory as any, buildingLength: L, buildingWidth: W,
-      parapetHeight: parseFloat(parapetHeight) || 0, systemType: systemType as RoofSystemType,
-      deckType: deckType as DeckType, constructionType: constructionType as ConstructionType,
-      existingLayers, sheetWidth_in: parseFloat(sheetWidth) || 39.375, lapWidth_in: parseFloat(lapWidth) || 4,
-      Fy_lbf: parseFloat(fyLbf) || 29.48, fySource: derivedFySource as any, initialRows: parseInt(initialRows) || 4,
-      noa: { approvalType: noaApprovalType as any, approvalNumber: noaNumber, manufacturer: noaManufacturer, productName: noaProduct, systemNumber: noaSystemNumber, mdp_psf: mdp, mdp_basis: noaMdpBasis, asterisked: noaAsterisked },
-      boardLength_ft: parseFloat(boardLength) || 4, boardWidth_ft: parseFloat(boardWidth) || 8,
-      insulation_Fy_lbf: parseFloat(insulationFy) || 29.48, county: county as any, isHVHZ: true,
-      ewa_membrane_ft2: ewaMembrane ? parseFloat(ewaMembrane) : undefined,
-    };
+    if (!inputs) return null;
     return calculateFastener(inputs);
-  }, [canCalc, W, L, h, exposureCategory, Kzt, Ke, enclosure, riskCategory, parapetHeight, systemType, deckType, constructionType, existingLayers, sheetWidth, lapWidth, fyLbf, derivedFySource, initialRows, noaApprovalType, noaNumber, noaManufacturer, noaProduct, noaSystemNumber, mdp, noaMdpBasis, noaAsterisked, boardLength, boardWidth, insulationFy, county, ewaMembrane]);
-
-  const tas105Result = useMemo(() => {
-    if (tas105Raw.length === 0) return null;
-    return calculateTAS105({ rawValues_lbf: tas105Raw });
-  }, [tas105Raw]);
-
-  // Auto-update Fy to MCRF when TAS 105 passes
-  useEffect(() => {
-    if (tas105Result?.pass) {
-      setFyLbf(String(tas105Result.MCRF_lbf));
-    }
-  }, [tas105Result]);
-
-  const mdpEff = noaMdpBasis === "ultimate" ? mdp / 2 : mdp;
-
-  const handleSave = async () => {
-    if (!id || !user) return;
-    setSaving(true);
-    const existingFd = fieldDataId ? (await supabase.from("field_data").select("form_data").eq("id", fieldDataId).single()).data?.form_data as Record<string, any> ?? {} : {};
-    const merged = {
-      ...existingFd,
-      pe_V: 185, pe_exposure: exposureCategory, pe_risk_category: riskCategory, pe_enclosure: enclosure,
-      pe_Kzt: parseFloat(Kzt), pe_Kd: 0.85, pe_Ke: parseFloat(Ke),
-      pe_noa_mdp_eff: mdpEff, pe_ewa_membrane: ewaMembrane ? parseFloat(ewaMembrane) : null,
-      pe_calc_outputs: calcOutputs ? JSON.parse(JSON.stringify(calcOutputs)) : null,
-      pe_tas105_raw_values: tas105Raw.length > 0 ? tas105Raw : null,
-      pe_tas105_agency: tas105Agency || null,
-      pe_tas105_date: tas105Date || null,
-      fy_source: derivedFySource === "tas105" ? "From TAS 105 Test" : "From NOA",
-    };
-    const { error } = await supabase.from("field_data").upsert({
-      ...(fieldDataId ? { id: fieldDataId } : {}),
-      work_order_id: id, service_type: "fastener-calculation", form_data: merged as unknown as Json, submitted_by: user.id,
-    }, { onConflict: "work_order_id" });
-    if (error) toast.error("Failed to save: " + error.message);
-    else toast.success("Fastener calculation data saved.");
-    setSaving(false);
-  };
+  }, [inputs]);
 
   if (!loaded) return <PELayout><div className="p-6 text-sm text-muted-foreground">Loading…</div></PELayout>;
+
   const address = woData?.orders ? [woData.orders.job_address, woData.orders.job_city, woData.orders.job_zip].filter(Boolean).join(", ") : "";
-  const zp = calcOutputs?.zonePressures;
-  const a = zp?.zoneWidth_ft ?? 0;
+  const W = parseFloat(fd.building_width_ft) || 0;
+  const L = parseFloat(fd.building_length_ft) || 0;
+  const a = calcOutputs?.zonePressures?.zoneWidth_ft ?? 0;
+  const systemType = fd.system_type ?? "modified_bitumen";
 
   return (
     <PELayout>
-      <div className="p-4 lg:p-6 max-w-6xl mx-auto">
+      <div className="p-4 lg:p-6 max-w-4xl mx-auto">
+        {/* Header */}
         <Button variant="ghost" size="sm" className="mb-4 gap-1" onClick={() => navigate(`/pe/review/${id}`)}>
           <ArrowLeft className="h-4 w-4" /> Back to Review
         </Button>
         <div className="flex items-center gap-3 mb-1">
-          <Calculator className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold text-primary">Fastener Uplift Calculations</h1>
+          <Eye className="h-5 w-5 text-primary" />
+          <h1 className="text-xl font-bold text-primary">Fastener Uplift Calculation Review</h1>
         </div>
-        <p className="text-sm text-muted-foreground mb-6">{address} · WO #{woData?.id?.slice(0, 8).toUpperCase()}</p>
+        <div className="flex items-center gap-3 mb-6">
+          <p className="text-sm text-muted-foreground">{address} · WO #{woData?.id?.slice(0, 8).toUpperCase()}</p>
+          {calcOutputs && (
+            <Badge className={cn("text-sm px-3 py-1", calcOutputs.overallStatus === "ok" ? "bg-green-100 text-green-800" : calcOutputs.overallStatus === "warning" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800")}>
+              {calcOutputs.overallStatus.toUpperCase()}
+            </Badge>
+          )}
+        </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* LEFT — Inputs */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm">Site & Design Parameters</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 bg-muted/50 rounded p-2">
-                  <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-xs font-medium">Basic Wind Speed: 185 mph</p>
-                    <p className="text-[10px] text-muted-foreground">HVHZ mandate FBC §1620.1</p>
-                  </div>
-                  <Badge variant="outline" className="text-[10px]">Locked</Badge>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Building Width (ft)" value={buildingWidth} onChange={setBuildingWidth} type="number" />
-                  <Field label="Building Length (ft)" value={buildingLength} onChange={setBuildingLength} type="number" />
-                  <Field label="Mean Roof Height (ft)" value={meanRoofHeight} onChange={setMeanRoofHeight} type="number" />
-                  <Field label="Parapet Height (ft)" value={parapetHeight} onChange={setParapetHeight} type="number" />
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Exposure</Label>
-                    <Select value={exposureCategory} onValueChange={(v) => setExposureCategory(v as any)}>
-                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="B">B</SelectItem><SelectItem value="C">C (HVHZ)</SelectItem><SelectItem value="D">D</SelectItem></SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Risk Category</Label>
-                    <Select value={riskCategory} onValueChange={setRiskCategory}>
-                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>{["I","II","III","IV"].map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Enclosure</Label>
-                    <Select value={enclosure} onValueChange={(v) => setEnclosure(v as any)}>
-                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="enclosed">Enclosed</SelectItem><SelectItem value="partially_enclosed">Partially Enclosed</SelectItem><SelectItem value="open">Open</SelectItem></SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <LockedParam label="Kd" value="0.85" note="Table 26.6-1" />
-                  <div><Label className="text-xs text-muted-foreground">Kzt</Label><Input type="number" value={Kzt} onChange={e=>setKzt(e.target.value)} className="h-9 text-sm" /></div>
-                  <div><Label className="text-xs text-muted-foreground">Ke</Label><Input type="number" value={Ke} onChange={e=>setKe(e.target.value)} className="h-9 text-sm" /></div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm">Roof System</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground">System Type</Label>
-                  <Select value={systemType} onValueChange={setSystemType}>
-                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="modified_bitumen">Modified Bitumen</SelectItem><SelectItem value="single_ply">Single-Ply</SelectItem><SelectItem value="adhered">Adhered</SelectItem></SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Deck Type</Label>
-                  <Select value={deckType} onValueChange={setDeckType}>
-                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>{Object.entries(DECK_LABELS).map(([k,v])=><SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                {systemType !== "adhered" && (<>
-                  <Field label="Sheet Width (in)" value={sheetWidth} onChange={setSheetWidth} type="number" />
-                  <Field label="Lap Width (in)" value={lapWidth} onChange={setLapWidth} type="number" />
-                  <Field label="Initial Rows" value={initialRows} onChange={setInitialRows} type="number" />
-                </>)}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm">NOA / Product Approval</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3">
-                <Field label="NOA Number" value={noaNumber} onChange={setNoaNumber} />
-                <Field label="Manufacturer" value={noaManufacturer} onChange={setNoaManufacturer} />
-                <Field label="Product" value={noaProduct} onChange={setNoaProduct} />
-                <Field label="System No." value={noaSystemNumber} onChange={setNoaSystemNumber} />
-                <Field label="NOA MDP (psf)" value={noaMdp} onChange={setNoaMdp} type="number" />
-                <div>
-                  <Label className="text-xs text-muted-foreground">MDP Basis</Label>
-                  <Select value={noaMdpBasis} onValueChange={(v) => setNoaMdpBasis(v as any)}>
-                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="asd">ASD</SelectItem><SelectItem value="ultimate">Ultimate (÷2)</SelectItem></SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2 flex items-center gap-2">
-                  <Switch checked={noaAsterisked} onCheckedChange={setNoaAsterisked} />
-                  <Label className="text-xs">Asterisked assembly — extrapolation prohibited</Label>
-                </div>
-                <div className="col-span-2 text-xs text-muted-foreground bg-muted/50 rounded p-2">Effective ASD MDP: <strong>{Math.abs(mdpEff).toFixed(1)} psf</strong></div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm">Fastener Data</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Fy (lbf)" value={fyLbf} onChange={setFyLbf} type="number" />
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Source</Label>
-                    <Badge variant="outline" className={cn(tas105Result && !tas105Result.pass ? "text-destructive border-destructive" : "")}>
-                      {tas105Raw.length === 0 ? "NOA" : tas105Result?.pass ? "TAS 105 (MCRF)" : "TAS 105 (FAIL)"}
-                    </Badge>
-                  </div>
-                  <Field label="Board Length (ft)" value={boardLength} onChange={setBoardLength} type="number" />
-                  <Field label="Board Width (ft)" value={boardWidth} onChange={setBoardWidth} type="number" />
-                  <Field label="Insulation Fy (lbf)" value={insulationFy} onChange={setInsulationFy} type="number" />
-                  <Field label="EWA membrane (ft²)" value={ewaMembrane} onChange={setEwaMembrane} type="number" />
-                </div>
-                {(() => {
-                  const tas105Req = isTAS105Required(deckType as DeckType, constructionType as ConstructionType);
-                  const showFullBlock = deckType === "lw_concrete" || (tas105Req.required && constructionType === "recover");
-                  const showAmberNote = !showFullBlock && tas105Req.required;
-
-                  if (showFullBlock) return (
-                    <div className="space-y-3 border rounded p-3 bg-muted/30">
-                      <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
-                        {deckType === "lw_concrete"
-                          ? "LW insulating concrete requires TAS 105 field testing per RAS 117. Enter results from third-party lab report."
-                          : `TAS 105 may be required for ${DECK_LABELS[deckType] ?? deckType} recover per RAS 117. If a lab report was submitted, enter results above.`}
-                      </p>
-                      <Field label="Testing Agency" value={tas105Agency} onChange={setTas105Agency} />
-                      <div><Label className="text-xs text-muted-foreground">Test Date</Label><Input type="date" value={tas105Date} onChange={e => setTas105Date(e.target.value)} className="h-9 text-sm" /></div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Raw Pull Test Values (lbf)</Label>
-                        <Textarea rows={2} placeholder="350, 412, 389, 401, 378" defaultValue={tas105Raw.join(", ")} onBlur={(e) => {
-                          const vals = e.target.value.split(/[,\n]+/).map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
-                          setTas105Raw(vals);
-                        }} />
-                      </div>
-                      {tas105Result && (
-                        <div className="bg-card border rounded p-3 font-mono text-xs space-y-1">
-                          <p>n: {tas105Result.n} | Mean: {tas105Result.mean_lbf} lbf | Std Dev: {tas105Result.stdDev_lbf} lbf</p>
-                          <p>t-Factor: {tas105Result.tFactor} | MCRF: {tas105Result.MCRF_lbf} lbf</p>
-                          <Badge className={cn("text-xs", tas105Result.pass ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
-                            {tas105Result.pass ? "PASS — MCRF ≥ 275 lbf" : "FAIL — MCRF < 275 lbf"}
-                          </Badge>
-                          {tas105Result.pass && (
-                            <p className="text-xs text-blue-600 mt-1">Fy updated to MCRF from TAS 105.</p>
-                          )}
-                          {!tas105Result.pass && (
-                            <p className="text-xs text-destructive mt-1 font-semibold">TAS 105 FAILURE — Permit cannot be issued until deck is repaired and re-tested. See FBC §1520.</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-
-                  if (showAmberNote) return (
-                    <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
-                      TAS 105 may be required for {DECK_LABELS[deckType] ?? deckType} recover per RAS 117. If a lab report was submitted, enter results above.
-                    </p>
-                  );
-
-                  return (
-                    <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                      TAS 105 not required for {DECK_LABELS[deckType] ?? deckType} {constructionType}. Using NOA Fy = {fyLbf} lbf.
-                    </p>
-                  );
-                })()}
-              </CardContent>
-            </Card>
+        {!inputs ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+            <AlertTriangle className="h-4 w-4 inline mr-2" />
+            Technician has not submitted complete building dimensions. Send work order back for revision.
           </div>
-
-          {/* RIGHT — Results */}
+        ) : calcOutputs && (
           <div className="space-y-6">
-            {!canCalc ? (
-              <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">Enter building dimensions and NOA MDP to compute results.</CardContent></Card>
-            ) : calcOutputs && (<>
-              {/* Overall Status */}
-              <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm">Overall Status</CardTitle></CardHeader>
-                <CardContent>
-                  <Badge className={cn("text-lg px-4 py-1 mb-4", calcOutputs.overallStatus === "ok" ? "bg-green-100 text-green-800" : calcOutputs.overallStatus === "warning" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800")}>
-                    {calcOutputs.overallStatus.toUpperCase()}
-                  </Badge>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                    <div className="bg-muted/50 rounded p-2"><p className="text-muted-foreground">qh,ASD</p><p className="font-bold">{calcOutputs.qh_ASD} psf</p></div>
-                    <div className="bg-muted/50 rounded p-2"><p className="text-muted-foreground">Kh</p><p className="font-bold">{calcOutputs.Kh}</p></div>
-                    <div className="bg-muted/50 rounded p-2"><p className="text-muted-foreground">Zone Width</p><p className="font-bold">{calcOutputs.zonePressures.zoneWidth_ft} ft</p></div>
-                    <div className="bg-muted/50 rounded p-2"><p className="text-muted-foreground">Max Extrap</p><p className={cn("font-bold", calcOutputs.maxExtrapolationFactor > 3 ? "text-destructive" : calcOutputs.maxExtrapolationFactor > 2.7 ? "text-amber-600" : "")}>{calcOutputs.maxExtrapolationFactor.toFixed(2)}×</p></div>
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Card 1: Submitted Parameters */}
+            <Card className="border-l-4 border-l-teal-500">
+              <CardHeader className="pb-3"><CardTitle className="text-sm">Submitted Parameters</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs">
+                  <Param label="Design Wind Speed" value="185 mph" />
+                  <Param label="County" value={fd.county ?? "—"} />
+                  <Param label="Exposure" value={fd.exposure_category ?? "C"} />
+                  <Param label="Risk Category" value={fd.risk_category ?? "II"} />
+                  <Param label="Enclosure" value={fd.enclosure_type ?? "Enclosed"} />
+                  <Param label="Construction" value={fd.construction_type ?? "—"} />
+                  <Param label="Kzt" value={fd.Kzt ?? "1.0"} />
+                  <Param label="Kd" value="0.85" />
+                  <Param label="Width × Length" value={`${fd.building_width_ft ?? "—"} × ${fd.building_length_ft ?? "—"} ft`} />
+                  <Param label="Mean Roof Height" value={`${fd.mean_roof_height_ft ?? "—"} ft`} />
+                  <Param label="Parapet" value={`${fd.parapet_height_ft ?? 0} ft`} />
+                  <Param label="Deck Type" value={DECK_LABELS[fd.deck_type] ?? fd.deck_type ?? "—"} />
+                  <Param label="System Type" value={SYSTEM_LABELS[fd.system_type] ?? fd.system_type ?? "—"} />
+                  <Param label="Sheet Width" value={fd.sheet_width_in ? `${fd.sheet_width_in}"` : "N/A"} />
+                  <Param label="Lap Width" value={fd.lap_width_in ? `${fd.lap_width_in}"` : "N/A"} />
+                  <Param label="Initial Rows" value={fd.initial_rows ?? "4"} />
+                  <Param label="NOA Number" value={fd.noa_number ?? "—"} />
+                  <Param label="Manufacturer" value={fd.noa_manufacturer ?? "—"} />
+                  <Param label="MDP" value={`${fd.noa_mdp_psf ?? "—"} psf (${fd.noa_mdp_basis ?? "ASD"})`} />
+                  <Param label="Asterisked" value={fd.noa_asterisked ? "Yes" : "No"} />
+                  <Param label="Fy (lbf)" value={String(fyValue)} />
+                  <Param label="Fy Source" value={fySource === "tas105" ? "TAS 105" : "NOA"} />
+                  {fd.tas105_mean_lbf && (
+                    <Param label="TAS 105 Mean" value={`${fd.tas105_mean_lbf} lbf — ${fd.tas105_agency ?? ""} ${fd.tas105_date ?? ""}`} />
+                  )}
+                  <Param label="Board Size" value={`${fd.insulation_board_length_ft ?? 4} × ${fd.insulation_board_width_ft ?? 8} ft`} />
+                  <Param label="Insulation Fy" value={`${fd.insulation_fy_lbf ?? fyValue} lbf`} />
+                  <Param label="EWA Membrane" value={fd.ewa_membrane_ft2 ? `${fd.ewa_membrane_ft2} ft²` : "10 ft² (default)"} />
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Zone Pressures & NOA Check */}
+            {/* Card 2: Wind Pressure Results */}
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-sm">Wind Pressure Results</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted/50 rounded p-3 font-mono text-xs space-y-1">
+                  <p>{calcOutputs.derivation.eq_26_10_1}</p>
+                  <p>{calcOutputs.derivation.qh_asd}</p>
+                  <p>{calcOutputs.derivation.eq_30_3_1}</p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-muted/50 rounded p-2"><p className="text-muted-foreground">qh,ASD</p><p className="font-bold">{calcOutputs.qh_ASD} psf</p></div>
+                  <div className="bg-muted/50 rounded p-2"><p className="text-muted-foreground">Kh</p><p className="font-bold">{calcOutputs.Kh}</p></div>
+                  <div className="bg-muted/50 rounded p-2"><p className="text-muted-foreground">Zone Width</p><p className="font-bold">{calcOutputs.zonePressures.zoneWidth_ft} ft</p></div>
+                  <div className="bg-muted/50 rounded p-2"><p className="text-muted-foreground">GCpi</p><p className="font-bold">{calcOutputs.GCpi}</p></div>
+                </div>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/60"><tr><th className="text-left p-2">Zone</th><th className="text-right p-2">P (psf)</th><th className="text-right p-2">MDP</th><th className="text-right p-2">Factor</th><th className="text-left p-2">Basis</th></tr></thead>
+                    <tbody>
+                      {calcOutputs.noaResults.map(nr => (
+                        <tr key={nr.zone} className="border-t">
+                          <td className="p-2 font-medium">{nr.zone}</td>
+                          <td className="p-2 text-right font-bold">{Math.abs(nr.P_psf).toFixed(1)}</td>
+                          <td className="p-2 text-right">{Math.abs(nr.MDP_psf).toFixed(1)}</td>
+                          <td className="p-2 text-right">{nr.extrapFactor.toFixed(2)}×</td>
+                          <td className="p-2"><Badge className={cn("text-[10px]", BASIS_BADGES[nr.basis]?.cls)}>{BASIS_BADGES[nr.basis]?.label}</Badge></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Card 3: Fastener Attachment Schedule */}
+            {systemType !== "adhered" ? (
               <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm">Zone Pressures & NOA Check</CardTitle></CardHeader>
+                <CardHeader className="pb-3"><CardTitle className="text-sm">Fastener Pattern — RAS {systemType === "single_ply" ? "137" : "117"}</CardTitle></CardHeader>
                 <CardContent>
+                  <p className="text-xs text-muted-foreground mb-2">Fy = {fyValue} lbf ({fySource === "tas105" ? "TAS 105" : "NOA"})</p>
                   <div className="border rounded-lg overflow-hidden">
                     <table className="w-full text-xs">
-                      <thead className="bg-muted/60"><tr><th className="text-left p-2">Zone</th><th className="text-right p-2">P (psf)</th><th className="text-right p-2">MDP</th><th className="text-right p-2">Factor</th><th className="text-left p-2">Basis</th></tr></thead>
+                      <thead className="bg-muted/60"><tr><th className="p-2">Zone</th><th className="text-right p-2">P</th><th className="text-right p-2">Rows</th><th className="text-right p-2">RS</th><th className="text-right p-2">FS</th><th className="text-right p-2">DR</th><th className="p-2">½-Sheet</th></tr></thead>
                       <tbody>
-                        {calcOutputs.noaResults.map(nr => (
-                          <tr key={nr.zone} className="border-t">
-                            <td className="p-2 font-medium">{nr.zone}</td>
-                            <td className="p-2 text-right font-bold">{Math.abs(nr.P_psf).toFixed(1)}</td>
-                            <td className="p-2 text-right">{Math.abs(nr.MDP_psf).toFixed(1)}</td>
-                            <td className="p-2 text-right">{nr.extrapFactor.toFixed(2)}×</td>
-                            <td className="p-2"><Badge className={cn("text-[10px]", BASIS_BADGES[nr.basis]?.cls)}>{BASIS_BADGES[nr.basis]?.label}</Badge></td>
+                        {calcOutputs.fastenerResults.map(fr => (
+                          <tr key={fr.zone} className={cn("border-t", ZONE_COLORS[fr.zone])}>
+                            <td className="p-2 font-medium">{fr.zone}</td>
+                            <td className="p-2 text-right">{fr.P_psf}</td>
+                            <td className="p-2 text-right">{fr.n_rows}</td>
+                            <td className="p-2 text-right">{fr.RS_in}"</td>
+                            <td className="p-2 text-right font-bold">{fr.FS_used_in}"</td>
+                            <td className="p-2 text-right">{fr.demandRatio}</td>
+                            <td className="p-2">{fr.halfSheetRequired ? <Badge className="bg-red-100 text-red-800 text-[10px]">Required</Badge> : "—"}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                  <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
+                    <span>Min field spacing: {calcOutputs.minFS_in}" o.c.</span>
+                    {calcOutputs.maxExtrapolationFactor > 3 && <Badge className="bg-red-100 text-red-800 text-[10px]">Assembly change required</Badge>}
+                    {calcOutputs.maxExtrapolationFactor > 2.7 && calcOutputs.maxExtrapolationFactor <= 3 && <Badge className="bg-amber-100 text-amber-800 text-[10px]">Approaching limit</Badge>}
+                  </div>
                 </CardContent>
               </Card>
+            ) : (
+              <Card><CardContent className="py-4 text-sm text-muted-foreground">Adhered membrane — verify adhesive bond strength ≥ zone pressures per NOA / TAS 124.</CardContent></Card>
+            )}
 
-              {/* Fastener Pattern Results */}
-              {systemType !== "adhered" ? (
-                <Card>
-                  <CardHeader className="pb-3"><CardTitle className="text-sm">Fastener Pattern — RAS {systemType === "single_ply" ? "137" : "117"}</CardTitle></CardHeader>
-                  <CardContent>
-                    <p className="text-xs text-muted-foreground mb-2">Fy = {fyLbf} lbf ({derivedFySource === "tas105" ? "TAS 105" : "NOA"})</p>
-                    <div className="border rounded-lg overflow-hidden">
-                      <table className="w-full text-xs">
-                        <thead className="bg-muted/60"><tr><th className="p-2">Zone</th><th className="text-right p-2">P</th><th className="text-right p-2">Rows</th><th className="text-right p-2">RS</th><th className="text-right p-2">FS</th><th className="text-right p-2">DR</th><th className="p-2">½-Sheet</th></tr></thead>
-                        <tbody>
-                          {calcOutputs.fastenerResults.map(fr => (
-                            <tr key={fr.zone} className={cn("border-t", ZONE_COLORS[fr.zone])}>
-                              <td className="p-2 font-medium">{fr.zone}</td>
-                              <td className="p-2 text-right">{fr.P_psf}</td>
-                              <td className="p-2 text-right">{fr.n_rows}</td>
-                              <td className="p-2 text-right">{fr.RS_in}"</td>
-                              <td className="p-2 text-right font-bold">{fr.FS_used_in}"</td>
-                              <td className="p-2 text-right">{fr.demandRatio}</td>
-                              <td className="p-2">{fr.halfSheetRequired ? <Badge className="bg-red-100 text-red-800 text-[10px]">Required</Badge> : "—"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+            {/* Card 4: Insulation */}
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-sm">Insulation Board Fasteners (RAS 117 §8)</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  {calcOutputs.insulationResults.map(ir => (
+                    <div key={ir.zone} className={cn("border rounded p-3 text-xs", ZONE_COLORS[ir.zone])}>
+                      <p className="font-semibold">Zone {ir.zone}</p>
+                      <p className="text-muted-foreground">{ir.P_psf} psf</p>
+                      <p className="font-bold">{ir.N_used} fasteners ({ir.layout})</p>
+                      {ir.N_used > ir.N_prescribed && <p className="text-amber-600 text-[10px]">Exceeds prescriptive ({ir.N_prescribed})</p>}
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-2">Min field spacing: {calcOutputs.minFS_in}" o.c.</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card><CardContent className="py-4 text-sm text-muted-foreground">Adhered membrane — no row spacing. Verify adhesive bond strength ≥ zone pressures per TAS 124.</CardContent></Card>
-              )}
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Insulation */}
+            {/* Card 5: Zone Plan SVG */}
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-sm">Zone Plan Diagram</CardTitle></CardHeader>
+              <CardContent><ZonePlanSVG W={W} L={L} a={a} zp={calcOutputs.zonePressures} /></CardContent>
+            </Card>
+
+            {/* Card 6: Derivation */}
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-sm">Calculation Derivation</CardTitle></CardHeader>
+              <CardContent>
+                <div className="bg-muted/50 rounded p-3 font-mono text-xs space-y-1">
+                  <p>{calcOutputs.derivation.eq_26_10_1}</p>
+                  <p>{calcOutputs.derivation.qh_asd}</p>
+                  <p>{calcOutputs.derivation.eq_30_3_1}</p>
+                  <p>{calcOutputs.derivation.ras117_fs}</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">ASCE 7-22 Eq. 26.10-1, 30.3-1 · RAS 117 §6 · FBC 8th Ed.</p>
+              </CardContent>
+            </Card>
+
+            {/* Card 7: Warnings */}
+            {calcOutputs.warnings.length > 0 && (
               <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm">Insulation Board Fasteners (RAS 117 §8)</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3">
-                    {calcOutputs.insulationResults.map(ir => (
-                      <div key={ir.zone} className={cn("border rounded p-3 text-xs", ZONE_COLORS[ir.zone])}>
-                        <p className="font-semibold">Zone {ir.zone}</p>
-                        <p className="text-muted-foreground">{ir.P_psf} psf</p>
-                        <p className="font-bold">{ir.N_used} fasteners ({ir.layout})</p>
-                        {ir.N_used > ir.N_prescribed && <p className="text-amber-600 text-[10px]">Exceeds prescriptive ({ir.N_prescribed})</p>}
-                      </div>
-                    ))}
-                  </div>
+                <CardHeader className="pb-3"><CardTitle className="text-sm">Warnings & Code Compliance</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {calcOutputs.warnings.map((w, i) => (
+                    <div key={i} className={cn("flex items-start gap-2 p-2 rounded border text-xs", w.level === "error" ? "bg-red-50 border-red-200" : w.level === "warning" ? "bg-amber-50 border-amber-200" : "bg-blue-50 border-blue-200")}>
+                      {w.level === "error" ? <XCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" /> : w.level === "warning" ? <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" /> : <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />}
+                      <div><p>{w.message}</p>{w.reference && <Badge variant="outline" className="text-[9px] mt-1">{w.reference}</Badge>}</div>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
-
-              {/* Zone Plan SVG */}
-              <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm">Zone Plan Diagram</CardTitle></CardHeader>
-                <CardContent><ZonePlanSVG W={W} L={L} a={a} zp={calcOutputs.zonePressures} /></CardContent>
-              </Card>
-
-              {/* Derivation */}
-              <Card>
-                <CardHeader className="pb-3"><CardTitle className="text-sm">Calculation Derivation</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="bg-muted/50 rounded p-3 font-mono text-xs space-y-1">
-                    <p>{calcOutputs.derivation.eq_26_10_1}</p>
-                    <p>{calcOutputs.derivation.qh_asd}</p>
-                    <p>{calcOutputs.derivation.eq_30_3_1}</p>
-                    <p>{calcOutputs.derivation.ras117_fs}</p>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-2">ASCE 7-22 Eq. 26.10-1, 30.3-1 · RAS 117 §6 · FBC 8th Ed.</p>
-                </CardContent>
-              </Card>
-
-              {/* Warnings */}
-              {calcOutputs.warnings.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-3"><CardTitle className="text-sm">Warnings & Code Notes</CardTitle></CardHeader>
-                  <CardContent className="space-y-2">
-                    {calcOutputs.warnings.map((w, i) => (
-                      <div key={i} className={cn("flex items-start gap-2 p-2 rounded border text-xs", w.level === "error" ? "bg-red-50 border-red-200" : w.level === "warning" ? "bg-amber-50 border-amber-200" : "bg-blue-50 border-blue-200")}>
-                        {w.level === "error" ? <XCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" /> : w.level === "warning" ? <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" /> : <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />}
-                        <div><p>{w.message}</p>{w.reference && <Badge variant="outline" className="text-[9px] mt-1">{w.reference}</Badge>}</div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
-            </>)}
-
-            <div className="flex gap-3">
-              <Button onClick={handleSave} disabled={saving} className="flex-1">
-                {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Saving…</> : "Save Calculation to Work Order"}
-              </Button>
-              <Button variant="outline" onClick={() => navigate(`/pe/review/${id}`)}>Back to Review</Button>
-            </div>
+            )}
           </div>
+        )}
+
+        {/* Bottom action bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-8 pt-4 border-t lg:sticky lg:bottom-0 lg:bg-background lg:pb-4">
+          <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive/10" onClick={() => navigate(`/pe/review/${id}`)}>
+            Send Back for Revision
+          </Button>
+          <Button className="bg-primary hover:bg-primary/90" onClick={() => navigate(`/pe/review/${id}`)}>
+            Return to Sign & Seal →
+          </Button>
         </div>
       </div>
     </PELayout>
   );
 }
 
-function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
-  return (<div><Label className="text-xs text-muted-foreground">{label}</Label><Input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="h-9 text-sm" /></div>);
-}
-
-function LockedParam({ label, value, note }: { label: string; value: string; note: string }) {
-  return (<div><Label className="text-xs text-muted-foreground">{label}</Label><div className="flex items-center h-9 px-3 bg-muted rounded text-sm"><Lock className="h-3 w-3 mr-1 text-muted-foreground" />{value}<span className="ml-auto text-[10px] text-muted-foreground">{note}</span></div></div>);
+function Param({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between py-1 border-b border-dashed border-muted">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-right">{value}</span>
+    </div>
+  );
 }
 
 function ZonePlanSVG({ W, L, a, zp }: { W: number; L: number; a: number; zp: any }) {
@@ -542,12 +350,11 @@ function ZonePlanSVG({ W, L, a, zp }: { W: number; L: number; a: number; zp: any
       <text x={ox + sw / 2} y={oy + sl + 16} textAnchor="middle" fontSize="9" fill="hsl(var(--muted-foreground))">{W} ft</text>
       <text x={ox - 10} y={oy + sl / 2} textAnchor="middle" fontSize="9" fill="hsl(var(--muted-foreground))" transform={`rotate(-90, ${ox - 10}, ${oy + sl / 2})`}>{L} ft</text>
       <rect x={10} y={232} width={10} height={10} fill="hsl(210, 70%, 90%)" stroke="hsl(210, 50%, 60%)" strokeWidth="0.5" />
-      <text x={24} y={241} fontSize="8" fill="hsl(var(--foreground))">Field (1'/1)</text>
-      <rect x={90} y={232} width={10} height={10} fill="hsl(45, 90%, 85%)" stroke="hsl(45, 60%, 50%)" strokeWidth="0.5" />
-      <text x={104} y={241} fontSize="8" fill="hsl(var(--foreground))">Perimeter (2)</text>
-      <rect x={175} y={232} width={10} height={10} fill="hsl(0, 70%, 85%)" stroke="hsl(0, 50%, 50%)" strokeWidth="0.5" />
-      <text x={189} y={241} fontSize="8" fill="hsl(var(--foreground))">Corner (3)</text>
-      <text x={245} y={241} fontSize="8" fill="hsl(var(--muted-foreground))">a = {a.toFixed(1)} ft</text>
+      <text x={24} y={241} fontSize="7" fill="hsl(var(--muted-foreground))">1'/1</text>
+      <rect x={50} y={232} width={10} height={10} fill="hsl(45, 90%, 85%)" stroke="hsl(45, 60%, 50%)" strokeWidth="0.5" />
+      <text x={64} y={241} fontSize="7" fill="hsl(var(--muted-foreground))">2</text>
+      <rect x={80} y={232} width={10} height={10} fill="hsl(0, 70%, 85%)" stroke="hsl(0, 50%, 50%)" strokeWidth="0.5" />
+      <text x={94} y={241} fontSize="7" fill="hsl(var(--muted-foreground))">3</text>
     </svg>
   );
 }

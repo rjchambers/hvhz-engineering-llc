@@ -16,7 +16,7 @@ import { embedStampOnPdf } from "@/utils/reports/embedStamp";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CheckCircle, XCircle, ArrowLeft, ExternalLink, Loader2, X, Calculator } from "lucide-react";
+import { CheckCircle, XCircle, ArrowLeft, ExternalLink, Loader2, X, Calculator, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -305,7 +305,7 @@ export default function PEReviewDetail() {
         )}
         {wo.service_type === "fastener-calculation" && (
           <Button variant="outline" className="w-full mb-3 gap-2" onClick={() => navigate(`/pe/calculations/fastener/${id}`)}>
-            <Calculator className="h-4 w-4" /> Open Fastener Calculation Tool
+            <Eye className="h-4 w-4" /> Review Calculation →
           </Button>
         )}
         {wo.service_type === "drainage-analysis" && (

@@ -294,21 +294,27 @@ function addFastenerCalcSections(rb: HVHZReportBuilder, fd: Record<string, any>)
   const SYSTEM_LABELS: Record<string, string> = { modified_bitumen: "Modified Bitumen (RAS 117)", single_ply: "Single-Ply TPO/EPDM (RAS 137)", adhered: "Adhered Membrane (TAS 124)" };
   const DECK_LABELS: Record<string, string> = { plywood: "Plywood", structural_concrete: "Structural Concrete", steel_deck: "Steel Deck", wood_plank: "Wood Plank", lw_concrete: "LW Insulating Concrete" };
 
-  // Reconstruct inputs and run calc
+  const normDeck = (v: string) => ({ Plywood: 'plywood', OSB: 'plywood', 'Structural Concrete': 'structural_concrete', 'Steel Deck': 'steel_deck', 'Wood Plank': 'wood_plank', 'LW Insulating Concrete': 'lw_concrete' }[v] ?? v);
+  const normCon = (v: string) => ({ 'New Construction': 'new', Reroof: 'reroof', Recover: 'recover' }[v] ?? v);
+  const normEnc = (v: string) => ({ Enclosed: 'enclosed', 'Partially Enclosed': 'partially_enclosed', Open: 'open' }[v] ?? v);
+
+  const fyValue = fd.tas105_mean_lbf ?? fd.fy_lbf ?? 29.48;
+  const fySource = fd.tas105_mean_lbf ? 'tas105' : 'noa';
+
   const inputs: FastenerInputs = {
-    V: 185, exposureCategory: fd.pe_exposure ?? 'C', h: fd.mean_roof_height_ft ?? 20,
-    Kzt: fd.pe_Kzt ?? 1, Kd: 0.85, Ke: fd.pe_Ke ?? 1,
-    enclosure: fd.pe_enclosure ?? 'enclosed', riskCategory: fd.pe_risk_category ?? 'II',
+    V: 185, exposureCategory: (fd.exposure_category ?? 'C') as any, h: fd.mean_roof_height_ft ?? 20,
+    Kzt: fd.Kzt ?? 1, Kd: 0.85, Ke: fd.Ke ?? 1,
+    enclosure: normEnc(fd.enclosure_type ?? 'Enclosed') as any, riskCategory: (fd.risk_category ?? 'II') as any,
     buildingLength: fd.building_length_ft ?? 0, buildingWidth: fd.building_width_ft ?? 0,
-    parapetHeight: fd.parapet_height_ft ?? 0, systemType: fd.system_type ?? 'modified_bitumen',
-    deckType: fd.deck_type ?? 'plywood', constructionType: fd.construction_type === 'Reroof' ? 'reroof' : fd.construction_type === 'Recover' ? 'recover' : 'new',
+    parapetHeight: fd.parapet_height_ft ?? 0, systemType: (fd.system_type ?? 'modified_bitumen') as any,
+    deckType: normDeck(fd.deck_type ?? 'plywood') as any, constructionType: normCon(fd.construction_type ?? 'new') as any,
     existingLayers: fd.existing_layers === '2+' ? 2 : 1, sheetWidth_in: fd.sheet_width_in ?? 39.375,
-    lapWidth_in: fd.lap_width_in ?? 4, Fy_lbf: fd.fy_lbf ?? 29.48,
-    fySource: fd.fy_source === 'From TAS 105 Test' ? 'tas105' : 'noa', initialRows: fd.initial_rows ?? 4,
+    lapWidth_in: fd.lap_width_in ?? 4, Fy_lbf: fyValue,
+    fySource: fySource as any, initialRows: fd.initial_rows ?? 4,
     noa: { approvalType: fd.noa_approval_type === 'FL Product Approval' ? 'fl_product_approval' : 'miami_dade_noa', approvalNumber: fd.noa_number ?? '', mdp_psf: fd.noa_mdp_psf ?? 0, mdp_basis: fd.noa_mdp_basis === 'Ultimate (will be ÷2 per TAS 114)' ? 'ultimate' : 'asd', asterisked: fd.noa_asterisked ?? false },
     boardLength_ft: fd.insulation_board_length_ft ?? 4, boardWidth_ft: fd.insulation_board_width_ft ?? 8,
-    insulation_Fy_lbf: fd.insulation_fy_lbf ?? 29.48, county: fd.county === 'Miami-Dade' ? 'miami_dade' : 'broward',
-    isHVHZ: true, ewa_membrane_ft2: fd.pe_ewa_membrane ?? undefined,
+    insulation_Fy_lbf: fd.insulation_fy_lbf ?? fyValue, county: fd.county === 'Miami-Dade' ? 'miami_dade' : 'broward',
+    isHVHZ: true, ewa_membrane_ft2: fd.ewa_membrane_ft2 ?? 10,
   };
   const outputs = calculateFastener(inputs);
 
@@ -317,10 +323,11 @@ function addFastenerCalcSections(rb: HVHZReportBuilder, fd: Record<string, any>)
     'Code Authority': 'FBC 8th Ed. (2023) · ASCE 7-22 Ch. 30 C&C',
     'Standards': 'RAS 117 · RAS 128 · RAS 137 · TAS 105',
     'Design Wind Speed': '185 mph (HVHZ, FBC §1620.1)',
-    'Exposure': 'C (HVHZ coastal mandate)',
-    'Risk Category': fd.pe_risk_category ?? 'II',
+    'Exposure': fd.exposure_category ?? 'C',
+    'Risk Category': fd.risk_category ?? 'II',
     'Construction Type': fd.construction_type ?? '',
     'County': fd.county ?? '',
+    'Data Source': 'Field submission — technician documented',
   });
 
   rb.addSection('Building & Roof System');
@@ -329,7 +336,7 @@ function addFastenerCalcSections(rb: HVHZReportBuilder, fd: Record<string, any>)
     'Mean Roof Height': `${fd.mean_roof_height_ft ?? ''} ft`,
     'Parapet Height': `${fd.parapet_height_ft ?? 0} ft`,
     'Roof System': SYSTEM_LABELS[fd.system_type] ?? fd.system_type ?? '',
-    'Deck Type': DECK_LABELS[fd.deck_type] ?? fd.deck_type ?? '',
+    'Deck Type': DECK_LABELS[normDeck(fd.deck_type ?? '')] ?? fd.deck_type ?? '',
     'Sheet Width': fd.sheet_width_in ? `${fd.sheet_width_in}"` : 'N/A (adhered)',
     'Lap Width': fd.lap_width_in ? `${fd.lap_width_in}"` : 'N/A (adhered)',
   });
@@ -387,15 +394,12 @@ function addFastenerCalcSections(rb: HVHZReportBuilder, fd: Record<string, any>)
     rb.addInfoGrid({ [`Zone ${ir.zone}`]: `${ir.N_used} fasteners (${ir.layout}) — ${ir.P_psf} psf` });
   });
 
-  if (fd.pe_tas105_raw_values?.length > 0) {
-    const tas = calculateTAS105({ rawValues_lbf: fd.pe_tas105_raw_values });
+  if (fd.tas105_mean_lbf) {
     rb.addSection('TAS 105 Laboratory Test Results');
     rb.addInfoGrid({
-      'Test Values (lbf)': fd.pe_tas105_raw_values.join(', '),
-      'n': String(tas.n), 'Mean': `${tas.mean_lbf} lbf`, 'Std Dev': `${tas.stdDev_lbf} lbf`,
-      't-Factor': String(tas.tFactor), 'MCRF': `${tas.MCRF_lbf} lbf`,
-      'Result': tas.pass ? 'PASS (≥ 275 lbf)' : 'FAIL (< 275 lbf)',
-      'Testing Agency': fd.pe_tas105_agency ?? '(see attached lab report)', 'Test Date': fd.pe_tas105_date ?? '',
+      'Mean Pullout Value': `${fd.tas105_mean_lbf} lbf`,
+      'Testing Agency': fd.tas105_agency ?? '(see attached lab report)',
+      'Test Date': fd.tas105_date ?? '',
       'Source': 'Third-party laboratory report',
     });
   }
