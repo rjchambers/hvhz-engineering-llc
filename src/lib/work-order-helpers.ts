@@ -4,29 +4,31 @@ export const KANBAN_COLUMNS = [
   "in_progress",
   "submitted",
   "pe_review",
-  "complete",
+  "signed",
   "rejected",
 ] as const;
 
 export const STATUS_LABELS: Record<string, string> = {
+  pending_payment: "Pending Payment",
   pending_dispatch: "Pending Dispatch",
   dispatched: "Dispatched",
   in_progress: "In Progress",
   submitted: "Submitted",
   pe_review: "PE Review",
+  signed: "Signed & Complete",
   complete: "Complete",
   rejected: "Rejected",
 };
 
 export const STATUS_BADGE_CLASSES: Record<string, string> = {
-  pending_dispatch: "bg-gray-100 text-gray-700",
   pending_payment: "bg-gray-100 text-gray-700",
+  pending_dispatch: "bg-gray-100 text-gray-700",
   dispatched: "bg-blue-100 text-blue-700",
   in_progress: "bg-teal-100 text-teal-700",
   submitted: "bg-teal-100 text-teal-700",
   pe_review: "bg-amber-100 text-amber-700",
-  complete: "bg-green-100 text-green-700",
   signed: "bg-green-100 text-green-700",
+  complete: "bg-green-100 text-green-700",
   rejected: "bg-red-100 text-red-700",
 };
 

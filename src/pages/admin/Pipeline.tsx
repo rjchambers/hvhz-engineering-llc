@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { PackageOpen } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   KANBAN_COLUMNS,
   STATUS_LABELS,
@@ -30,6 +31,8 @@ interface WO {
 export default function Pipeline() {
   const [workOrders, setWorkOrders] = useState<WO[]>([]);
   const [dragging, setDragging] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const fetchWOs = useCallback(async () => {
     const { data } = await supabase
@@ -39,7 +42,6 @@ export default function Pipeline() {
 
     if (!data) return;
 
-    // Fetch client profiles for all unique client_ids
     const clientIds = [...new Set(data.map((wo) => wo.client_id))];
     const { data: profiles } = await supabase
       .from("client_profiles")
@@ -77,13 +79,13 @@ export default function Pipeline() {
   const handleDrop = async (newStatus: string) => {
     if (!dragging) return;
     const wo = workOrders.find((w) => w.id === dragging);
-    if (!wo || wo.status === newStatus) { setDragging(null); return; }
+    if (!wo || wo.status === newStatus) { setDragging(null); setDragOver(null); return; }
 
-    // Optimistic update
     setWorkOrders((prev) =>
       prev.map((w) => (w.id === dragging ? { ...w, status: newStatus } : w))
     );
     setDragging(null);
+    setDragOver(null);
 
     const { error } = await supabase
       .from("work_orders")
@@ -111,16 +113,21 @@ export default function Pipeline() {
           </div>
         ) : (
           <>
-            {/* Desktop kanban */}
+            {/* Desktop kanban — Fix 7: clickable cards, Fix 8: drag visual feedback */}
             <div className="hidden md:flex gap-3 overflow-x-auto pb-4">
               {KANBAN_COLUMNS.map((col) => {
                 const items = workOrders.filter((w) => w.status === col);
                 return (
                   <div
                     key={col}
-                    className="min-w-[220px] w-[220px] flex-shrink-0 bg-muted/50 rounded-lg"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => handleDrop(col)}
+                    className={`min-w-[220px] w-[220px] flex-shrink-0 rounded-lg transition-colors ${
+                      dragOver === col
+                        ? "bg-primary/10 ring-2 ring-primary/30"
+                        : "bg-muted/50"
+                    }`}
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(col); }}
+                    onDragLeave={() => setDragOver(null)}
+                    onDrop={() => { handleDrop(col); setDragOver(null); }}
                   >
                     <div className="p-3 border-b border-border">
                       <div className="flex items-center justify-between">
@@ -140,8 +147,11 @@ export default function Pipeline() {
                             key={wo.id}
                             draggable
                             onDragStart={() => handleDragStart(wo.id)}
-                            className={`rounded-md p-3 cursor-grab active:cursor-grabbing shadow-sm border border-border/50 transition-shadow hover:shadow-md ${
-                              isTas ? "bg-amber-50" : "bg-teal-50"
+                            onClick={() => navigate(`/admin/work-orders?id=${wo.id}`)}
+                            className={`rounded-md p-3 cursor-grab active:cursor-grabbing shadow-sm border transition-shadow hover:shadow-md hover:border-primary/30 ${
+                              isTas
+                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
+                                : "bg-card border-border/50"
                             }`}
                           >
                             <p className="text-xs font-semibold text-primary truncate">
@@ -165,7 +175,7 @@ export default function Pipeline() {
               })}
             </div>
 
-            {/* Mobile list view */}
+            {/* Mobile list view — Fix 7: clickable cards */}
             <div className="md:hidden space-y-2">
               {KANBAN_COLUMNS.map((col) => {
                 const items = workOrders.filter((w) => w.status === col);
@@ -180,7 +190,15 @@ export default function Pipeline() {
                       {items.map((wo) => {
                         const isTas = TAS_SERVICES.includes(wo.service_type);
                         return (
-                          <div key={wo.id} className={`rounded-md p-3 border border-border/50 shadow-sm ${isTas ? "bg-amber-50" : "bg-teal-50"}`}>
+                          <div
+                            key={wo.id}
+                            className={`rounded-md p-3 border shadow-sm cursor-pointer hover:border-primary/30 transition-colors ${
+                              isTas
+                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200"
+                                : "bg-card border-border/50"
+                            }`}
+                            onClick={() => navigate(`/admin/work-orders?id=${wo.id}`)}
+                          >
                             <div className="flex items-center justify-between">
                               <p className="text-xs font-semibold text-primary truncate">{wo.client_profiles?.company_name || "—"}</p>
                               <p className="text-[10px] text-muted-foreground/70">{daysSince(wo.created_at)}d</p>

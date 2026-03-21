@@ -13,12 +13,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { STATUS_LABELS, STATUS_BADGE_CLASSES, isOutsourced, daysSince } from "@/lib/work-order-helpers";
-import { getServiceName } from "@/lib/services";
+import { SERVICES, getServiceName } from "@/lib/services";
 import { CalendarIcon, ChevronLeft, ChevronRight, Upload, ChevronDown, AlertTriangle, ExternalLink, FlaskConical } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 const PAGE_SIZE = 25;
 
@@ -55,6 +55,7 @@ interface OutsourcePartner {
 
 export default function WorkOrders() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [workOrders, setWorkOrders] = useState<WO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -105,36 +106,72 @@ export default function WorkOrders() {
     setTotal(count ?? 0);
   }, [page, filterStatus, filterService]);
 
+  // Fix 4: Better name resolution for techs and engineers
   const fetchRoles = useCallback(async () => {
-    // Fetch tech roles + their names from client_profiles
     const { data: techRoles } = await supabase.from("user_roles").select("user_id, role").eq("role", "technician");
     const techUids = (techRoles ?? []).map((r) => r.user_id);
+
     let techNameMap = new Map<string, string>();
     if (techUids.length > 0) {
-      const { data: techProfiles } = await supabase.from("client_profiles").select("user_id, contact_name").in("user_id", techUids);
-      techNameMap = new Map((techProfiles ?? []).map((p) => [p.user_id, p.contact_name ?? ""]));
+      const { data: techProfiles } = await supabase
+        .from("client_profiles")
+        .select("user_id, contact_name, contact_email")
+        .in("user_id", techUids);
+      techNameMap = new Map(
+        (techProfiles ?? []).map((p) => [
+          p.user_id,
+          p.contact_name?.trim() ||
+            (p.contact_email ? p.contact_email.split("@")[0] : null) ||
+            p.user_id.slice(0, 8),
+        ])
+      );
     }
-    setTechs((techRoles ?? []).map((r) => ({
-      id: r.user_id,
-      user_id: r.user_id,
-      role: r.role,
-      displayName: techNameMap.get(r.user_id) || r.user_id.slice(0, 8),
-    })));
 
-    // Fetch engineer roles + their names from engineer_profiles
+    setTechs(
+      (techRoles ?? []).map((r) => ({
+        id: r.user_id,
+        user_id: r.user_id,
+        role: r.role,
+        displayName: techNameMap.get(r.user_id) || r.user_id.slice(0, 8),
+      }))
+    );
+
     const { data: engRoles } = await supabase.from("user_roles").select("user_id, role").eq("role", "engineer");
     const engUids = (engRoles ?? []).map((r) => r.user_id);
+
     let engNameMap = new Map<string, string>();
     if (engUids.length > 0) {
-      const { data: engProfiles } = await supabase.from("engineer_profiles").select("user_id, full_name").in("user_id", engUids);
-      engNameMap = new Map((engProfiles ?? []).map((p) => [p.user_id, p.full_name ?? ""]));
+      const { data: engProfiles } = await supabase
+        .from("engineer_profiles")
+        .select("user_id, full_name")
+        .in("user_id", engUids);
+      const { data: engClientProfiles } = await supabase
+        .from("client_profiles")
+        .select("user_id, contact_email")
+        .in("user_id", engUids);
+      const engEmailMap = new Map(
+        (engClientProfiles ?? []).map((p) => [p.user_id, p.contact_email])
+      );
+      engNameMap = new Map(
+        (engProfiles ?? []).map((p) => [
+          p.user_id,
+          p.full_name?.trim() ||
+            (engEmailMap.get(p.user_id)
+              ? engEmailMap.get(p.user_id)!.split("@")[0]
+              : null) ||
+            p.user_id.slice(0, 8),
+        ])
+      );
     }
-    setEngineers((engRoles ?? []).map((r) => ({
-      id: r.user_id,
-      user_id: r.user_id,
-      role: r.role,
-      displayName: engNameMap.get(r.user_id) || r.user_id.slice(0, 8),
-    })));
+
+    setEngineers(
+      (engRoles ?? []).map((r) => ({
+        id: r.user_id,
+        user_id: r.user_id,
+        role: r.role,
+        displayName: engNameMap.get(r.user_id) || r.user_id.slice(0, 8),
+      }))
+    );
   }, []);
 
   const fetchPartners = useCallback(async () => {
@@ -144,6 +181,18 @@ export default function WorkOrders() {
 
   useEffect(() => { fetchWOs(); }, [fetchWOs]);
   useEffect(() => { fetchRoles(); fetchPartners(); }, [fetchRoles, fetchPartners]);
+
+  // Fix 7: Auto-open sheet when ?id= is present
+  useEffect(() => {
+    const idParam = searchParams.get("id");
+    if (idParam && workOrders.length > 0) {
+      const target = workOrders.find((wo) => wo.id === idParam);
+      if (target) {
+        openSheet(target);
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, workOrders]);
 
   const handleSeedTestWO = async () => {
     if (!user) return;
@@ -162,11 +211,7 @@ export default function WorkOrders() {
           total_amount: 350,
           status: "paid",
           notes: "TEST WORK ORDER — created via admin seed tool",
-          roof_data: {
-            area: 2400,
-            pitch: "flat",
-            type: "Modified Bitumen",
-          },
+          roof_data: { area: 2400, pitch: "flat", type: "Modified Bitumen" },
         })
         .select()
         .single();
@@ -219,6 +264,7 @@ export default function WorkOrders() {
     setEmailPreviewOpen(false);
   };
 
+  // Fix 5: Updated dispatch to support re-dispatch
   const handleDispatch = async () => {
     if (!selected) return;
     setDispatching(true);
@@ -245,8 +291,12 @@ export default function WorkOrders() {
           scheduled_date: dispatchDate ? format(dispatchDate, "yyyy-MM-dd") : null,
         })
         .eq("id", selected.id);
-      if (error) toast.error("Failed to dispatch");
-      else { toast.success("Work order dispatched"); setSelected(null); fetchWOs(); }
+      if (error) toast.error("Failed to update");
+      else {
+        toast.success(selected.status === "dispatched" ? "Assignment updated" : "Work order dispatched");
+        setSelected(null);
+        fetchWOs();
+      }
     }
     setDispatching(false);
   };
@@ -259,6 +309,7 @@ export default function WorkOrders() {
     fetchWOs();
   };
 
+  // Fix 2: Use signed URL instead of public URL for private bucket
   const handleUploadResult = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selected || !e.target.files?.[0]) return;
     setUploading(true);
@@ -266,13 +317,21 @@ export default function WorkOrders() {
     const path = `work_orders/${selected.id}/result.pdf`;
 
     const { error: uploadErr } = await supabase.storage.from("reports").upload(path, file, { upsert: true });
-    if (uploadErr) { toast.error("Upload failed"); setUploading(false); return; }
+    if (uploadErr) { toast.error("Upload failed: " + uploadErr.message); setUploading(false); return; }
 
-    const { data: urlData } = supabase.storage.from("reports").getPublicUrl(path);
+    const { data: signedData, error: signErr } = await supabase.storage
+      .from("reports")
+      .createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
+
+    if (signErr || !signedData?.signedUrl) {
+      toast.error("Uploaded but could not generate URL");
+      setUploading(false);
+      return;
+    }
 
     await supabase
       .from("work_orders")
-      .update({ result_pdf_url: urlData.publicUrl, status: "submitted" })
+      .update({ result_pdf_url: signedData.signedUrl, status: "submitted" })
       .eq("id", selected.id);
 
     toast.success("Result uploaded, status set to submitted");
@@ -299,12 +358,13 @@ export default function WorkOrders() {
               ))}
             </SelectContent>
           </Select>
+          {/* Fix 11: Use SERVICES constant */}
           <Select value={filterService} onValueChange={(v) => { setFilterService(v); setPage(0); }}>
             <SelectTrigger className="w-[200px]"><SelectValue placeholder="Service" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Services</SelectItem>
-              {["tas-105","tas-106","tas-124","tas-126","roof-inspection","roof-certification","drainage-analysis","special-inspection","wind-mitigation-permit","fastener-calculation"].map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+              {SERVICES.map((s) => (
+                <SelectItem key={s.key} value={s.key}>{s.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -336,7 +396,7 @@ export default function WorkOrders() {
             <TableBody>
               {workOrders.map((wo) => (
                 <TableRow key={wo.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openSheet(wo)}>
-                  <TableCell className="font-medium text-sm">{wo.service_type}</TableCell>
+                  <TableCell className="font-medium text-sm">{getServiceName(wo.service_type)}</TableCell>
                   <TableCell className="text-sm">{wo.client_profiles?.company_name ?? "—"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{wo.orders?.job_address ?? "—"}</TableCell>
                   <TableCell>
@@ -399,10 +459,12 @@ export default function WorkOrders() {
                   </div>
                 </section>
 
-                {/* Dispatch section for pending_dispatch */}
-                {selected.status === "pending_dispatch" && (
+                {/* Fix 5: Dispatch section for pending_dispatch AND dispatched */}
+                {(selected.status === "pending_dispatch" || selected.status === "dispatched") && (
                   <section className="space-y-3 border-t pt-4">
-                    <h3 className="text-sm font-semibold text-primary">Dispatch</h3>
+                    <h3 className="text-sm font-semibold text-primary">
+                      {selected.status === "dispatched" ? "Update Assignment" : "Dispatch"}
+                    </h3>
 
                     {isOutsourced(selected.service_type) ? (
                       <>
@@ -506,7 +568,7 @@ export default function WorkOrders() {
                           </Popover>
                         </div>
                         <Button onClick={handleDispatch} disabled={dispatching} className="w-full bg-hvhz-navy hover:bg-hvhz-navy/90">
-                          {dispatching ? "Dispatching…" : "Dispatch"}
+                          {dispatching ? "Saving…" : selected.status === "dispatched" ? "Update Assignment" : "Dispatch"}
                         </Button>
                       </>
                     )}

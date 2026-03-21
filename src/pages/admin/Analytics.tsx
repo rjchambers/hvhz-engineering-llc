@@ -22,6 +22,7 @@ export default function Analytics() {
   const [pieData, setPieData] = useState<{ name: string; value: number }[]>([]);
   const [revenueByMonth, setRevenueByMonth] = useState<{ month: string; revenue: number }[]>([]);
   const [statusSummary, setStatusSummary] = useState<{ status: string; count: number; oldestDays: number }[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const now = new Date();
@@ -30,107 +31,110 @@ export default function Analytics() {
     const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString();
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString();
 
-    // KPI 1 & 2: Orders + revenue this month
-    supabase
-      .from("orders")
-      .select("id, total_amount", { count: "exact" })
-      .gte("created_at", monthStart)
-      .then(({ data, count }) => {
-        setOrdersThisMonth(count ?? 0);
-        setRevenueThisMonth((data ?? []).reduce((s, o) => s + (Number(o.total_amount) || 0), 0));
-      });
+    setLoading(true);
 
-    // KPI 3: Pending dispatch count
-    supabase
-      .from("work_orders")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending_dispatch")
-      .then(({ count }) => setPendingDispatch(count ?? 0));
+    Promise.all([
+      // KPI 1 & 2: Orders + revenue this month (paid only — Fix 3)
+      supabase
+        .from("orders")
+        .select("id, total_amount", { count: "exact" })
+        .gte("created_at", monthStart)
+        .neq("status", "pending_payment")
+        .then(({ data, count }) => {
+          setOrdersThisMonth(count ?? 0);
+          setRevenueThisMonth((data ?? []).reduce((s, o) => s + (Number(o.total_amount) || 0), 0));
+        }),
 
-    // KPI 4: Avg turnaround (complete WOs last 90 days)
-    supabase
-      .from("work_orders")
-      .select("created_at, signed_at")
-      .eq("status", "complete")
-      .not("signed_at", "is", null)
-      .gte("created_at", ninetyDaysAgo)
-      .then(({ data }) => {
-        if (!data || data.length === 0) { setAvgTurnaround(null); return; }
-        const days = data.map((wo) => (new Date(wo.signed_at!).getTime() - new Date(wo.created_at).getTime()) / 86400000);
-        setAvgTurnaround(Math.round(days.reduce((a, b) => a + b, 0) / days.length * 10) / 10);
-      });
+      // KPI 3: Pending dispatch count
+      supabase
+        .from("work_orders")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending_dispatch")
+        .then(({ count }) => setPendingDispatch(count ?? 0)),
 
-    // Chart 1: Orders by service (last 30 days)
-    supabase
-      .from("work_orders")
-      .select("service_type")
-      .gte("created_at", thirtyDaysAgo)
-      .then(({ data }) => {
-        const counts: Record<string, number> = {};
-        (data ?? []).forEach((wo) => { counts[wo.service_type] = (counts[wo.service_type] || 0) + 1; });
-        setServiceData(
-          Object.entries(counts)
-            .map(([key, count]) => ({ service: getServiceName(key), count }))
-            .sort((a, b) => b.count - a.count)
-        );
+      // KPI 4: Avg turnaround (signed WOs last 90 days — Fix 3)
+      supabase
+        .from("work_orders")
+        .select("created_at, signed_at")
+        .eq("status", "signed")
+        .not("signed_at", "is", null)
+        .gte("created_at", ninetyDaysAgo)
+        .then(({ data }) => {
+          if (!data || data.length === 0) { setAvgTurnaround(null); return; }
+          const days = data.map((wo) => (new Date(wo.signed_at!).getTime() - new Date(wo.created_at).getTime()) / 86400000);
+          setAvgTurnaround(Math.round(days.reduce((a, b) => a + b, 0) / days.length * 10) / 10);
+        }),
 
-        // Pie: Internal vs TAS
-        let tasCount = 0, internalCount = 0;
-        (data ?? []).forEach((wo) => {
-          if (TAS_SERVICES.includes(wo.service_type)) tasCount++;
-          else internalCount++;
-        });
-        setPieData([
-          { name: "Internal services", value: internalCount },
-          { name: "TAS / Outsourced", value: tasCount },
-        ]);
-      });
+      // Chart 1: Orders by service (last 30 days)
+      supabase
+        .from("work_orders")
+        .select("service_type")
+        .gte("created_at", thirtyDaysAgo)
+        .then(({ data }) => {
+          const counts: Record<string, number> = {};
+          (data ?? []).forEach((wo) => { counts[wo.service_type] = (counts[wo.service_type] || 0) + 1; });
+          setServiceData(
+            Object.entries(counts)
+              .map(([key, count]) => ({ service: getServiceName(key), count }))
+              .sort((a, b) => b.count - a.count)
+          );
 
-    // Revenue by month (last 6)
-    supabase
-      .from("orders")
-      .select("created_at, total_amount")
-      .gte("created_at", sixMonthsAgo)
-      .then(({ data }) => {
-        const monthMap: Record<string, number> = {};
-        // Pre-fill 6 months
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-          monthMap[key] = 0;
-        }
-        (data ?? []).forEach((o) => {
-          const d = new Date(o.created_at);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-          if (key in monthMap) monthMap[key] += Number(o.total_amount) || 0;
-        });
-        const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-        setRevenueByMonth(
-          Object.entries(monthMap).map(([key, revenue]) => ({
-            month: monthNames[parseInt(key.split("-")[1]) - 1],
-            revenue,
-          }))
-        );
-      });
+          let tasCount = 0, internalCount = 0;
+          (data ?? []).forEach((wo) => {
+            if (TAS_SERVICES.includes(wo.service_type)) tasCount++;
+            else internalCount++;
+          });
+          setPieData([
+            { name: "Internal services", value: internalCount },
+            { name: "TAS / Outsourced", value: tasCount },
+          ]);
+        }),
 
-    // Status summary
-    supabase
-      .from("work_orders")
-      .select("status, created_at")
-      .then(({ data }) => {
-        const groups: Record<string, { count: number; oldest: string }> = {};
-        (data ?? []).forEach((wo) => {
-          if (!groups[wo.status]) groups[wo.status] = { count: 0, oldest: wo.created_at };
-          groups[wo.status].count++;
-          if (wo.created_at < groups[wo.status].oldest) groups[wo.status].oldest = wo.created_at;
-        });
-        setStatusSummary(
-          Object.entries(groups)
-            .filter(([, v]) => v.count > 0)
-            .map(([status, v]) => ({ status, count: v.count, oldestDays: daysSince(v.oldest) }))
-            .sort((a, b) => b.count - a.count)
-        );
-      });
+      // Revenue by month (last 6)
+      supabase
+        .from("orders")
+        .select("created_at, total_amount")
+        .gte("created_at", sixMonthsAgo)
+        .then(({ data }) => {
+          const monthMap: Record<string, number> = {};
+          for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            monthMap[key] = 0;
+          }
+          (data ?? []).forEach((o) => {
+            const d = new Date(o.created_at);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            if (key in monthMap) monthMap[key] += Number(o.total_amount) || 0;
+          });
+          const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+          setRevenueByMonth(
+            Object.entries(monthMap).map(([key, revenue]) => ({
+              month: monthNames[parseInt(key.split("-")[1]) - 1],
+              revenue,
+            }))
+          );
+        }),
+
+      // Status summary
+      supabase
+        .from("work_orders")
+        .select("status, created_at")
+        .then(({ data }) => {
+          const groups: Record<string, { count: number; oldest: string }> = {};
+          (data ?? []).forEach((wo) => {
+            if (!groups[wo.status]) groups[wo.status] = { count: 0, oldest: wo.created_at };
+            groups[wo.status].count++;
+            if (wo.created_at < groups[wo.status].oldest) groups[wo.status].oldest = wo.created_at;
+          });
+          setStatusSummary(
+            Object.entries(groups)
+              .filter(([, v]) => v.count > 0)
+              .map(([status, v]) => ({ status, count: v.count, oldestDays: daysSince(v.oldest) }))
+              .sort((a, b) => b.count - a.count)
+          );
+        }),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const PIE_COLORS = ["hsl(174 84% 32%)", "hsl(45 93% 47%)"];
@@ -140,35 +144,51 @@ export default function Analytics() {
       <div className="p-6">
         <h1 className="text-2xl font-bold text-primary mb-6">Analytics</h1>
 
-        {/* KPI Cards */}
+        {/* KPI Cards — Fix 9: loading skeletons */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Orders This Month</CardTitle>
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent><p className="text-3xl font-bold text-primary tabular-nums">{ordersThisMonth}</p></CardContent>
+            <CardContent>
+              {loading ? <div className="h-9 w-24 bg-muted animate-pulse rounded" /> : (
+                <p className="text-3xl font-bold text-primary tabular-nums">{ordersThisMonth}</p>
+              )}
+            </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Revenue This Month</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent><p className="text-3xl font-bold text-primary tabular-nums">{formatCurrency(revenueThisMonth)}</p></CardContent>
+            <CardContent>
+              {loading ? <div className="h-9 w-24 bg-muted animate-pulse rounded" /> : (
+                <p className="text-3xl font-bold text-primary tabular-nums">{formatCurrency(revenueThisMonth)}</p>
+              )}
+            </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Pending Dispatch</CardTitle>
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent><p className="text-3xl font-bold text-primary tabular-nums">{pendingDispatch}</p></CardContent>
+            <CardContent>
+              {loading ? <div className="h-9 w-24 bg-muted animate-pulse rounded" /> : (
+                <p className="text-3xl font-bold text-primary tabular-nums">{pendingDispatch}</p>
+              )}
+            </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Avg Turnaround (days)</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent><p className="text-3xl font-bold text-primary tabular-nums">{avgTurnaround !== null ? avgTurnaround : "—"}</p></CardContent>
+            <CardContent>
+              {loading ? <div className="h-9 w-24 bg-muted animate-pulse rounded" /> : (
+                <p className="text-3xl font-bold text-primary tabular-nums">{avgTurnaround !== null ? avgTurnaround : "—"}</p>
+              )}
+            </CardContent>
           </Card>
         </div>
 
@@ -179,7 +199,11 @@ export default function Analytics() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Orders by Service — Last 30 Days</CardTitle>
             </CardHeader>
             <CardContent>
-              {serviceData.length > 0 ? (
+              {loading ? (
+                <div className="h-[300px] flex items-center justify-center">
+                  <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : serviceData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={serviceData} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
@@ -200,7 +224,11 @@ export default function Analytics() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Internal vs TAS Split — Last 30 Days</CardTitle>
             </CardHeader>
             <CardContent className="flex justify-center">
-              {pieData.some((d) => d.value > 0) ? (
+              {loading ? (
+                <div className="h-[250px] flex items-center justify-center">
+                  <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : pieData.some((d) => d.value > 0) ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} labelLine={false}>
@@ -222,7 +250,11 @@ export default function Analytics() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Revenue by Month — Last 6 Months</CardTitle>
           </CardHeader>
           <CardContent>
-            {revenueByMonth.length > 0 ? (
+            {loading ? (
+              <div className="h-[300px] flex items-center justify-center">
+                <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : revenueByMonth.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={revenueByMonth} margin={{ top: 8, right: 16, bottom: 0, left: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
