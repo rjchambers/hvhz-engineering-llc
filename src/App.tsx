@@ -23,6 +23,7 @@ import PEReviewQueue from "./pages/pe/PEReviewQueue";
 import PEReviewDetail from "./pages/pe/PEReviewDetail";
 import WindMitigationCalc from "./pages/pe/WindMitigationCalc";
 import FastenerCalc from "./pages/pe/FastenerCalc";
+import DrainageCalc from "./pages/pe/DrainageCalc";
 import PEProfile from "./pages/pe/PEProfile";
 import NotFound from "./pages/NotFound";
 
