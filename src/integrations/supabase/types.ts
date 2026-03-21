@@ -208,6 +208,63 @@ export type Database = {
         }
         Relationships: []
       }
+      outsource_partners: {
+        Row: {
+          active: boolean
+          contact_email: string
+          contact_name: string | null
+          created_at: string
+          email_template: string | null
+          id: string
+          name: string
+          services: string[]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          contact_email: string
+          contact_name?: string | null
+          created_at?: string
+          email_template?: string | null
+          id?: string
+          name: string
+          services?: string[]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          contact_email?: string
+          contact_name?: string | null
+          created_at?: string
+          email_template?: string | null
+          id?: string
+          name?: string
+          services?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      service_config: {
+        Row: {
+          active: boolean
+          price_override: number | null
+          service_key: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          price_override?: number | null
+          service_key: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          price_override?: number | null
+          service_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       signed_documents: {
         Row: {
           fac_rule_ref: string | null

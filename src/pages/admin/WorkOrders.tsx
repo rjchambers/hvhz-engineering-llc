@@ -9,12 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { STATUS_LABELS, STATUS_BADGE_CLASSES, isOutsourced, daysSince } from "@/lib/work-order-helpers";
-import { CalendarIcon, ChevronLeft, ChevronRight, Upload } from "lucide-react";
+import { getServiceName } from "@/lib/services";
+import { CalendarIcon, ChevronLeft, ChevronRight, Upload, ChevronDown, AlertTriangle, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 const PAGE_SIZE = 25;
 
@@ -37,7 +40,17 @@ interface WO {
   client_profiles?: { company_name: string | null } | null;
 }
 
-interface RoleUser { id: string; full_name?: string; user_id: string; role: string; }
+interface RoleUser { id: string; displayName: string; user_id: string; role: string; }
+
+interface OutsourcePartner {
+  id: string;
+  name: string;
+  contact_name: string | null;
+  contact_email: string;
+  services: string[];
+  email_template: string | null;
+  active: boolean;
+}
 
 export default function WorkOrders() {
   const [workOrders, setWorkOrders] = useState<WO[]>([]);
@@ -48,15 +61,16 @@ export default function WorkOrders() {
   const [selected, setSelected] = useState<WO | null>(null);
   const [techs, setTechs] = useState<RoleUser[]>([]);
   const [engineers, setEngineers] = useState<RoleUser[]>([]);
+  const [partners, setPartners] = useState<OutsourcePartner[]>([]);
 
   // Dispatch form state
   const [dispatchTech, setDispatchTech] = useState("");
   const [dispatchEngineer, setDispatchEngineer] = useState("");
   const [dispatchDate, setDispatchDate] = useState<Date | undefined>();
-  const [outsourceCompany, setOutsourceCompany] = useState("");
-  const [outsourceEmail, setOutsourceEmail] = useState("");
+  const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dispatching, setDispatching] = useState(false);
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
 
   const fetchWOs = useCallback(async () => {
     let query = supabase
@@ -89,22 +103,71 @@ export default function WorkOrders() {
   }, [page, filterStatus, filterService]);
 
   const fetchRoles = useCallback(async () => {
+    // Fetch tech roles + their names from client_profiles
     const { data: techRoles } = await supabase.from("user_roles").select("user_id, role").eq("role", "technician");
+    const techUids = (techRoles ?? []).map((r) => r.user_id);
+    let techNameMap = new Map<string, string>();
+    if (techUids.length > 0) {
+      const { data: techProfiles } = await supabase.from("client_profiles").select("user_id, contact_name").in("user_id", techUids);
+      techNameMap = new Map((techProfiles ?? []).map((p) => [p.user_id, p.contact_name ?? ""]));
+    }
+    setTechs((techRoles ?? []).map((r) => ({
+      id: r.user_id,
+      user_id: r.user_id,
+      role: r.role,
+      displayName: techNameMap.get(r.user_id) || r.user_id.slice(0, 8),
+    })));
+
+    // Fetch engineer roles + their names from engineer_profiles
     const { data: engRoles } = await supabase.from("user_roles").select("user_id, role").eq("role", "engineer");
-    setTechs((techRoles ?? []).map((r) => ({ id: r.user_id, user_id: r.user_id, role: r.role })));
-    setEngineers((engRoles ?? []).map((r) => ({ id: r.user_id, user_id: r.user_id, role: r.role })));
+    const engUids = (engRoles ?? []).map((r) => r.user_id);
+    let engNameMap = new Map<string, string>();
+    if (engUids.length > 0) {
+      const { data: engProfiles } = await supabase.from("engineer_profiles").select("user_id, full_name").in("user_id", engUids);
+      engNameMap = new Map((engProfiles ?? []).map((p) => [p.user_id, p.full_name ?? ""]));
+    }
+    setEngineers((engRoles ?? []).map((r) => ({
+      id: r.user_id,
+      user_id: r.user_id,
+      role: r.role,
+      displayName: engNameMap.get(r.user_id) || r.user_id.slice(0, 8),
+    })));
+  }, []);
+
+  const fetchPartners = useCallback(async () => {
+    const { data } = await supabase.from("outsource_partners").select("*").eq("active", true);
+    setPartners((data as OutsourcePartner[]) ?? []);
   }, []);
 
   useEffect(() => { fetchWOs(); }, [fetchWOs]);
-  useEffect(() => { fetchRoles(); }, [fetchRoles]);
+  useEffect(() => { fetchRoles(); fetchPartners(); }, [fetchRoles, fetchPartners]);
+
+  const selectedPartner = partners.find((p) => p.id === selectedPartnerId);
+
+  const availablePartners = selected
+    ? partners.filter((p) => p.services.includes(selected.service_type))
+    : [];
+
+  const resolveTemplate = (template: string): string => {
+    if (!selected || !selectedPartner) return template;
+    return template
+      .replace(/\{\{contact_name\}\}/g, selectedPartner.contact_name ?? "")
+      .replace(/\{\{service_name\}\}/g, getServiceName(selected.service_type))
+      .replace(/\{\{job_address\}\}/g, selected.orders?.job_address ?? "")
+      .replace(/\{\{job_city\}\}/g, selected.orders?.job_city ?? "")
+      .replace(/\{\{job_zip\}\}/g, "")
+      .replace(/\{\{client_company\}\}/g, selected.client_profiles?.company_name ?? "")
+      .replace(/\{\{work_order_id\}\}/g, selected.id.slice(0, 8).toUpperCase())
+      .replace(/\{\{scheduled_date\}\}/g, dispatchDate ? format(dispatchDate, "MMMM d, yyyy") : "TBD");
+  };
 
   const openSheet = (wo: WO) => {
     setSelected(wo);
     setDispatchTech(wo.assigned_technician_id ?? "");
     setDispatchEngineer(wo.assigned_engineer_id ?? "");
     setDispatchDate(wo.scheduled_date ? new Date(wo.scheduled_date) : undefined);
-    setOutsourceCompany(wo.outsource_company ?? "");
-    setOutsourceEmail("");
+    setSelectedPartnerId("");
+    setEmailPreviewOpen(false);
   };
 
   const handleDispatch = async () => {
@@ -112,16 +175,17 @@ export default function WorkOrders() {
     setDispatching(true);
 
     if (isOutsourced(selected.service_type)) {
+      if (!selectedPartner) { toast.error("Select a lab partner"); setDispatching(false); return; }
       const { error } = await supabase
         .from("work_orders")
         .update({
           status: "dispatched",
-          outsource_company: outsourceCompany,
+          outsource_company: selectedPartner.name,
           outsource_email_sent_at: new Date().toISOString(),
         })
         .eq("id", selected.id);
       if (error) toast.error("Failed to dispatch");
-      else { toast.success("Work order dispatched to lab"); setSelected(null); fetchWOs(); }
+      else { toast.success(`Work order dispatched to ${selectedPartner.name}`); setSelected(null); fetchWOs(); }
     } else {
       const { error } = await supabase
         .from("work_orders")
@@ -255,7 +319,7 @@ export default function WorkOrders() {
           {selected && (
             <>
               <SheetHeader>
-                <SheetTitle className="text-primary">{selected.service_type}</SheetTitle>
+                <SheetTitle className="text-primary">{getServiceName(selected.service_type)}</SheetTitle>
               </SheetHeader>
 
               <div className="mt-6 space-y-6">
@@ -283,17 +347,66 @@ export default function WorkOrders() {
 
                     {isOutsourced(selected.service_type) ? (
                       <>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Outsource Company</Label>
-                          <Input value={outsourceCompany} onChange={(e) => setOutsourceCompany(e.target.value)} placeholder="Lab name" />
+                        {availablePartners.length === 0 ? (
+                          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                            <div className="text-sm">
+                              <p className="font-medium text-amber-800">No active lab partners configured for {selected.service_type}.</p>
+                              <Link to="/admin/settings" className="text-amber-700 underline text-xs mt-1 inline-flex items-center gap-1">
+                                Go to Settings → Outsource Partners <ExternalLink className="h-3 w-3" />
+                              </Link>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Select Lab / Partner</Label>
+                              <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
+                                <SelectTrigger><SelectValue placeholder="Choose a partner…" /></SelectTrigger>
+                                <SelectContent>
+                                  {availablePartners.map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name} — {p.contact_email}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {selectedPartner && (
+                              <>
+                                <div className="rounded-md bg-muted/50 p-3 text-sm space-y-0.5">
+                                  <p><span className="text-muted-foreground">Contact:</span> {selectedPartner.contact_name ?? "—"}</p>
+                                  <p><span className="text-muted-foreground">Email:</span> {selectedPartner.contact_email}</p>
+                                </div>
+
+                                {selectedPartner.email_template && (
+                                  <Collapsible open={emailPreviewOpen} onOpenChange={setEmailPreviewOpen}>
+                                    <CollapsibleTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="w-full justify-between text-xs">
+                                        Preview Work Order Email
+                                        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", emailPreviewOpen && "rotate-180")} />
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent>
+                                      <pre className="font-mono text-xs bg-muted rounded p-3 whitespace-pre-wrap max-h-60 overflow-y-auto">
+                                        {resolveTemplate(selectedPartner.email_template)}
+                                      </pre>
+                                    </CollapsibleContent>
+                                  </Collapsible>
+                                )}
+                              </>
+                            )}
+
+                            <Button onClick={handleDispatch} disabled={dispatching || !selectedPartnerId} className="w-full bg-hvhz-navy hover:bg-hvhz-navy/90">
+                              {dispatching ? "Dispatching…" : "Dispatch to Lab"}
+                            </Button>
+                          </>
+                        )}
+
+                        <div className="text-center pt-1">
+                          <Link to="/admin/settings" className="text-xs text-muted-foreground hover:text-primary underline inline-flex items-center gap-1">
+                            Manage Labs <ExternalLink className="h-3 w-3" />
+                          </Link>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Outsource Email</Label>
-                          <Input value={outsourceEmail} onChange={(e) => setOutsourceEmail(e.target.value)} placeholder="lab@example.com" type="email" />
-                        </div>
-                        <Button onClick={handleDispatch} disabled={dispatching || !outsourceCompany} className="w-full bg-hvhz-navy hover:bg-hvhz-navy/90">
-                          {dispatching ? "Sending…" : "Send Work Order Email"}
-                        </Button>
                       </>
                     ) : (
                       <>
@@ -303,7 +416,7 @@ export default function WorkOrders() {
                             <SelectTrigger><SelectValue placeholder="Select technician" /></SelectTrigger>
                             <SelectContent>
                               {techs.map((t) => (
-                                <SelectItem key={t.user_id} value={t.user_id}>{t.user_id.slice(0, 8)}</SelectItem>
+                                <SelectItem key={t.user_id} value={t.user_id}>{t.displayName}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -314,7 +427,7 @@ export default function WorkOrders() {
                             <SelectTrigger><SelectValue placeholder="Select engineer" /></SelectTrigger>
                             <SelectContent>
                               {engineers.map((e) => (
-                                <SelectItem key={e.user_id} value={e.user_id}>{e.user_id.slice(0, 8)}</SelectItem>
+                                <SelectItem key={e.user_id} value={e.user_id}>{e.displayName}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>

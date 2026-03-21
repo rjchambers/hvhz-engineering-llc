@@ -1,4 +1,4 @@
-import { Kanban, List, Users, BarChart3 } from "lucide-react";
+import { Kanban, List, Users, BarChart3, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -20,6 +20,7 @@ const adminItems = [
   { title: "Work Orders", url: "/admin/work-orders", icon: List },
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
+  { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 
 export function AdminSidebar() {
