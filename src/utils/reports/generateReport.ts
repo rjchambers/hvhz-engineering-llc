@@ -135,25 +135,107 @@ function addCertificationSections(rb: HVHZReportBuilder, fd: Record<string, any>
   }
 }
 
-function addDrainageSections(rb: HVHZReportBuilder, fd: Record<string, any>) {
-  rb.addSection('Drainage System');
-  rb.addInfoGrid({
-    'Roof Area': fd.roof_area_sqft ? `${fd.roof_area_sqft} sqft` : '',
-    'Number of Drains': fd.number_of_drains ?? '',
-    'Drain Type': fd.drain_type ?? '',
-    'Drain Size': fd.drain_size_inches ? `${fd.drain_size_inches}"` : '',
-    'Overflow Drains': fd.number_overflow_drains ?? '',
-    'Lowest Point': fd.lowest_point_location ?? '',
-    'Ponding Evidence': fd.ponding_evidence ? 'Yes' : 'No',
-  });
-  if (fd.ponding_notes) rb.addTextBlock(fd.ponding_notes);
+function addDrainageSections(rb: HVHZReportBuilder, fd: Record<string, any>, county: string) {
+  const rainfallRate = fd.pe_rainfall_rate ?? DESIGN_RAINFALL[county] ?? 8.39;
 
-  if (fd.slope_measurements?.length) {
-    rb.addSection('Slope Measurements');
-    fd.slope_measurements.forEach((s: any) => {
-      rb.addInfoGrid({ 'Location': s.location, 'Slope': `${s.slope_percent}%` });
+  // 1. Design Basis
+  rb.addSection('Design Basis');
+  rb.addInfoGrid({
+    'Code Authority': 'FBC Plumbing 2023 §1101–1106; FBC Building 2023 §1502',
+    'Design Storm': '100-Year, 1-Hour (NOAA Atlas 14)',
+    'County': county,
+    'Design Rainfall': fd.pe_rainfall_override ? `${fd.pe_rainfall_rate} in/hr (PE override)` : `${DESIGN_RAINFALL[county] ?? 8.39} in/hr`,
+    'Secondary Required': 'Yes — FBC §1502.3 (HVHZ mandate)',
+    'Slope Assumption': fd.pe_pipe_slope_assumption ?? '1/8" per ft',
+  });
+
+  const zones = fd.drainage_zones ?? [];
+  const primaryDrains = fd.primary_drains ?? [];
+  const secondaryDrains = fd.secondary_drains ?? [];
+
+  // Run calc engine
+  const calcInputs: DrainageCalcInputs = {
+    county,
+    rainfall_override: fd.pe_rainfall_override ? fd.pe_rainfall_rate : undefined,
+    pipe_slope_assumption: fd.pe_pipe_slope_assumption ?? '1/8',
+    zones,
+    primary_drains: primaryDrains,
+    secondary_drains: secondaryDrains,
+  };
+  const results = runDrainageCalc(calcInputs);
+
+  // 2. Required Flow Calculation
+  rb.addSection('Required Flow Calculation');
+  results.zone_results.forEach((zr) => {
+    const zone = zones.find((z: any) => z.zone_id === zr.zone_id);
+    rb.addTextBlock(
+      `Zone ${zr.zone_id}: ${zone?.description ?? ''}\n` +
+      `Drainage Area = ${zr.area_sqft} sqft\n` +
+      `Q_req = A × I / 96.23 = ${zr.area_sqft} × ${rainfallRate} / 96.23 = ${zr.q_required_gpm} gpm\n` +
+      `(FBC §1106.1, 100-yr design storm)`
+    );
+  });
+  rb.addTextBlock(`Total Required Capacity: ${results.total_required_gpm} gpm`);
+
+  // 3. Primary Drain Capacity
+  rb.addSection('Primary Drain Capacity');
+  results.zone_results.forEach((zr) => {
+    const grid: Record<string, string> = {};
+    zr.primary_drains.forEach((d) => {
+      grid[`Drain ${d.drain_id} (${d.diameter_in}", ${d.leader_type})`] = `${d.rated_capacity_gpm} gpm (${d.fbc_table})`;
+    });
+    grid[`Zone ${zr.zone_id} Provided`] = `${zr.q_primary_provided_gpm} gpm`;
+    grid[`Zone ${zr.zone_id} Required`] = `${zr.q_required_gpm} gpm`;
+    grid[`Zone ${zr.zone_id} Status`] = zr.primary_adequate ? 'ADEQUATE ✓' : 'DEFICIENT ✗';
+    rb.addInfoGrid(grid);
+  });
+
+  // 4. Secondary / Overflow Drain Capacity
+  rb.addSection('Secondary / Overflow Drain Capacity');
+  results.zone_results.forEach((zr) => {
+    const grid: Record<string, string> = {};
+    zr.secondary_drains.forEach((d) => {
+      const label = d.type === 'Scupper' ? `${d.drain_id} (Scupper)` : `${d.drain_id} (${d.type})`;
+      grid[label] = `${d.rated_capacity_gpm} gpm · Height: ${d.height_above_primary_in}"`;
+    });
+    grid[`Zone ${zr.zone_id} Secondary Provided`] = `${zr.q_secondary_provided_gpm} gpm`;
+    grid[`Zone ${zr.zone_id} FBC §1502.3`] = zr.secondary_adequate ? 'COMPLIANT' : 'DEFICIENT';
+    rb.addInfoGrid(grid);
+  });
+
+  // 5. Compliance Matrix
+  rb.addSection('Drainage Compliance Matrix');
+  rb.addInfoGrid({
+    'Primary System': results.overall_primary_adequate ? 'COMPLIANT' : 'DEFICIENT',
+    'Secondary System (FBC §1502.3)': results.overall_secondary_adequate ? 'COMPLIANT' : 'DEFICIENT',
+    'Total Required': `${results.total_required_gpm} gpm`,
+    'Total Provided (Primary)': `${results.total_primary_provided_gpm} gpm`,
+    'Design Standard': 'FBC Plumbing 2023, NOAA Atlas 14',
+  });
+
+  // 6. Engineering Deficiencies
+  if (results.deficiencies.length > 0) {
+    rb.addSection('Engineering Deficiencies');
+    results.deficiencies.forEach((d) => rb.addTextBlock(`• ${d}`));
+  }
+
+  // 7. Field Observations
+  rb.addSection('Field Observations');
+  rb.addInfoGrid({
+    'Roof Type': fd.roof_type ?? '',
+    'Membrane': fd.roof_membrane ?? '',
+    'Ponding Observed': fd.ponding_observed ? 'Yes' : 'No',
+    'Drain Conditions': fd.drain_conditions_summary ?? '',
+  });
+
+  if (fd.ponding_observed && fd.ponding_areas?.length) {
+    rb.addTextBlock('Ponding Areas:');
+    fd.ponding_areas.forEach((p: any) => {
+      rb.addTextBlock(`  Location: ${p.location}, Area: ${p.area_sqft} sqft, Depth: ${p.depth_in}", ${p.hours_after_rain}hrs after rain`);
     });
   }
+  if (fd.deficiencies_observed) rb.addTextBlock(`Field Deficiencies: ${fd.deficiencies_observed}`);
+  if (fd.recommendations) rb.addTextBlock(`Recommendations: ${fd.recommendations}`);
 }
 
 function addSpecialInspectionSections(rb: HVHZReportBuilder, fd: Record<string, any>) {
