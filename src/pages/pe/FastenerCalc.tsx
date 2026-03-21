@@ -65,8 +65,9 @@ export default function FastenerCalc() {
   const [noaMdpBasis, setNoaMdpBasis] = useState<"asd"|"ultimate">("asd");
   const [noaAsterisked, setNoaAsterisked] = useState(false);
   const [fyLbf, setFyLbf] = useState("29.48");
-  const [fySource, setFySource] = useState("noa");
   const [tas105Raw, setTas105Raw] = useState<number[]>([]);
+  const [tas105Agency, setTas105Agency] = useState("");
+  const [tas105Date, setTas105Date] = useState("");
   const [boardLength, setBoardLength] = useState("4");
   const [boardWidth, setBoardWidth] = useState("8");
   const [insulationFy, setInsulationFy] = useState("29.48");
