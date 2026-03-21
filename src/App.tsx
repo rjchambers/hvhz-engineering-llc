@@ -20,6 +20,8 @@ import TechDashboard from "./pages/tech/TechDashboard";
 import TechWorkOrderDetail from "./pages/tech/TechWorkOrderDetail";
 import PEReviewQueue from "./pages/pe/PEReviewQueue";
 import PEReviewDetail from "./pages/pe/PEReviewDetail";
+import WindMitigationCalc from "./pages/pe/WindMitigationCalc";
+import FastenerCalc from "./pages/pe/FastenerCalc";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
