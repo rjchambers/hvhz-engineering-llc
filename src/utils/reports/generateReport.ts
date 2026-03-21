@@ -66,7 +66,8 @@ export function generateReport(
       if (serviceType === 'roof-certification') addCertificationSections(rb, fieldData);
       break;
     case 'drainage-analysis':
-      addDrainageSections(rb, fieldData);
+      addDrainageSections(rb, fieldData, workOrder.orders?.job_county ?? 'Other');
+      break;
       break;
     case 'special-inspection':
       addSpecialInspectionSections(rb, fieldData);
