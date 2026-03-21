@@ -15,6 +15,7 @@ interface WO {
   status: string;
   scheduled_date: string | null;
   created_at: string;
+  rejection_notes?: string | null;
   orders?: { job_address: string | null; job_city: string | null } | null;
   client_profiles?: { company_name: string | null } | null;
 }
@@ -30,9 +31,9 @@ export default function TechDashboard() {
 
     const { data: activeData } = await supabase
       .from("work_orders")
-      .select("id, service_type, status, scheduled_date, created_at, client_id, orders(job_address, job_city)")
+      .select("id, service_type, status, scheduled_date, created_at, client_id, orders(job_address, job_city), rejection_notes")
       .eq("assigned_technician_id", user.id)
-      .in("status", ["dispatched", "in_progress"])
+      .in("status", ["dispatched", "in_progress", "rejected"])
       .order("scheduled_date", { ascending: true });
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -85,6 +86,12 @@ export default function TechDashboard() {
         <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
           <Calendar className="h-3 w-3" />
           <span>{wo.scheduled_date}</span>
+        </div>
+      )}
+      {wo.status === "rejected" && wo.rejection_notes && (
+        <div className="mt-2 rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive leading-snug">
+          <span className="font-semibold">Revision required: </span>
+          {wo.rejection_notes}
         </div>
       )}
     </div>
