@@ -1,6 +1,7 @@
 import { HVHZReportBuilder } from './reportLayout';
 import { format } from 'date-fns';
 import { runDrainageCalc, DESIGN_RAINFALL, type DrainageCalcInputs } from '@/lib/drainage-calc';
+import { calculateFastener, calculateTAS105, type FastenerInputs } from '@/lib/fastener-engine';
 
 interface EngineerProfile {
   full_name: string;
