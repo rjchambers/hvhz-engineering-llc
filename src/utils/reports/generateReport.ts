@@ -69,7 +69,6 @@ export function generateReport(
     case 'drainage-analysis':
       addDrainageSections(rb, fieldData, workOrder.orders?.job_county ?? 'Other');
       break;
-      break;
     case 'special-inspection':
       addSpecialInspectionSections(rb, fieldData);
       break;
