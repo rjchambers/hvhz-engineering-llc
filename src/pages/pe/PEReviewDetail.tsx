@@ -308,6 +308,11 @@ export default function PEReviewDetail() {
             <Calculator className="h-4 w-4" /> Open Fastener Calculation Tool
           </Button>
         )}
+        {wo.service_type === "drainage-analysis" && (
+          <Button variant="outline" className="w-full mb-3 gap-2" onClick={() => navigate(`/pe/calculations/drainage-analysis/${id}`)}>
+            <Calculator className="h-4 w-4" /> Open Drainage Analysis Tool
+          </Button>
+        )}
         {engineerProfile && (
           <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
             <p>{engineerProfile.full_name}</p>
