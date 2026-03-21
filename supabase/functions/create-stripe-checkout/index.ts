@@ -15,8 +15,8 @@ const SERVICE_CATALOG: Record<string, { name: string; price: number }> = {
   "roof-certification": { name: "Roof Certification", price: 450 },
   "drainage-analysis": { name: "Drainage Analysis", price: 550 },
   "special-inspection": { name: "Special Inspection", price: 400 },
-  "wind-mitigation": { name: "Wind Mitigation (Roofing Permit)", price: 500 },
-  "fastener-calc": { name: "Fastener Uplift Calculation", price: 350 },
+  "wind-mitigation-permit": { name: "Wind Mitigation (Roofing Permit)", price: 500 },
+  "fastener-calculation": { name: "Fastener Uplift Calculation", price: 350 },
 };
 
 serve(async (req) => {
