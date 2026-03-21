@@ -54,6 +54,7 @@ interface OutsourcePartner {
 }
 
 export default function WorkOrders() {
+  const { user } = useAuth();
   const [workOrders, setWorkOrders] = useState<WO[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
