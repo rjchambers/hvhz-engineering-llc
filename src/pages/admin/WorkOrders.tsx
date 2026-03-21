@@ -308,6 +308,16 @@ export default function WorkOrders() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-dashed text-muted-foreground"
+            onClick={handleSeedTestWO}
+            disabled={seeding}
+          >
+            <FlaskConical className="h-4 w-4" />
+            {seeding ? "Creating…" : "Create Test WO"}
+          </Button>
         </div>
 
         {/* Table */}
