@@ -40,5 +40,5 @@ export async function embedStampOnPdf(
   });
 
   const signedBytes = await pdfDoc.save();
-  return new Blob([signedBytes], { type: 'application/pdf' });
+  return new Blob([signedBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
 }
