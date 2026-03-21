@@ -115,6 +115,7 @@ export function AdminSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+      </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
         {!collapsed && (
