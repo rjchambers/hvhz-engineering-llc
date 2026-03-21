@@ -70,6 +70,15 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Store Stripe customer ID on first payment
+    if (session.customer && clientId) {
+      await supabase
+        .from("client_profiles")
+        .update({ stripe_customer_id: session.customer })
+        .eq("user_id", clientId)
+        .is("stripe_customer_id", null);
+    }
+
     // Create order
     const { data: order, error: orderErr } = await supabase
       .from("orders")
