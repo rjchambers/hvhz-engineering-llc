@@ -39,7 +39,7 @@ export default function TechDashboard() {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
     const { data: completedData } = await supabase
       .from("work_orders")
-      .select("id, service_type, status, scheduled_date, created_at, client_id, orders(job_address, job_city)")
+      .select("id, service_type, status, scheduled_date, created_at, client_id, orders(job_address, job_city), rejection_notes")
       .eq("assigned_technician_id", user.id)
       .eq("status", "submitted")
       .gte("submitted_at", thirtyDaysAgo)
