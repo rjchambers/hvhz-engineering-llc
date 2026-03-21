@@ -1,18 +1,20 @@
 import { PDFDocument } from 'pdf-lib';
 
 /**
- * Embeds a PE stamp image onto the last page of a PDF.
- * Stamp is placed at bottom-left, 10mm from edges, 64x64pt.
+ * Embeds a PE stamp image at the correct position on the last page of a PDF.
+ * stampBoxMm: position of the placeholder box in jsPDF mm coordinates (origin top-left).
+ * PDF points use origin bottom-left: ptFromTop = pageHeightPt - mmToPt(mmFromTop) - sizePt
  */
 export async function embedStampOnPdf(
   pdfBlob: Blob,
-  stampImageUrl: string
+  stampImageUrl: string,
+  stampBoxMm: { x: number; y: number; size: number } | null
 ): Promise<Blob> {
   const pdfBytes = await pdfBlob.arrayBuffer();
   const pdfDoc = await PDFDocument.load(pdfBytes);
 
-  // Fetch stamp image
   const stampResponse = await fetch(stampImageUrl);
+  if (!stampResponse.ok) throw new Error(`Stamp fetch failed: ${stampResponse.status}`);
   const stampBytes = await stampResponse.arrayBuffer();
   const contentType = stampResponse.headers.get('content-type') ?? '';
 
@@ -25,12 +27,26 @@ export async function embedStampOnPdf(
 
   const pages = pdfDoc.getPages();
   const lastPage = pages[pages.length - 1];
+  const { height: pageHeightPt } = lastPage.getSize();
 
-  // 10mm from edges ≈ 28.35pt, 64pt size
-  // Position over the stamp placeholder box
-  const stampX = 19 * 2.835; // ml in mm to pt
-  const stampY = 60; // near bottom area
-  const stampSize = 64;
+  // Convert mm to points (1mm = 2.835pt)
+  const MM_TO_PT = 2.835;
+
+  let stampX: number;
+  let stampY: number;
+  let stampSize: number;
+
+  if (stampBoxMm) {
+    stampSize = stampBoxMm.size * MM_TO_PT;
+    stampX = stampBoxMm.x * MM_TO_PT;
+    // jsPDF y is from top; pdf-lib y is from bottom
+    stampY = pageHeightPt - (stampBoxMm.y * MM_TO_PT) - stampSize;
+  } else {
+    // Fallback: bottom-left quadrant
+    stampSize = 64 * MM_TO_PT;
+    stampX = 19 * MM_TO_PT;
+    stampY = 60;
+  }
 
   lastPage.drawImage(stampImage, {
     x: stampX,

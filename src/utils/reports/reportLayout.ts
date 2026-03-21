@@ -8,6 +8,7 @@ export class HVHZReportBuilder {
   pageW = 215.9;
   pageH = 279.4;
   cw = 177.9;
+  stampBoxMm: { x: number; y: number; size: number } | null = null;
 
   constructor(title: string, jobNum: string, address: string) {
     this.doc = new jsPDF('p', 'mm', 'letter');
@@ -145,13 +146,21 @@ export class HVHZReportBuilder {
     this.doc.setDrawColor(150, 150, 150);
     this.doc.setLineWidth(0.5);
     this.doc.rect(this.ml, this.yPos + 10, 64, 64, 'S');
+    this.stampBoxMm = { x: this.ml, y: this.yPos + 10, size: 64 };
     this.doc.setFontSize(8);
     this.doc.setTextColor(150, 150, 150);
     this.doc.text('PE STAMP', this.ml + 20, this.yPos + 42);
     this.doc.text('(Affixed at signing)', this.ml + 8, this.yPos + 48);
   }
 
+  toResult(): { blob: Blob; stampBoxMm: { x: number; y: number; size: number } | null } {
+    return {
+      blob: this.doc.output('blob'),
+      stampBoxMm: this.stampBoxMm,
+    };
+  }
+
   toBlob(): Blob {
-    return this.doc.output('blob');
+    return this.toResult().blob;
   }
 }
