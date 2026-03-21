@@ -12,6 +12,10 @@ import NewOrder from "./pages/portal/NewOrder";
 import OrderConfirmed from "./pages/portal/OrderConfirmed";
 import Dashboard from "./pages/portal/Dashboard";
 import MyProfile from "./pages/portal/MyProfile";
+import Pipeline from "./pages/admin/Pipeline";
+import WorkOrders from "./pages/admin/WorkOrders";
+import AdminUsers from "./pages/admin/Users";
+import AdminAnalytics from "./pages/admin/Analytics";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +37,10 @@ const App = () => (
           <Route path="/portal/dashboard" element={<Dashboard />} />
           <Route path="/portal/orders" element={<Dashboard />} />
           <Route path="/portal/profile" element={<MyProfile />} />
+          <Route path="/admin" element={<Pipeline />} />
+          <Route path="/admin/work-orders" element={<WorkOrders />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
