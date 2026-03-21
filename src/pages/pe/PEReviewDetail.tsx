@@ -16,7 +16,7 @@ import { embedStampOnPdf } from "@/utils/reports/embedStamp";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CheckCircle, XCircle, ArrowLeft, ExternalLink, Loader2, X } from "lucide-react";
+import { CheckCircle, XCircle, ArrowLeft, ExternalLink, Loader2, X, Calculator } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -296,6 +296,18 @@ export default function PEReviewDetail() {
       {/* Sign & Seal */}
       <section className="border-t pt-4">
         <h3 className="text-sm font-semibold text-primary mb-3">Sign & Seal</h3>
+
+        {/* Calculation Tool Button */}
+        {wo.service_type === "wind-mitigation-permit" && (
+          <Button variant="outline" className="w-full mb-3 gap-2" onClick={() => navigate(`/pe/calculations/wind-mitigation/${id}`)}>
+            <Calculator className="h-4 w-4" /> Open Wind Mitigation Calculation Tool
+          </Button>
+        )}
+        {wo.service_type === "fastener-calculation" && (
+          <Button variant="outline" className="w-full mb-3 gap-2" onClick={() => navigate(`/pe/calculations/fastener/${id}`)}>
+            <Calculator className="h-4 w-4" /> Open Fastener Calculation Tool
+          </Button>
+        )}
         {engineerProfile && (
           <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
             <p>{engineerProfile.full_name}</p>
