@@ -83,7 +83,7 @@ export function generateReport(
   // PE signature page
   rb.addPESignaturePage(engineerProfile, peNotes, signedDate);
 
-  return rb.toBlob();
+  return rb.toResult();
 }
 
 function addRoofInspectionSections(rb: HVHZReportBuilder, fd: Record<string, any>) {
