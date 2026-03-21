@@ -13,10 +13,11 @@ import { STATUS_BADGE_CLASSES, STATUS_LABELS, TAS_SERVICES } from "@/lib/work-or
 import { MIN_PHOTO_COUNTS } from "@/lib/tech-form-helpers";
 import { generateReport } from "@/utils/reports/generateReport";
 import { embedStampOnPdf } from "@/utils/reports/embedStamp";
+import type { PhotoData } from "@/utils/reports/reportLayout";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CheckCircle, XCircle, ArrowLeft, ExternalLink, Loader2, X, Calculator, Eye } from "lucide-react";
+import { CheckCircle, XCircle, ArrowLeft, ExternalLink, Loader2, X, Calculator, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -45,6 +46,22 @@ const REQUIRED_KEYS: Record<string, string[]> = {
   "fastener-calculation": ["building_width_ft", "building_length_ft", "mean_roof_height_ft", "noa_number", "noa_mdp_psf", "system_type", "inspection_date"],
 };
 
+/**
+ * Fetches a signed URL and converts it to a base64 JPEG data URL
+ * suitable for jsPDF addImage.
+ */
+async function fetchPhotoAsBase64(signedUrl: string): Promise<string> {
+  const response = await fetch(signedUrl);
+  if (!response.ok) throw new Error(`Photo fetch failed: ${response.status}`);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 export default function PEReviewDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -60,8 +77,31 @@ export default function PEReviewDetail() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  const openLightbox = (index: number) => setLightboxIndex(index);
+
+  const lightboxPrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLightboxIndex((i) => (i !== null ? Math.max(0, i - 1) : null));
+  };
+
+  const lightboxNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLightboxIndex((i) => (i !== null ? Math.min(photos.length - 1, i + 1) : null));
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (lightboxIndex === null) return;
+      if (e.key === "ArrowLeft") setLightboxIndex((i) => (i !== null ? Math.max(0, i - 1) : null));
+      if (e.key === "ArrowRight") setLightboxIndex((i) => (i !== null ? Math.min(photos.length - 1, i + 1) : null));
+      if (e.key === "Escape") setLightboxIndex(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxIndex, photos.length]);
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
@@ -87,12 +127,12 @@ export default function PEReviewDetail() {
     const { data: fd } = await supabase.from("field_data").select("form_data").eq("work_order_id", id).maybeSingle();
     if (fd?.form_data && typeof fd.form_data === "object") setFieldData(fd.form_data as Record<string, any>);
 
-    // Photos
+    // Photos — 12 hour TTL
     const { data: photoData } = await supabase.from("work_order_photos").select("id, storage_path, caption, section_tag").eq("work_order_id", id).order("sort_order");
     if (photoData) {
       const withUrls = await Promise.all(
         photoData.map(async (p) => {
-          const { data: urlData } = await supabase.storage.from("field-photos").createSignedUrl(p.storage_path, 3600);
+          const { data: urlData } = await supabase.storage.from("field-photos").createSignedUrl(p.storage_path, 43200);
           return { ...p, url: urlData?.signedUrl ?? "" };
         })
       );
@@ -123,23 +163,46 @@ export default function PEReviewDetail() {
     setSigning(true);
 
     try {
-      // Step A+B: Generate PDF
+      // Fetch photos as base64 only for wind-mitigation-permit
+      let photoDataForPdf: PhotoData[] = [];
+
+      if (wo.service_type === 'wind-mitigation-permit' && photos.length > 0) {
+        toast.info(`Loading ${photos.length} photos for PDF…`);
+        const results = await Promise.allSettled(
+          photos.map(async (p) => {
+            if (!p.url) return null;
+            const base64DataUrl = await fetchPhotoAsBase64(p.url);
+            return {
+              base64DataUrl,
+              section_tag: p.section_tag,
+              caption: p.caption,
+            };
+          })
+        );
+        photoDataForPdf = results
+          .filter((r): r is PromiseFulfilledResult<PhotoData | null> =>
+            r.status === 'fulfilled' && r.value !== null
+          )
+          .map((r) => r.value!);
+      }
+
+      // Generate PDF with photos
       const { blob: pdfBlob, stampBoxMm } = generateReport(
         wo.service_type,
         { id: wo.id, scheduled_date: wo.scheduled_date, orders: wo.orders as any },
         fieldData,
         engineerProfile,
-        peNotes || null
+        peNotes || null,
+        photoDataForPdf
       );
 
-      // Step C: Embed stamp
+      // Embed stamp
       let signedBlob = pdfBlob;
       if (engineerProfile.stamp_image_url) {
-        // Resolve to a signed URL valid for 60s
         let resolvedStampUrl = engineerProfile.stamp_image_url;
         if (!resolvedStampUrl.startsWith('http')) {
           const { data: signedData, error: signErr } = await supabase.storage
-            .from("engineer-assets")
+            .from("pe-credentials")
             .createSignedUrl(resolvedStampUrl, 60);
           if (signErr || !signedData?.signedUrl) {
             throw new Error("Could not resolve PE stamp URL. Check your stamp upload in Profile.");
@@ -149,7 +212,7 @@ export default function PEReviewDetail() {
         signedBlob = await embedStampOnPdf(pdfBlob, resolvedStampUrl, stampBoxMm);
       }
 
-      // Step D: Upload
+      // Upload
       const path = `work_orders/${id}/signed_report.pdf`;
       const { error: upErr } = await supabase.storage.from("reports").upload(path, signedBlob, { upsert: true, contentType: "application/pdf" });
       if (upErr) throw new Error("Upload failed: " + upErr.message);
@@ -157,7 +220,7 @@ export default function PEReviewDetail() {
       const { data: urlData } = supabase.storage.from("reports").getPublicUrl(path);
       const signedPdfUrl = urlData.publicUrl;
 
-      // Step E: Call edge function
+      // Call edge function
       const { error: fnErr } = await supabase.functions.invoke("sign-pdf", {
         body: { workOrderId: id, signedPdfUrl, peNotes: peNotes || null, signingMethod: "image-stamp" },
       });
@@ -237,11 +300,10 @@ export default function PEReviewDetail() {
           {Object.entries(fieldData)
             .filter(([k]) => !["inspection_date", "weather_notes", "temperature_f", "inspector_name", "notes"].includes(k))
             .map(([k, v]) => {
-              if (Array.isArray(v)) return null; // arrays shown separately
+              if (Array.isArray(v)) return null;
               return <InfoRow key={k} label={k.replace(/_/g, " ")} value={typeof v === "boolean" ? (v ? "Yes" : "No") : String(v ?? "—")} />;
             })}
         </div>
-        {/* Array fields */}
         {Object.entries(fieldData)
           .filter(([, v]) => Array.isArray(v))
           .map(([k, v]) => (
@@ -278,23 +340,46 @@ export default function PEReviewDetail() {
         </div>
       </section>
 
-      {/* Photos */}
+      {/* Photos — Fix 3: larger thumbnails, captions, section counts */}
       <section>
-        <h3 className="text-sm font-semibold text-primary mb-3">Photos ({photos.length})</h3>
+        <h3 className="text-sm font-semibold text-primary mb-3">
+          Photos ({photos.length})
+        </h3>
         {Object.entries(photosByTag).map(([tag, tagPhotos]) => (
-          <div key={tag} className="mb-3">
-            <p className="text-xs font-medium text-muted-foreground mb-1">{tag}</p>
-            <div className="grid grid-cols-3 gap-1">
+          <div key={tag} className="mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-primary">{tag}</p>
+              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                {tagPhotos.length} photo{tagPhotos.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               {tagPhotos.map((p) => (
-                <div key={p.id} className="cursor-pointer" onClick={() => setLightboxUrl(p.url ?? null)}>
-                  {p.url && <img src={p.url} alt={p.caption ?? ""} className="w-full h-16 object-cover rounded" />}
-                  {p.caption && <p className="text-[9px] text-muted-foreground truncate">{p.caption}</p>}
+                <div
+                  key={p.id}
+                  className="border rounded-md overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => openLightbox(photos.indexOf(p))}
+                >
+                  {p.url && (
+                    <img
+                      src={p.url}
+                      alt={p.caption ?? tag}
+                      className="w-full h-32 object-cover"
+                    />
+                  )}
+                  {p.caption && (
+                    <p className="text-[10px] text-muted-foreground px-1.5 py-1 leading-tight truncate">
+                      {p.caption}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         ))}
-        {photos.length === 0 && <p className="text-xs text-muted-foreground">No photos uploaded</p>}
+        {photos.length === 0 && (
+          <p className="text-xs text-muted-foreground">No photos uploaded</p>
+        )}
       </section>
 
       {/* PE Notes */}
@@ -388,11 +473,62 @@ export default function PEReviewDetail() {
         </div>
       </div>
 
-      {/* Lightbox */}
-      {lightboxUrl && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center" onClick={() => setLightboxUrl(null)}>
-          <Button variant="ghost" className="absolute top-4 right-4 text-white" onClick={() => setLightboxUrl(null)}><X className="h-6 w-6" /></Button>
-          <img src={lightboxUrl} alt="Full size" className="max-w-[90vw] max-h-[90vh] object-contain" />
+      {/* Lightbox with prev/next */}
+      {lightboxIndex !== null && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center"
+          onClick={() => setLightboxIndex(null)}
+        >
+          {/* Close */}
+          <Button
+            variant="ghost"
+            className="absolute top-4 right-4 text-white hover:text-white/80"
+            onClick={() => setLightboxIndex(null)}
+          >
+            <X className="h-6 w-6" />
+          </Button>
+
+          {/* Counter */}
+          <p className="absolute top-4 left-1/2 -translate-x-1/2 text-white/70 text-sm">
+            {lightboxIndex + 1} / {photos.length}
+          </p>
+
+          {/* Prev */}
+          <Button
+            variant="ghost"
+            className="absolute left-4 text-white hover:text-white/80 h-12 w-12 p-0"
+            onClick={lightboxPrev}
+            disabled={lightboxIndex === 0}
+          >
+            <ChevronLeft className="h-8 w-8" />
+          </Button>
+
+          {/* Image */}
+          <div className="flex flex-col items-center gap-3 px-20" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={photos[lightboxIndex]?.url ?? ""}
+              alt={photos[lightboxIndex]?.caption ?? "Photo"}
+              className="max-w-[80vw] max-h-[80vh] object-contain rounded"
+            />
+            <div className="text-center">
+              {photos[lightboxIndex]?.section_tag && (
+                <p className="text-white/60 text-xs mb-0.5">{photos[lightboxIndex].section_tag}</p>
+              )}
+              {photos[lightboxIndex]?.caption && (
+                <p className="text-white text-sm">{photos[lightboxIndex].caption}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Next */}
+          <Button
+            variant="ghost"
+            className="absolute right-4 text-white hover:text-white/80 h-12 w-12 p-0"
+            onClick={lightboxNext}
+            disabled={lightboxIndex === photos.length - 1}
+          >
+            <ChevronRight className="h-8 w-8" />
+          </Button>
         </div>
       )}
 
