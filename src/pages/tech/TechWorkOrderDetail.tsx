@@ -196,6 +196,12 @@ export default function TechWorkOrderDetail() {
     if (wo.service_type === "special-inspection" && !formData.inspector_certification_accepted) {
       newErrors.inspector_certification_accepted = "Must accept certification";
     }
+    if (wo.service_type === "drainage-analysis") {
+      if (!formData.total_roof_area_sqft) newErrors.total_roof_area_sqft = "Required";
+      if (!formData.primary_drains?.length) newErrors.primary_drains = "At least 1 primary drain required";
+      if (!formData.secondary_drains?.length) newErrors.secondary_drains = "Secondary drain required (FBC §1502.3)";
+      if (!formData.drainage_zones?.length) newErrors.drainage_zones = "At least 1 drainage zone required";
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
