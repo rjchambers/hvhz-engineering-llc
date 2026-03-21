@@ -16,7 +16,7 @@ import { embedStampOnPdf } from "@/utils/reports/embedStamp";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CheckCircle, XCircle, ArrowLeft, ExternalLink, Loader2, X, Calculator } from "lucide-react";
+import { CheckCircle, XCircle, ArrowLeft, ExternalLink, Loader2, X, Calculator, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Json } from "@/integrations/supabase/types";
 
