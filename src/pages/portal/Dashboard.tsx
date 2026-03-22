@@ -215,11 +215,17 @@ export default function Dashboard() {
 
   return (
     <PortalLayout>
-      <div className="px-6 py-8 max-w-5xl mx-auto bg-gradient-to-b from-background to-muted/30 min-h-[calc(100vh-3.5rem)]">
-        <h1 className="text-xl font-bold text-primary">Welcome back</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · Updated {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </p>
+      <div className="px-6 py-8 max-w-5xl mx-auto min-h-[calc(100vh-3.5rem)] animate-in">
+        {/* Welcome banner */}
+        <div className="rounded-2xl bg-gradient-to-r from-primary to-hvhz-navy-mid p-8 text-white mb-8">
+          <h1 className="text-2xl font-bold">Welcome back</h1>
+          <p className="mt-1 text-sm text-white/50">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · Updated {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+          <Button asChild size="sm" className="mt-4 bg-hvhz-teal text-white hover:bg-hvhz-teal/90 shadow-lg shadow-hvhz-teal/20 active:scale-[0.97] transition-all">
+            <a href="/portal/new-order">New Order</a>
+          </Button>
+        </div>
 
         {loading ? (
           <div className="mt-8 space-y-3">
