@@ -5,12 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { StepCompany } from "@/components/wizard/StepCompany";
 import { StepJobSite } from "@/components/wizard/StepJobSite";
-import { StepRoofData } from "@/components/wizard/StepRoofData";
+import { StepSiteData } from "@/components/wizard/StepSiteData";
 import { StepReview } from "@/components/wizard/StepReview";
 import { loadWizardData, saveWizardData, clearWizardData, type WizardData } from "@/lib/wizard-data";
 import { getServicePrice } from "@/lib/services";
 
-const STEP_LABELS = ["Company & Contact", "Job Site & Services", "Roof Data", "Review & Pay"];
+const STEP_LABELS = ["Company & Contact", "Job Site & Services", "Site Data", "Review & Pay"];
 
 export default function NewOrder() {
   const { user } = useAuth();
@@ -99,6 +99,16 @@ export default function NewOrder() {
             services: data.selected_services,
             clientId: user.id,
             jobAddress: `${data.job_address}, ${data.job_city}, FL ${data.job_zip}`,
+            jobCity: data.job_city,
+            jobZip: data.job_zip,
+            jobCounty: data.job_county,
+            gatedCommunity: data.gated_community,
+            gateCode: data.gate_code,
+            noaDocumentPath: data.noa_document_path,
+            noaDocumentName: data.noa_document_name,
+            roofReportPath: data.roof_report_path,
+            roofReportName: data.roof_report_name,
+            roofReportType: data.roof_report_type,
           },
         }
       );
@@ -155,7 +165,7 @@ export default function NewOrder() {
             <StepJobSite data={data} onChange={onChange} onNext={() => setStep(2)} onBack={() => setStep(0)} />
           )}
           {step === 2 && user && (
-            <StepRoofData data={data} onChange={onChange} onNext={() => setStep(3)} onBack={() => setStep(1)} userId={user.id} />
+            <StepSiteData data={data} onChange={onChange} onNext={() => setStep(3)} onBack={() => setStep(1)} userId={user.id} />
           )}
           {step === 3 && (
             <StepReview data={data} onChange={onChange} onSubmit={handleSubmit} onBack={() => setStep(2)} submitting={submitting} />

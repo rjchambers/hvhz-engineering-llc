@@ -53,7 +53,13 @@ serve(async (req) => {
       });
     }
 
-    const { services, clientId, jobAddress } = await req.json();
+    const {
+      services, clientId, jobAddress,
+      jobCity, jobZip, jobCounty,
+      gatedCommunity, gateCode,
+      noaDocumentPath, noaDocumentName,
+      roofReportPath, roofReportName, roofReportType,
+    } = await req.json();
 
     if (!services?.length || !clientId) {
       return new Response(JSON.stringify({ error: "Missing services or clientId" }), {
@@ -72,6 +78,16 @@ serve(async (req) => {
     params.append("metadata[clientId]", clientId);
     params.append("metadata[services]", JSON.stringify(services));
     params.append("metadata[jobAddress]", jobAddress || "");
+    params.append("metadata[jobCity]", jobCity || "");
+    params.append("metadata[jobZip]", jobZip || "");
+    params.append("metadata[jobCounty]", jobCounty || "");
+    params.append("metadata[gatedCommunity]", String(gatedCommunity || false));
+    params.append("metadata[gateCode]", gateCode || "");
+    params.append("metadata[noaDocumentPath]", noaDocumentPath || "");
+    params.append("metadata[noaDocumentName]", noaDocumentName || "");
+    params.append("metadata[roofReportPath]", roofReportPath || "");
+    params.append("metadata[roofReportName]", roofReportName || "");
+    params.append("metadata[roofReportType]", roofReportType || "");
 
     services.forEach((svc: string, i: number) => {
       const catalog = SERVICE_CATALOG[svc];
