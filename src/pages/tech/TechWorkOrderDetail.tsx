@@ -71,6 +71,22 @@ export default function TechWorkOrderDetail() {
   const [loaded, setLoaded] = useState(false);
   const [siblingPrefilled, setSiblingPrefilled] = useState(false);
 
+  const isLocked = wo?.status === "submitted" || wo?.status === "pe_review" || wo?.status === "signed";
+
+  const { status: autosaveStatus, clearDraft } = useAutosave({
+    storageKey: `tech-wo-${id}`,
+    data: formData,
+    serverSave: id && user ? async (data) => {
+      await supabase.from("field_data").upsert({
+        work_order_id: id,
+        service_type: wo?.service_type ?? "",
+        form_data: data as unknown as Json,
+        submitted_by: user.id,
+      }, { onConflict: "work_order_id" });
+    } : undefined,
+    disabled: !loaded || isLocked || !id,
+  });
+
   // Load work order + existing field_data
   const loadData = useCallback(async () => {
     if (!id) return;
