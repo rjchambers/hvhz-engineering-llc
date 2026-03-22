@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import {
   ShoppingCart, User, MapPin, Settings2, Upload, DollarSign, FileCheck, LogIn,
 } from "lucide-react";
+import { HeroNav } from "@/components/HeroNav";
 import { OrderHero } from "@/components/order/OrderHero";
 import { FormSection } from "@/components/order/FormSection";
 import { ServiceSelection } from "@/components/order/ServiceSelection";
@@ -283,6 +284,7 @@ export default function PublicOrder() {
 
   return (
     <div className="min-h-screen bg-background">
+      <HeroNav />
       <OrderHero />
 
       {user && clientInfo.companyName && (
@@ -436,15 +438,23 @@ export default function PublicOrder() {
         </FormSection>
       </div>
 
-      <footer className="bg-primary text-primary-foreground px-6 py-8 mt-8">
+      <footer className="hero-gradient text-primary-foreground px-6 py-10 mt-12 border-t border-white/5">
         <div className="mx-auto max-w-3xl flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-[11px] text-primary-foreground/30 font-mono">
-            © 2026 HVHZ Engineering LLC · FL PE Licensed
-          </p>
-          <div className="flex gap-4 text-xs text-primary-foreground/50">
-            <Link to="/" className="hover:text-primary-foreground transition-colors">Home</Link>
-            <Link to="/auth" className="hover:text-primary-foreground transition-colors">Sign In</Link>
+          <div>
+            <p className="text-xs font-bold tracking-tight text-white/80">HVHZ Engineering LLC</p>
+            <p className="text-[10px] text-white/30 font-mono mt-1">
+              750 E Sample Rd · Pompano Beach, FL 33064
+            </p>
           </div>
+          <div className="flex gap-4 text-xs text-white/40">
+            <Link to="/" className="hover:text-white transition-colors">Home</Link>
+            <Link to="/auth" className="hover:text-white transition-colors">Sign In</Link>
+          </div>
+        </div>
+        <div className="mx-auto max-w-3xl mt-4 pt-4 border-t border-white/5">
+          <p className="text-[10px] text-white/20 font-mono text-center">
+            © 2026 HVHZ Engineering LLC · FL PE Licensed & Insured
+          </p>
         </div>
       </footer>
     </div>
