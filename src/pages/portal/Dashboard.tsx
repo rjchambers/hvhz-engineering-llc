@@ -35,8 +35,9 @@ function statusToTimelineIndex(status: string): number {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const config = STATUS_CONFIG[status] ?? { label: status, className: "bg-muted text-muted-foreground" };
-  return <Badge variant="secondary" className={`text-[11px] font-semibold px-2 py-0.5 ${config.className}`}>{config.label}</Badge>;
+  const label = STATUS_LABELS[status] ?? status;
+  const className = STATUS_BADGE_CLASSES[status] ?? "bg-muted text-muted-foreground";
+  return <Badge variant="secondary" className={cn("text-[11px] font-semibold px-2 py-0.5", className)}>{label}</Badge>;
 }
 
 function WorkOrderTimeline({ status }: { status: string }) {
