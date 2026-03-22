@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { SERVICES } from "@/lib/services";
 import { Plus, Pencil } from "lucide-react";
+import { useAutosave } from "@/hooks/useAutosave";
 
 const TAS_SERVICE_OPTIONS = [
   { key: "tas-105", label: "TAS-105 Fastener Withdrawal Test" },
