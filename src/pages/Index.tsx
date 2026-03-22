@@ -22,7 +22,7 @@ const services = [
   { name: "Drainage Analysis", price: "$400", icon: CloudRain, code: "FBC 1611 · NOAA Atlas 14", description: "Hydraulic roof drainage calculation using NOAA Atlas 14 rainfall data." },
   { name: "Enhanced Fastener Pattern", price: "$250", icon: ArrowUpFromLine, code: "ASCE 7-22 · RAS 117", description: "Engineering calculation of required fastener spacing and uplift capacity." },
   { name: "Special Inspections", price: "$250", icon: HardHat, code: "FBC Ch. 17", description: "Threshold and special inspector services for permit close-out." },
-  { name: "Wind Mitigation", price: "$250", icon: Wind, code: "ASCE 7-22 · FBC 1609", description: "Wind pressure analysis for roofing permits up to 185 mph in HVHZ." },
+  { name: "Wind Mitigation", price: "$250", icon: Wind, code: "ASCE 7-22 · FBC 1609", description: "Wind pressure analysis for roofing permits up to 170+ mph in HVHZ." },
   { name: "Asbestos Survey", price: "From $425", icon: TestTube2, code: "EPA · NESHAP", description: "Asbestos content survey and sampling for reroof and demolition projects. +$2.50/sq ft." },
 ];
 

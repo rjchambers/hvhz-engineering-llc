@@ -27,7 +27,7 @@ export function FloatingCalcCard() {
       {/* Data rows */}
       <div className="space-y-2.5 mb-4">
         {[
-          { label: "Design Wind Speed", value: "185 mph" },
+          { label: "Design Wind Speed", value: "170+ mph" },
           { label: "Uplift Pressure", value: "-67.4 psf" },
           { label: "Fastener Capacity", value: "94.2 psf" },
           { label: "Safety Factor", value: "1.40" },
