@@ -11,7 +11,7 @@ export const ORDER_SERVICES = [
 
 export type OrderServiceId = (typeof ORDER_SERVICES)[number]["id"];
 
-export const VARIABLE_RATE_SERVICES: OrderServiceId[] = ["tas-105", "tas-124", "tas-126", "asbestos-survey"];
+export const VARIABLE_RATE_SERVICES: OrderServiceId[] = ["tas-105", "tas-126", "asbestos-survey"];
 
 export const SPECIAL_INSPECTION_TYPES = [
   "In Progress",
