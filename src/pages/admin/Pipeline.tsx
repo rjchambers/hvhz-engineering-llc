@@ -122,7 +122,7 @@ export default function Pipeline() {
                     key={col}
                     className={`min-w-[220px] w-[220px] flex-shrink-0 rounded-lg transition-colors ${
                       dragOver === col
-                        ? "bg-primary/10 ring-2 ring-primary/30"
+                        ? "bg-hvhz-teal/10 ring-2 ring-hvhz-teal/30"
                         : "bg-muted/50"
                     }`}
                     onDragOver={(e) => { e.preventDefault(); setDragOver(col); }}
