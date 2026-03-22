@@ -240,6 +240,7 @@ export default function Dashboard() {
                   <TableHead className="text-xs">Services</TableHead>
                   <TableHead className="text-xs text-right">Total</TableHead>
                   <TableHead className="text-xs text-right">Status</TableHead>
+                  <TableHead className="text-xs text-right" />
                 </TableRow>
               </TableHeader>
               <TableBody>
