@@ -815,10 +815,12 @@ export default function PEReviewDetail() {
   );
 }
 
-function ReportSection({ title, children }: { title: string; children: React.ReactNode }) {
+function ReportSection({ number, title, children }: { number?: string; title: string; children: React.ReactNode }) {
   return (
     <div className="border-b pb-3">
-      <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-2 border-b border-primary/20 pb-1">{title}</h3>
+      <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-2 border-b border-primary/20 pb-1">
+        {number ? `${number}  ` : ''}{title}
+      </h3>
       {children}
     </div>
   );
