@@ -130,6 +130,7 @@ export default function Dashboard() {
   const [workOrders, setWorkOrders] = useState<Record<string, WorkOrder[]>>({});
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
   const fetchOrders = useCallback(async () => {
     if (!user) return;
