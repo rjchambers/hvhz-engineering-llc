@@ -397,6 +397,30 @@ export default function WorkOrders() {
             <FlaskConical className="h-4 w-4" />
             {seeding ? "Creating…" : "Create Test WO"}
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-hvhz-teal border-hvhz-teal/30 hover:bg-hvhz-teal/5"
+            onClick={async () => {
+              const pending = workOrders.filter((wo) => wo.status === "pending_dispatch" && !isOutsourced(wo.service_type));
+              if (pending.length === 0) { toast.info("No pending work orders to dispatch"); return; }
+              const defaultTech = techs[0]?.id;
+              const defaultPE = engineers[0]?.id;
+              if (!defaultTech) { toast.error("No technician available"); return; }
+              for (const wo of pending) {
+                await supabase.from("work_orders").update({
+                  status: "dispatched",
+                  assigned_technician_id: defaultTech,
+                  assigned_engineer_id: defaultPE || null,
+                  scheduled_date: format(new Date(), "yyyy-MM-dd"),
+                }).eq("id", wo.id);
+              }
+              toast.success(`Dispatched ${pending.length} work order${pending.length !== 1 ? "s" : ""}`);
+              fetchWOs();
+            }}
+          >
+            <Zap className="h-4 w-4" /> Dispatch All Pending ({workOrders.filter(wo => wo.status === "pending_dispatch" && !isOutsourced(wo.service_type)).length})
+          </Button>
         </div>
 
         {/* Table */}
