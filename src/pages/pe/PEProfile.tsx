@@ -245,9 +245,12 @@ export default function PEProfile() {
                 <Input value={user?.email ?? ""} disabled className="h-9 text-sm bg-muted" />
               </div>
             </div>
-            <Button onClick={handleSaveProfile} disabled={saving} size="sm">
-              {saving ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Saving…</> : "Save Profile"}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button onClick={handleSaveProfile} disabled={saving} size="sm">
+                {saving ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Saving…</> : "Save Profile"}
+              </Button>
+              <AutosaveIndicator status={profileAutosave} />
+            </div>
           </CardContent>
         </Card>
 

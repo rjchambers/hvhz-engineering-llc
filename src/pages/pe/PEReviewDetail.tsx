@@ -718,7 +718,10 @@ export default function PEReviewDetail() {
 
       {/* PE Notes */}
       <section>
-        <h3 className="text-sm font-semibold text-primary mb-2">Engineering Notes</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-primary">Engineering Notes</h3>
+          <AutosaveIndicator status={notesAutosave} />
+        </div>
         <p className="text-[11px] text-muted-foreground mb-1">These notes appear on the signed report</p>
         <Textarea value={peNotes} onChange={(e) => setPeNotes(e.target.value)} rows={4} placeholder="PE review notes…" />
       </section>

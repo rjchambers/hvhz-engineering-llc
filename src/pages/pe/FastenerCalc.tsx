@@ -92,6 +92,28 @@ export default function FastenerCalc() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Warn before closing with unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  // Server autosave — debounced 10s after any change
+  const serverSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    if (!dirty || !id) return;
+    clearTimeout(serverSaveTimer.current);
+    serverSaveTimer.current = setTimeout(async () => {
+      try {
+        await store.saveToFieldData(id);
+      } catch { /* Silent failure */ }
+    }, 10000);
+    return () => clearTimeout(serverSaveTimer.current);
+  }, [dirty, id]);
+
   const handleSave = async () => {
     if (!id) return;
     setSaving(true);

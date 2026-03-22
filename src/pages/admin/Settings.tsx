@@ -112,7 +112,7 @@ function PartnerDialog({
       : await supabase.from("outsource_partners").insert(row);
 
     if (error) toast.error(error.message);
-    else { toast.success(partner ? "Partner updated" : "Partner added"); onSaved(); onOpenChange(false); }
+    else { toast.success(partner ? "Partner updated" : "Partner added"); clearDraft(); onSaved(); onOpenChange(false); }
     setSaving(false);
   };
 

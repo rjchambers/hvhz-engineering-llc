@@ -673,13 +673,16 @@ export default function TechWorkOrderDetail() {
         </section>
 
         {/* SUBMIT */}
-        <div className="flex justify-end gap-3 pb-6">
-          <Button variant="outline" onClick={handleSaveDraft} disabled={saving || submitting} className="min-h-[44px]">
-            {saving ? "Saving…" : "Save Draft"}
-          </Button>
-          <Button onClick={handleSubmit} disabled={submitting || saving} className="bg-hvhz-navy hover:bg-hvhz-navy/90 px-8 min-h-[44px] text-base sm:text-sm">
-            {submitting ? "Submitting…" : "Submit Work Order"}
-          </Button>
+        <div className="flex items-center justify-between gap-3 pb-6">
+          <AutosaveIndicator status={autosaveStatus} />
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={handleSaveDraft} disabled={saving || submitting} className="min-h-[44px]">
+              {saving ? "Saving…" : "Save Draft"}
+            </Button>
+            <Button onClick={handleSubmit} disabled={submitting || saving} className="bg-hvhz-navy hover:bg-hvhz-navy/90 px-8 min-h-[44px] text-base sm:text-sm">
+              {submitting ? "Submitting…" : "Submit Work Order"}
+            </Button>
+          </div>
         </div>
       </div>
     </TechLayout>

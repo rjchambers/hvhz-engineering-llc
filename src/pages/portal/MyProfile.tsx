@@ -131,13 +131,16 @@ export default function MyProfile() {
             </div>
 
             <div className="flex items-center justify-between pt-4 border-t">
-              <Link
-                to="/forgot-password"
-                className="flex items-center gap-1.5 text-sm text-hvhz-teal hover:underline"
-              >
-                <KeyRound className="h-4 w-4" />
-                Change Password
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  to="/forgot-password"
+                  className="flex items-center gap-1.5 text-sm text-hvhz-teal hover:underline"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Change Password
+                </Link>
+                <AutosaveIndicator status={profileAutosave} />
+              </div>
               <Button onClick={handleSave} disabled={saving} className="gap-2 bg-primary text-primary-foreground">
                 <Save className="h-4 w-4" />
                 {saving ? "Saving…" : "Save Changes"}
