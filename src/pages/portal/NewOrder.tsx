@@ -187,7 +187,7 @@ export default function NewOrder() {
             <StepCompany data={data} onChange={onChange} onNext={handleStep1Next} saving={saving} />
           )}
           {step === 1 && (
-            <StepJobSite data={data} onChange={onChange} onNext={() => setStep(2)} onBack={() => setStep(0)} />
+            <StepJobSite data={data} onChange={onChange} onNext={() => setStep(2)} onBack={() => setStep(0)} showEditCompanyLink={step === 1} />
           )}
           {step === 2 && user && (
             <StepSiteData data={data} onChange={onChange} onNext={() => setStep(3)} onBack={() => setStep(1)} userId={user.id} />
