@@ -274,6 +274,27 @@ export default function Dashboard() {
                         <TableCell className="text-right">
                           <StatusBadge status={order.status} />
                         </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1 text-xs text-hvhz-teal hover:text-hvhz-teal"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              saveWizardData({
+                                ...defaultWizardData,
+                                job_address: order.job_address ?? "",
+                                job_city: order.job_city ?? "",
+                                job_zip: order.job_zip ?? "",
+                                job_county: order.job_county ?? "",
+                                selected_services: order.services ?? [],
+                              });
+                              navigate("/portal/new-order");
+                            }}
+                          >
+                            <RefreshCw className="h-3 w-3" /> Reorder
+                          </Button>
+                        </TableCell>
                       </TableRow>
 
                       {isExpanded && (
