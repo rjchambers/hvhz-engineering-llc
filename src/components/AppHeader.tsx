@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { clearUserRolesCache } from "@/lib/authz";
+import { BrandMark } from "@/components/BrandMark";
 
 export function AppHeader() {
   const navigate = useNavigate();
@@ -32,13 +33,8 @@ export function AppHeader() {
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-card px-4">
       <div className="flex items-center gap-3">
         <SidebarTrigger />
-        <div className="hidden sm:flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded bg-hvhz-teal">
-            <span className="text-xs font-bold text-white">HZ</span>
-          </div>
-          <span className="text-sm font-semibold text-primary">
-            HVHZ Engineering
-          </span>
+        <div className="hidden sm:block">
+          <BrandMark size="sm" />
         </div>
       </div>
 

@@ -63,10 +63,15 @@ export default {
         },
         hvhz: {
           navy: "hsl(var(--hvhz-navy))",
+          "navy-mid": "hsl(var(--hvhz-navy-mid))",
           teal: "hsl(var(--hvhz-teal))",
+          "teal-light": "hsl(var(--hvhz-teal-light))",
           amber: "hsl(var(--hvhz-amber))",
+          "amber-light": "hsl(var(--hvhz-amber-light))",
           red: "hsl(var(--hvhz-red))",
+          "red-light": "hsl(var(--hvhz-red-light))",
           green: "hsl(var(--hvhz-green))",
+          "green-light": "hsl(var(--hvhz-green-light))",
         },
       },
       borderRadius: {
