@@ -48,9 +48,9 @@ export function FormSection({
           </div>
           <Icon className="h-4 w-4 shrink-0 text-hvhz-teal" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-primary">{title}</p>
+            <p className="text-sm font-bold tracking-tight text-primary">{title}</p>
             {description && (
-              <p className="hidden md:block text-xs text-muted-foreground mt-0.5">
+              <p className="hidden md:block text-xs text-muted-foreground mt-0.5 font-medium">
                 {description}
               </p>
             )}
