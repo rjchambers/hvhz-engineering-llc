@@ -18,6 +18,7 @@ const SERVICE_ICONS: Record<string, React.ElementType> = {
   "drainage-analysis": CloudRain,
   "special-inspection": HardHat, "wind-mitigation-permit": Wind, "wind-mitigation": Wind,
   "fastener-calc": ArrowUpFromLine, "fastener-calculation": ArrowUpFromLine,
+  "other": MessageSquarePlus,
 };
 
 interface StepJobSiteProps {
