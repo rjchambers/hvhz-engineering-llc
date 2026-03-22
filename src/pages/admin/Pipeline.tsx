@@ -122,14 +122,14 @@ export default function Pipeline() {
                     key={col}
                     className={`min-w-[220px] w-[220px] flex-shrink-0 rounded-lg transition-colors ${
                       dragOver === col
-                        ? "bg-primary/10 ring-2 ring-primary/30"
+                        ? "bg-hvhz-teal/10 ring-2 ring-hvhz-teal/30"
                         : "bg-muted/50"
                     }`}
                     onDragOver={(e) => { e.preventDefault(); setDragOver(col); }}
                     onDragLeave={() => setDragOver(null)}
                     onDrop={() => { handleDrop(col); setDragOver(null); }}
                   >
-                    <div className="p-3 border-b border-border">
+                    <div className="p-3 border-b border-border bg-hvhz-teal/5 rounded-t-lg">
                       <div className="flex items-center justify-between">
                         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                           {STATUS_LABELS[col]}
@@ -148,7 +148,9 @@ export default function Pipeline() {
                             draggable
                             onDragStart={() => handleDragStart(wo.id)}
                             onClick={() => navigate(`/admin/work-orders?id=${wo.id}`)}
-                            className={`rounded-md p-3 cursor-grab active:cursor-grabbing shadow-sm border transition-shadow hover:shadow-md hover:border-primary/30 ${
+                            className={`rounded-md p-3 cursor-grab active:cursor-grabbing shadow-sm border transition-all hover:shadow-md hover:border-hvhz-teal/30 ${
+                              dragging === wo.id ? "shadow-elevated-hover scale-[1.02] opacity-90" : ""
+                            } ${
                               isTas
                                 ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
                                 : "bg-card border-border/50"
