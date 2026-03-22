@@ -6,14 +6,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SERVICE_CATALOG: Record<string, { name: string; price: number }> = {
-  "tas-105": { name: "TAS-105 Fastener Withdrawal Test", price: 450 },
-  "tas-106": { name: "TAS-106 Tile Bonding Verification", price: 450 },
-  "tas-126": { name: "TAS-126 Moisture Survey", price: 450 },
-  "drainage-analysis": { name: "Drainage Analysis", price: 550 },
-  "special-inspection": { name: "Special Inspection", price: 400 },
-  "wind-mitigation-permit": { name: "Wind Mitigation (Roofing Permit)", price: 500 },
-  "fastener-calculation": { name: "Fastener Uplift Calculation", price: 350 },
+const SERVICE_CATALOG: Record<string, { name: string; base: number; perSquare: number }> = {
+  "tas-105": { name: "TAS-105 Fastener Withdrawal Test", base: 350, perSquare: 2.5 },
+  "tas-106": { name: "TAS-106 Tile Bonding Verification", base: 200, perSquare: 0 },
+  "tas-126": { name: "TAS-126 Moisture Survey", base: 450, perSquare: 2.5 },
+  "drainage": { name: "Roof Drainage Calculations", base: 400, perSquare: 0 },
+  "enhanced-fastener": { name: "Enhanced Fastener Pattern", base: 250, perSquare: 0 },
+  "special-inspection": { name: "Special Inspections", base: 250, perSquare: 0 },
+  "wind-mitigation": { name: "Wind Mitigation (Roofing Permit)", base: 500, perSquare: 0 },
+  "asbestos-survey": { name: "Asbestos Survey", base: 425, perSquare: 2.5 },
 };
 
 serve(async (req) => {
