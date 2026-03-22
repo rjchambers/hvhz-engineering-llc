@@ -6,20 +6,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const DESIGN_RAINFALL: Record<string, number> = {
+  "Miami-Dade": 8.85, "Broward": 8.39, "Palm Beach": 8.10,
+  "Monroe": 8.50, "Collier": 7.80,
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) {
-      return new Response(JSON.stringify({ error: "Stripe not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const body = await req.json();
     const {
       services,
@@ -66,6 +63,104 @@ Deno.serve(async (req) => {
       userId = claims?.claims?.sub || null;
     }
 
+    // Check payment bypass
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data: bypassConfig } = await supabaseAdmin
+      .from("app_config")
+      .select("value")
+      .eq("key", "payment_bypass_until")
+      .maybeSingle();
+
+    const bypassActive = bypassConfig?.value && new Date(bypassConfig.value) > new Date();
+
+    if (bypassActive) {
+      // Create order and work orders directly
+      const effectiveClientId = clientId || userId;
+      const county = jobCounty || "";
+      const rainfallRate = DESIGN_RAINFALL[county] || 8.39;
+      const siteContext = {
+        county,
+        design_rainfall_rate: rainfallRate,
+        rainfall_source: `NOAA Atlas 14, ${county || "Broward"} County, 1-hr 100-yr`,
+        hvhz_constants: { V: 185, exposure_category: "C", Kd: 0.85, Ke: 1.0, Kzt: 1.0, is_hvhz: true },
+        gated_community: gatedCommunity || false,
+        gate_code: gateCode || "",
+      };
+
+      const totalAmount = (amount || 0) / 100;
+
+      // For guest orders without a clientId, create a placeholder
+      if (!effectiveClientId) {
+        return new Response(JSON.stringify({ error: "Guest orders require payment — bypass not available without an account" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: order, error: orderErr } = await supabaseAdmin
+        .from("orders")
+        .insert({
+          client_id: effectiveClientId,
+          services,
+          job_address: jobAddress || "",
+          job_city: jobCity || "",
+          job_zip: jobZip || "",
+          job_county: county,
+          gated_community: siteContext.gated_community,
+          gate_code: siteContext.gate_code,
+          site_context: siteContext,
+          total_amount: totalAmount,
+          status: "paid",
+        })
+        .select("id")
+        .single();
+
+      if (orderErr) {
+        console.error("Order insert error:", orderErr);
+        return new Response(JSON.stringify({ error: "Failed to create order" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Fetch default assignments
+      const { data: techConfig } = await supabaseAdmin
+        .from("app_config").select("value").eq("key", "default_technician_id").maybeSingle();
+      const { data: engConfig } = await supabaseAdmin
+        .from("app_config").select("value").eq("key", "default_engineer_id").maybeSingle();
+      const defaultTechId = techConfig?.value || null;
+      const defaultEngId = engConfig?.value || null;
+
+      const workOrderInserts = services.map((svc: string) => ({
+        order_id: order.id,
+        client_id: effectiveClientId,
+        service_type: svc,
+        status: defaultTechId ? "dispatched" : "pending_dispatch",
+        assigned_technician_id: defaultTechId || null,
+        assigned_engineer_id: defaultEngId || null,
+        scheduled_date: defaultTechId ? new Date().toISOString().split("T")[0] : null,
+      }));
+
+      await supabaseAdmin.from("work_orders").insert(workOrderInserts);
+
+      return new Response(JSON.stringify({ skipPayment: true, checkoutUrl: null }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Normal Stripe flow
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) {
+      return new Response(JSON.stringify({ error: "Stripe not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const appUrl = Deno.env.get("APP_URL") || "https://hvhzengineering.com";
 
     const params = new URLSearchParams();
@@ -74,7 +169,6 @@ Deno.serve(async (req) => {
     params.append("success_url", `${appUrl}/order?status=success&session_id={CHECKOUT_SESSION_ID}`);
     params.append("cancel_url", `${appUrl}/order`);
 
-    // Store all order data in metadata for the webhook
     params.append("metadata[services]", JSON.stringify(services));
     params.append("metadata[serviceNames]", JSON.stringify(serviceNames || []));
     params.append("metadata[customerEmail]", customerEmail);
@@ -91,7 +185,6 @@ Deno.serve(async (req) => {
       params.append("metadata[orderMetadata]", typeof metadata === "string" ? metadata : JSON.stringify(metadata));
     }
 
-    // Single line item with the pre-calculated total
     params.append("line_items[0][price_data][currency]", "usd");
     params.append("line_items[0][price_data][product_data][name]",
       `HVHZ Engineering Services (${services.length} service${services.length > 1 ? "s" : ""})`
