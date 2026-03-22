@@ -65,7 +65,6 @@ function WorkOrderTimeline({ status }: { status: string }) {
                 )}
                 {done && !rejected ? "✓" : i + 1}
               </div>
-              </div>
               <span className={`mt-1 text-[10px] leading-tight text-center ${
                 current || rejected ? "font-semibold text-primary" : "text-muted-foreground"
               }`}>{step.label}</span>
