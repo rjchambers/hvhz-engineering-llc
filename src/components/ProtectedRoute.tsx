@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  canAccessRole,
+  getDefaultRouteForRoles,
+  getUserRoles,
+  type AppRole,
+} from "@/lib/authz";
 
 interface Props {
   children: React.ReactNode;
-  requiredRole?: "admin" | "client" | "technician" | "engineer";
+  requiredRole?: AppRole;
 }
 
 export function ProtectedRoute({ children, requiredRole }: Props) {
@@ -13,10 +18,12 @@ export function ProtectedRoute({ children, requiredRole }: Props) {
   const location = useLocation();
   const [roleLoading, setRoleLoading] = useState(!!requiredRole);
   const [hasRole, setHasRole] = useState(false);
+  const [redirectTo, setRedirectTo] = useState("/auth");
 
   useEffect(() => {
     if (!requiredRole) {
       setHasRole(true);
+      setRedirectTo("/auth");
       setRoleLoading(false);
       return;
     }
@@ -27,6 +34,7 @@ export function ProtectedRoute({ children, requiredRole }: Props) {
 
     if (!user) {
       setHasRole(false);
+      setRedirectTo("/auth");
       setRoleLoading(false);
       return;
     }
@@ -34,14 +42,17 @@ export function ProtectedRoute({ children, requiredRole }: Props) {
     let cancelled = false;
     setRoleLoading(true);
 
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .then(({ data }) => {
+    getUserRoles(user.id)
+      .then((roles) => {
         if (cancelled) return;
-        const roles = new Set(data?.map((r) => r.role) ?? []);
-        setHasRole(roles.has(requiredRole) || roles.has("admin"));
+        setHasRole(canAccessRole(roles, requiredRole));
+        setRedirectTo(getDefaultRouteForRoles(roles));
+        setRoleLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHasRole(false);
+        setRedirectTo("/auth");
         setRoleLoading(false);
       });
 
@@ -59,7 +70,7 @@ export function ProtectedRoute({ children, requiredRole }: Props) {
   }
 
   if (!user) return <Navigate to="/auth" state={{ from: location }} replace />;
-  if (requiredRole && !hasRole) return <Navigate to="/auth" replace />;
+  if (requiredRole && !hasRole) return <Navigate to={redirectTo} replace />;
 
   return <>{children}</>;
 }

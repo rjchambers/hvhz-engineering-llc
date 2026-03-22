@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getDefaultRouteForRoles, getUserRoles } from "@/lib/authz";
 import { toast } from "sonner";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 
@@ -17,14 +18,23 @@ export default function Auth() {
   const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
+    let cancelled = false;
+
     if (authLoading || !user) return;
-    supabase.from("user_roles").select("role").eq("user_id", user.id).then(({ data }) => {
-      const roles = new Set(data?.map((r) => r.role) ?? []);
-      if (roles.has("admin")) navigate("/admin", { replace: true });
-      else if (roles.has("engineer")) navigate("/pe", { replace: true });
-      else if (roles.has("technician")) navigate("/tech", { replace: true });
-      else navigate("/portal/dashboard", { replace: true });
-    });
+
+    getUserRoles(user.id)
+      .then((roles) => {
+        if (cancelled) return;
+        navigate(getDefaultRouteForRoles(roles), { replace: true });
+      })
+      .catch((error: Error) => {
+        if (cancelled) return;
+        toast.error(error.message);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,22 +49,10 @@ export default function Auth() {
 
         // Redirect based on role
         if (signInData.user) {
-          const { data: roles } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", signInData.user.id);
-          const roleSet = new Set(roles?.map((r) => r.role) ?? []);
-          if (roleSet.has("admin")) {
-            navigate("/admin");
-          } else if (roleSet.has("engineer")) {
-            navigate("/pe");
-          } else if (roleSet.has("technician")) {
-            navigate("/tech");
-          } else {
-            navigate("/portal/dashboard");
-          }
+            const roles = await getUserRoles(signInData.user.id);
+            navigate(getDefaultRouteForRoles(roles), { replace: true });
         } else {
-          navigate("/portal/dashboard");
+            navigate("/portal/dashboard", { replace: true });
         }
       } else {
         const { error } = await supabase.auth.signUp({

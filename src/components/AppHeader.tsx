@@ -10,6 +10,7 @@ import { User, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { clearUserRolesCache } from "@/lib/authz";
 
 export function AppHeader() {
   const navigate = useNavigate();
@@ -20,6 +21,9 @@ export function AppHeader() {
     : "??";
 
   const handleSignOut = async () => {
+    if (user) {
+      clearUserRolesCache(user.id);
+    }
     await supabase.auth.signOut();
     navigate("/auth", { replace: true });
   };
