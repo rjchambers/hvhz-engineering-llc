@@ -65,6 +65,22 @@ export default function PEProfile() {
 
   useEffect(() => { load(); }, [load]);
 
+  const profileFormData = { fullName, licenseNumber, licenseState, peExpiry, firmName };
+
+  const { status: profileAutosave, clearDraft: clearProfileDraft } = useAutosave({
+    storageKey: `pe-profile-${user?.id}`,
+    data: profileFormData,
+    onRestore: (restored) => {
+      if (restored.fullName) setFullName(restored.fullName);
+      if (restored.licenseNumber) setLicenseNumber(restored.licenseNumber);
+      if (restored.licenseState) setLicenseState(restored.licenseState);
+      if (restored.peExpiry) setPeExpiry(restored.peExpiry);
+      if (restored.firmName) setFirmName(restored.firmName);
+      toast.info("Restored your unsaved changes", { duration: 3000 });
+    },
+    disabled: !loaded || !user,
+  });
+
   const expiryDaysLeft = peExpiry
     ? differenceInDays(parseISO(peExpiry), new Date())
     : null;
