@@ -505,6 +505,7 @@ export default function WorkOrders() {
                 )}
 
                 <section className="space-y-2">
+                  <div className="text-sm space-y-1">
                     <p>
                       <span className="text-muted-foreground">Status:</span>{" "}
                       <Badge className={cn("text-[11px]", STATUS_BADGE_CLASSES[selected.status])}>
