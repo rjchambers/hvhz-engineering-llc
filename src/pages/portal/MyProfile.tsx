@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Save, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAutosave } from "@/hooks/useAutosave";
+import { AutosaveIndicator } from "@/components/AutosaveIndicator";
 
 export default function MyProfile() {
   const { user } = useAuth();
