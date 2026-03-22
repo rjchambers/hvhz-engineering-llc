@@ -455,6 +455,7 @@ export default function TechWorkOrderDetail() {
 
     toast.success("Submitted. The PE will be notified for review.");
     setSubmitting(false);
+    clearDraft();
     navigate("/tech");
   };
 
