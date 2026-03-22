@@ -198,6 +198,14 @@ export default function WorkOrders() {
     if (!user) return;
     setSeeding(true);
     try {
+      // Fetch defaults
+      const { data: techConfig } = await supabase
+        .from("app_config").select("value").eq("key", "default_technician_id").maybeSingle();
+      const { data: engConfig } = await supabase
+        .from("app_config").select("value").eq("key", "default_engineer_id").maybeSingle();
+      const defaultTechId = techConfig?.value || null;
+      const defaultEngId = engConfig?.value || null;
+
       const { data: order, error: orderErr } = await supabase
         .from("orders")
         .insert({
@@ -222,13 +230,15 @@ export default function WorkOrders() {
         order_id: order.id,
         client_id: user.id,
         service_type: "fastener-calculation",
-        status: "dispatched",
+        status: defaultTechId ? "dispatched" : "pending_dispatch",
+        assigned_technician_id: defaultTechId || null,
+        assigned_engineer_id: defaultEngId || null,
         scheduled_date: new Date(Date.now() + 86400000).toISOString().split("T")[0],
       });
 
       if (woErr) throw new Error(woErr.message);
 
-      toast.success("Test work order created — assign tech and engineer in the table below.");
+      toast.success("Test work order created" + (defaultTechId ? " and auto-assigned." : " — assign tech and engineer in the table below."));
       fetchWOs();
     } catch (err: any) {
       toast.error("Seed failed: " + err.message);

@@ -134,12 +134,31 @@ serve(async (req) => {
       return new Response("Failed to create order", { status: 500 });
     }
 
+    // Fetch default assignments
+    const { data: techConfig } = await supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", "default_technician_id")
+      .maybeSingle();
+
+    const { data: engConfig } = await supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", "default_engineer_id")
+      .maybeSingle();
+
+    const defaultTechId = techConfig?.value || null;
+    const defaultEngId = engConfig?.value || null;
+
     // Create work orders
     const workOrderInserts = services.map((svc: string) => ({
       order_id: order.id,
       client_id: clientId,
       service_type: svc,
-      status: "pending_dispatch",
+      status: defaultTechId ? "dispatched" : "pending_dispatch",
+      assigned_technician_id: defaultTechId || null,
+      assigned_engineer_id: defaultEngId || null,
+      scheduled_date: defaultTechId ? new Date().toISOString().split("T")[0] : null,
     }));
 
     const { error: woErr } = await supabase.from("work_orders").insert(workOrderInserts);
