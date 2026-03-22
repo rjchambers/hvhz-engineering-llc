@@ -15,7 +15,7 @@ const TEMPLATES: Record<string, (d: any) => { subject: string; html: string }> =
   <li><strong>Job Address:</strong> ${d.jobAddress ?? ""}</li>
   <li><strong>Scheduled Date:</strong> ${d.scheduledDate ?? "TBD"}</li>
 </ul>
-<p><a href="${d.appUrl}/tech">View in Tech Portal →</a></p>`,
+<p><a href="${d.appUrl}/tech/work-order/${d.workOrderId}">Open Work Order →</a></p>`,
   }),
   dispatched_outsource: (d) => ({
     subject: "Work Order — Test Request",

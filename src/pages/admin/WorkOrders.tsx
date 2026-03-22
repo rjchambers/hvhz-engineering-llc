@@ -14,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { STATUS_LABELS, STATUS_BADGE_CLASSES, isOutsourced, daysSince } from "@/lib/work-order-helpers";
 import { SERVICES, getServiceName } from "@/lib/services";
-import { CalendarIcon, ChevronLeft, ChevronRight, Upload, ChevronDown, AlertTriangle, ExternalLink, FlaskConical } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, Upload, ChevronDown, AlertTriangle, ExternalLink, FlaskConical, Zap } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -38,7 +38,7 @@ interface WO {
   rejection_notes: string | null;
   pe_notes: string | null;
   orders?: { job_address: string | null; job_city: string | null; notes: string | null; services: string[] } | null;
-  client_profiles?: { company_name: string | null } | null;
+  client_profiles?: { company_name: string | null; tech_instructions?: string | null } | null;
 }
 
 interface RoleUser { id: string; displayName: string; user_id: string; role: string; }
@@ -92,7 +92,7 @@ export default function WorkOrders() {
     const clientIds = [...new Set(data.map((w) => w.client_id))];
     const { data: profiles } = await supabase
       .from("client_profiles")
-      .select("user_id, company_name")
+      .select("user_id, company_name, tech_instructions")
       .in("user_id", clientIds);
     const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) ?? []);
 
@@ -255,13 +255,32 @@ export default function WorkOrders() {
       .replace(/\{\{scheduled_date\}\}/g, dispatchDate ? format(dispatchDate, "MMMM d, yyyy") : "TBD");
   };
 
-  const openSheet = (wo: WO) => {
+  const openSheet = async (wo: WO) => {
     setSelected(wo);
     setDispatchTech(wo.assigned_technician_id ?? "");
     setDispatchEngineer(wo.assigned_engineer_id ?? "");
     setDispatchDate(wo.scheduled_date ? new Date(wo.scheduled_date) : undefined);
     setSelectedPartnerId("");
     setEmailPreviewOpen(false);
+
+    // Auto-suggest tech from most recent assignment for this service type
+    if (!wo.assigned_technician_id) {
+      const { data: recent } = await supabase
+        .from("work_orders")
+        .select("assigned_technician_id")
+        .eq("service_type", wo.service_type)
+        .not("assigned_technician_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (recent?.assigned_technician_id) {
+        setDispatchTech(recent.assigned_technician_id);
+      }
+    }
+    // Auto-suggest first available PE
+    if (!wo.assigned_engineer_id && engineers.length > 0) {
+      setDispatchEngineer(engineers[0].id);
+    }
   };
 
   // Fix 5: Updated dispatch to support re-dispatch
@@ -378,6 +397,30 @@ export default function WorkOrders() {
             <FlaskConical className="h-4 w-4" />
             {seeding ? "Creating…" : "Create Test WO"}
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-hvhz-teal border-hvhz-teal/30 hover:bg-hvhz-teal/5"
+            onClick={async () => {
+              const pending = workOrders.filter((wo) => wo.status === "pending_dispatch" && !isOutsourced(wo.service_type));
+              if (pending.length === 0) { toast.info("No pending work orders to dispatch"); return; }
+              const defaultTech = techs[0]?.id;
+              const defaultPE = engineers[0]?.id;
+              if (!defaultTech) { toast.error("No technician available"); return; }
+              for (const wo of pending) {
+                await supabase.from("work_orders").update({
+                  status: "dispatched",
+                  assigned_technician_id: defaultTech,
+                  assigned_engineer_id: defaultPE || null,
+                  scheduled_date: format(new Date(), "yyyy-MM-dd"),
+                }).eq("id", wo.id);
+              }
+              toast.success(`Dispatched ${pending.length} work order${pending.length !== 1 ? "s" : ""}`);
+              fetchWOs();
+            }}
+          >
+            <Zap className="h-4 w-4" /> Dispatch All Pending ({workOrders.filter(wo => wo.status === "pending_dispatch" && !isOutsourced(wo.service_type)).length})
+          </Button>
         </div>
 
         {/* Table */}
@@ -450,6 +493,19 @@ export default function WorkOrders() {
                     <p><span className="text-muted-foreground">Address:</span> {selected.orders?.job_address ?? "—"}, {selected.orders?.job_city ?? ""}</p>
                     <p><span className="text-muted-foreground">Services:</span> {selected.orders?.services?.join(", ") ?? "—"}</p>
                     {selected.orders?.notes && <p><span className="text-muted-foreground">Notes:</span> {selected.orders.notes}</p>}
+                  </div>
+                </section>
+
+                {/* Client tech instructions */}
+                {(selected.client_profiles as any)?.tech_instructions && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/40 p-3">
+                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1">Client Instructions for Technician</p>
+                    <p className="text-xs text-foreground/80">{(selected.client_profiles as any).tech_instructions}</p>
+                  </div>
+                )}
+
+                <section className="space-y-2">
+                  <div className="text-sm space-y-1">
                     <p>
                       <span className="text-muted-foreground">Status:</span>{" "}
                       <Badge className={cn("text-[11px]", STATUS_BADGE_CLASSES[selected.status])}>
