@@ -1,5 +1,5 @@
 export const ORDER_SERVICES = [
-  { id: "tas-105", name: "TAS-105 Fastener Withdrawal Test", icon: "Crosshair", base: 350, perSquare: 2.5 },
+  { id: "tas-105", name: "TAS-105 Fastener Withdrawal Test", icon: "Crosshair", base: 450, perSquare: 2.5 },
   { id: "tas-106", name: "TAS-106 Tile Bonding Verification", icon: "Layers", base: 200, perSquare: 0 },
   { id: "tas-126", name: "TAS-126 Moisture Survey", icon: "Droplets", base: 450, perSquare: 2.5 },
   { id: "drainage", name: "Roof Drainage Calculations", icon: "CloudRain", base: 400, perSquare: 0 },
