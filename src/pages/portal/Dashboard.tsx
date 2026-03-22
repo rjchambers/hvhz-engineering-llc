@@ -93,7 +93,7 @@ function WorkOrderCard({ wo }: { wo: WorkOrder }) {
   }, [wo.id, wo.status]);
 
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-3">
+    <div className="rounded-lg border bg-card p-4 space-y-3 shadow-elevated hover:shadow-elevated-hover transition-all duration-200">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-primary">{getServiceName(wo.service_type)}</p>
