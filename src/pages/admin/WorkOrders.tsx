@@ -38,7 +38,7 @@ interface WO {
   rejection_notes: string | null;
   pe_notes: string | null;
   orders?: { job_address: string | null; job_city: string | null; notes: string | null; services: string[] } | null;
-  client_profiles?: { company_name: string | null } | null;
+  client_profiles?: { company_name: string | null; tech_instructions?: string | null } | null;
 }
 
 interface RoleUser { id: string; displayName: string; user_id: string; role: string; }
