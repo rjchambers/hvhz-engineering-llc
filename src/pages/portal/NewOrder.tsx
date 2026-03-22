@@ -48,6 +48,25 @@ export default function NewOrder() {
     prefill();
   }, [user]);
 
+  // beforeunload warning
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (data.selected_services.length > 0 || data.job_address.trim()) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [data]);
+
+  // Restore notification
+  useEffect(() => {
+    const saved = loadWizardData();
+    if (saved.selected_services.length > 0 || saved.job_address.trim()) {
+      toast.info("Continuing your previous order", { duration: 3000 });
+    }
+  }, []);
+
   // Save to localStorage on change
   useEffect(() => {
     saveWizardData(data);

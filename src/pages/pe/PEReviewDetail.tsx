@@ -22,6 +22,8 @@ import { format } from "date-fns";
 import { CheckCircle, XCircle, ArrowLeft, ExternalLink, Loader2, X, Calculator, Eye, ChevronLeft, ChevronRight, ChevronDown, FileText, Settings2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Json } from "@/integrations/supabase/types";
+import { useAutosave } from "@/hooks/useAutosave";
+import { AutosaveIndicator } from "@/components/AutosaveIndicator";
 
 interface WOData {
   id: string;
@@ -83,6 +85,17 @@ export default function PEReviewDetail() {
   const [rejecting, setRejecting] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  const { status: notesAutosave, clearDraft: clearNotesDraft } = useAutosave({
+    storageKey: `pe-notes-${id}`,
+    data: { peNotes },
+    onRestore: (restored) => {
+      if (restored.peNotes && typeof restored.peNotes === "string") {
+        setPeNotes(restored.peNotes);
+      }
+    },
+    disabled: !loaded || wo?.status === "signed",
+  });
 
   // PE Overrides
   const [overridesOpen, setOverridesOpen] = useState(false);
@@ -296,6 +309,7 @@ export default function PEReviewDetail() {
       if (fnErr) throw new Error("Sign function failed: " + fnErr.message);
 
       toast.success("Report signed and sealed. Client notified.");
+      clearNotesDraft();
       navigate("/pe");
     } catch (err: any) {
       toast.error(err.message || "Signing failed");
@@ -704,7 +718,10 @@ export default function PEReviewDetail() {
 
       {/* PE Notes */}
       <section>
-        <h3 className="text-sm font-semibold text-primary mb-2">Engineering Notes</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-primary">Engineering Notes</h3>
+          <AutosaveIndicator status={notesAutosave} />
+        </div>
         <p className="text-[11px] text-muted-foreground mb-1">These notes appear on the signed report</p>
         <Textarea value={peNotes} onChange={(e) => setPeNotes(e.target.value)} rows={4} placeholder="PE review notes…" />
       </section>

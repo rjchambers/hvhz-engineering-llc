@@ -10,6 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { useAutosave } from "@/hooks/useAutosave";
+import { AutosaveIndicator } from "@/components/AutosaveIndicator";
 import {
   Loader2, Upload, ShieldCheck, AlertTriangle, Check, Lock, KeyRound,
 } from "lucide-react";
@@ -63,6 +65,22 @@ export default function PEProfile() {
 
   useEffect(() => { load(); }, [load]);
 
+  const profileFormData = { fullName, licenseNumber, licenseState, peExpiry, firmName };
+
+  const { status: profileAutosave, clearDraft: clearProfileDraft } = useAutosave({
+    storageKey: `pe-profile-${user?.id}`,
+    data: profileFormData,
+    onRestore: (restored) => {
+      if (restored.fullName) setFullName(restored.fullName);
+      if (restored.licenseNumber) setLicenseNumber(restored.licenseNumber);
+      if (restored.licenseState) setLicenseState(restored.licenseState);
+      if (restored.peExpiry) setPeExpiry(restored.peExpiry);
+      if (restored.firmName) setFirmName(restored.firmName);
+      toast.info("Restored your unsaved changes", { duration: 3000 });
+    },
+    disabled: !loaded || !user,
+  });
+
   const expiryDaysLeft = peExpiry
     ? differenceInDays(parseISO(peExpiry), new Date())
     : null;
@@ -89,7 +107,7 @@ export default function PEProfile() {
         });
 
     if (error) toast.error("Save failed: " + error.message);
-    else toast.success("Profile saved");
+    else { toast.success("Profile saved"); clearProfileDraft(); }
     setSaving(false);
   };
 
@@ -227,9 +245,12 @@ export default function PEProfile() {
                 <Input value={user?.email ?? ""} disabled className="h-9 text-sm bg-muted" />
               </div>
             </div>
-            <Button onClick={handleSaveProfile} disabled={saving} size="sm">
-              {saving ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Saving…</> : "Save Profile"}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button onClick={handleSaveProfile} disabled={saving} size="sm">
+                {saving ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Saving…</> : "Save Profile"}
+              </Button>
+              <AutosaveIndicator status={profileAutosave} />
+            </div>
           </CardContent>
         </Card>
 

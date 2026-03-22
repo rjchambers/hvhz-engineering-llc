@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { TechLayout } from "@/components/TechLayout";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,6 +22,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { CalendarIcon, Camera, Trash2, Plus, ArrowLeft, AlertCircle, Lock, FileText, ExternalLink, Info } from "lucide-react";
 import type { Json } from "@/integrations/supabase/types";
+import { useAutosave } from "@/hooks/useAutosave";
+import { AutosaveIndicator } from "@/components/AutosaveIndicator";
 
 interface WOData {
   id: string;
@@ -68,6 +70,22 @@ export default function TechWorkOrderDetail() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [siblingPrefilled, setSiblingPrefilled] = useState(false);
+
+  const isLocked = wo?.status === "submitted" || wo?.status === "pe_review" || wo?.status === "signed";
+
+  const { status: autosaveStatus, clearDraft } = useAutosave({
+    storageKey: `tech-wo-${id}`,
+    data: formData,
+    serverSave: id && user ? async (data) => {
+      await supabase.from("field_data").upsert({
+        work_order_id: id,
+        service_type: wo?.service_type ?? "",
+        form_data: data as unknown as Json,
+        submitted_by: user.id,
+      }, { onConflict: "work_order_id" });
+    } : undefined,
+    disabled: !loaded || isLocked || !id,
+  });
 
   // Load work order + existing field_data
   const loadData = useCallback(async () => {
@@ -169,6 +187,22 @@ export default function TechWorkOrderDetail() {
       setPhotos(withUrls);
     }
     setLoaded(true);
+
+    // Restore local autosave draft if it exists
+    try {
+      const localDraft = localStorage.getItem(`tech-wo-${id}`);
+      if (localDraft) {
+        const parsed = JSON.parse(localDraft);
+        const { _savedAt, ...rest } = parsed;
+        const hasContent = Object.values(rest).some(
+          (v: any) => v !== "" && v !== null && v !== undefined
+        );
+        if (hasContent) {
+          setFormData(prev => ({ ...prev, ...rest }));
+          toast.info("Restored your unsaved draft", { duration: 3000 });
+        }
+      }
+    } catch {}
   }, [id, user]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -421,6 +455,7 @@ export default function TechWorkOrderDetail() {
 
     toast.success("Submitted. The PE will be notified for review.");
     setSubmitting(false);
+    clearDraft();
     navigate("/tech");
   };
 
@@ -638,13 +673,16 @@ export default function TechWorkOrderDetail() {
         </section>
 
         {/* SUBMIT */}
-        <div className="flex justify-end gap-3 pb-6">
-          <Button variant="outline" onClick={handleSaveDraft} disabled={saving || submitting} className="min-h-[44px]">
-            {saving ? "Saving…" : "Save Draft"}
-          </Button>
-          <Button onClick={handleSubmit} disabled={submitting || saving} className="bg-hvhz-navy hover:bg-hvhz-navy/90 px-8 min-h-[44px] text-base sm:text-sm">
-            {submitting ? "Submitting…" : "Submit Work Order"}
-          </Button>
+        <div className="flex items-center justify-between gap-3 pb-6">
+          <AutosaveIndicator status={autosaveStatus} />
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={handleSaveDraft} disabled={saving || submitting} className="min-h-[44px]">
+              {saving ? "Saving…" : "Save Draft"}
+            </Button>
+            <Button onClick={handleSubmit} disabled={submitting || saving} className="bg-hvhz-navy hover:bg-hvhz-navy/90 px-8 min-h-[44px] text-base sm:text-sm">
+              {submitting ? "Submitting…" : "Submit Work Order"}
+            </Button>
+          </div>
         </div>
       </div>
     </TechLayout>

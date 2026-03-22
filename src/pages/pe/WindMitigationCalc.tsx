@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PELayout } from "@/components/PELayout";
 import { useAuth } from "@/hooks/useAuth";
@@ -61,6 +61,26 @@ export default function WindMitigationCalc() {
   }, [id, user]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  const serverSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    if (!dirty || !id) return;
+    clearTimeout(serverSaveTimer.current);
+    serverSaveTimer.current = setTimeout(async () => {
+      try {
+        await store.saveToFieldData(id);
+      } catch { /* Silent failure */ }
+    }, 10000);
+    return () => clearTimeout(serverSaveTimer.current);
+  }, [dirty, id]);
 
   const handleSave = async () => {
     if (!id) return;

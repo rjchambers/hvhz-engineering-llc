@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { SERVICES } from "@/lib/services";
 import { Plus, Pencil } from "lucide-react";
+import { useAutosave } from "@/hooks/useAutosave";
 
 const TAS_SERVICE_OPTIONS = [
   { key: "tas-105", label: "TAS-105 Fastener Withdrawal Test" },
@@ -70,6 +71,23 @@ function PartnerDialog({
     }
   }, [partner, open]);
 
+  const dialogFormData = { name, contactName, contactEmail, services, template, active };
+
+  const { clearDraft } = useAutosave({
+    storageKey: partner ? `admin-partner-${partner.id}` : "admin-partner-new",
+    data: dialogFormData,
+    onRestore: (restored) => {
+      if (!partner) {
+        if (restored.name) setName(restored.name);
+        if (restored.contactName) setContactName(restored.contactName);
+        if (restored.contactEmail) setContactEmail(restored.contactEmail);
+        if (restored.services) setServices(restored.services);
+        if (restored.template) setTemplate(restored.template);
+      }
+    },
+    disabled: !open,
+  });
+
   const toggleService = (key: string) => {
     setServices((prev) => prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key]);
   };
@@ -94,7 +112,7 @@ function PartnerDialog({
       : await supabase.from("outsource_partners").insert(row);
 
     if (error) toast.error(error.message);
-    else { toast.success(partner ? "Partner updated" : "Partner added"); onSaved(); onOpenChange(false); }
+    else { toast.success(partner ? "Partner updated" : "Partner added"); clearDraft(); onSaved(); onOpenChange(false); }
     setSaving(false);
   };
 

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Save, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAutosave } from "@/hooks/useAutosave";
+import { AutosaveIndicator } from "@/components/AutosaveIndicator";
 
 export default function MyProfile() {
   const { user } = useAuth();
@@ -46,6 +48,16 @@ export default function MyProfile() {
       });
   }, [user]);
 
+  const { status: profileAutosave, clearDraft: clearProfileDraft } = useAutosave({
+    storageKey: `client-profile-${user?.id}`,
+    data: form,
+    onRestore: (restored) => {
+      setForm(prev => ({ ...prev, ...restored }));
+      toast.info("Restored your unsaved changes", { duration: 3000 });
+    },
+    disabled: loading || !user,
+  });
+
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
@@ -57,6 +69,7 @@ export default function MyProfile() {
       }, { onConflict: "user_id" });
       if (error) throw error;
       toast.success("Profile updated");
+      clearProfileDraft();
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -118,13 +131,16 @@ export default function MyProfile() {
             </div>
 
             <div className="flex items-center justify-between pt-4 border-t">
-              <Link
-                to="/forgot-password"
-                className="flex items-center gap-1.5 text-sm text-hvhz-teal hover:underline"
-              >
-                <KeyRound className="h-4 w-4" />
-                Change Password
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  to="/forgot-password"
+                  className="flex items-center gap-1.5 text-sm text-hvhz-teal hover:underline"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Change Password
+                </Link>
+                <AutosaveIndicator status={profileAutosave} />
+              </div>
               <Button onClick={handleSave} disabled={saving} className="gap-2 bg-primary text-primary-foreground">
                 <Save className="h-4 w-4" />
                 {saving ? "Saving…" : "Save Changes"}

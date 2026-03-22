@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Save, Loader2 } from "lucide-react";
+import { AutosaveIndicator } from "@/components/AutosaveIndicator";
 
 interface CalcHeaderProps {
   title: string;
@@ -24,6 +25,7 @@ export function CalcHeader({ title, workOrderId, address, onSave, onReturn, savi
         {address && <span className="text-muted-foreground text-xs truncate max-w-[260px]">· {address}</span>}
       </div>
       <div className="flex items-center gap-2">
+        <AutosaveIndicator status={dirty ? "idle" : saving ? "saving" : "saved"} />
         <Button variant="outline" size="sm" onClick={onSave} disabled={saving} className="gap-1">
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           Save
