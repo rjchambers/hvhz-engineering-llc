@@ -23,16 +23,16 @@ import {
 import { Button } from "@/components/ui/button";
 
 const services = [
-  { name: "TAS-105 Fastener Withdrawal Test", price: "$450", icon: Crosshair, description: "Standard fastener withdrawal testing per TAS-105 protocol" },
-  { name: "TAS-106 Tile Bonding Verification", price: "$450", icon: Layers, description: "Tile adhesion and bonding strength verification" },
-  { name: "TAS-124 Bonded Pull Test", price: "$450", icon: TestTube2, description: "Bonded pull testing for roof system compliance" },
-  { name: "TAS-126 Moisture Survey", price: "$450", icon: Droplets, description: "Infrared moisture survey and analysis" },
-  { name: "Roof Inspection", price: "$350", icon: Search, description: "Comprehensive visual and structural roof inspection" },
-  { name: "Roof Certification", price: "$450", icon: ShieldCheck, description: "Full roof certification for code compliance" },
-  { name: "Drainage Analysis", price: "$550", icon: CloudRain, description: "Roof drainage capacity and slope analysis" },
-  { name: "Special Inspection", price: "$400", icon: HardHat, description: "Threshold and special inspector services" },
-  { name: "Wind Mitigation (Roofing Permit)", price: "$500", icon: Wind, description: "Wind mitigation report for permitting" },
-  { name: "Fastener Uplift Calculation", price: "$350", icon: ArrowUpFromLine, description: "Engineering calculations for fastener uplift resistance" },
+  { name: "TAS-105 Fastener Withdrawal Test", price: "$450", icon: Crosshair, code: "FBC 8th Ed. · HVHZ", description: "Field withdrawal resistance testing of mechanical fasteners per TAS 105-20. Verifies installed pull-out values meet or exceed product approval minimums for Miami-Dade and Broward HVHZ compliance." },
+  { name: "TAS-106 Tile Bonding Verification", price: "$450", icon: Layers, code: "FBC 8th Ed. · HVHZ", description: "Field verification of mortar-set and adhesive-set tile systems per TAS 106. Confirms bond strength of discontinuous roof coverings against HVHZ uplift requirements." },
+  { name: "TAS-124 Membrane Uplift Test", price: "$450", icon: TestTube2, code: "FBC 8th Ed. · HVHZ", description: "In-situ uplift resistance testing of existing and new membrane roof systems per TAS 124-20. Required for reroof and new construction in the HVHZ to validate attachment adequacy." },
+  { name: "TAS-126 Moisture Survey", price: "$450", icon: Droplets, code: "FBC 8th Ed. · HVHZ", description: "Infrared thermographic moisture survey per TAS 126-95. Locates and documents sub-surface moisture in roof assemblies — required before reroof permits in Miami-Dade and Broward." },
+  { name: "Roof Inspection", price: "$350", icon: Search, code: "FBC Ch. 15", description: "Visual and structural condition assessment covering decking, flashing, penetrations, and edge details. Documents deficiencies per FBC Chapter 15 and HVHZ workmanship standards." },
+  { name: "Roof Certification", price: "$450", icon: ShieldCheck, code: "FBC · 40/50-Year", description: "PE-signed roof condition certification for building recertification, real-estate transactions, or insurance. Meets Miami-Dade 40-year and Broward 50-year recertification thresholds." },
+  { name: "Drainage Analysis", price: "$550", icon: CloudRain, code: "FBC 1611 · NOAA Atlas 14", description: "Hydraulic roof drainage calculation per FBC Section 1611 and ASCE 7-22 Chapter 8. Uses NOAA Atlas 14 rainfall intensity data to size primary and overflow drains for South Florida sites." },
+  { name: "Special Inspection", price: "$400", icon: HardHat, code: "FBC Ch. 17", description: "Threshold and special inspector services per FBC Chapter 17, Section 1705. Covers structural observations, roofing installation verification, and quality assurance for permit close-out." },
+  { name: "Wind Mitigation (Roofing Permit)", price: "$500", icon: Wind, code: "ASCE 7-22 · FBC 1609", description: "Wind pressure analysis and mitigation report per FBC Section 1609 and ASCE 7-22. Determines design wind speeds (up to 185 mph in HVHZ), exposure categories, and component cladding pressures." },
+  { name: "Fastener Uplift Calculation", price: "$350", icon: ArrowUpFromLine, code: "ASCE 7-22 · RAS 117", description: "Engineering calculation of required fastener spacing, pull-out resistance, and uplift capacity per ASCE 7-22 wind loads and RAS 117/128/137 roof assembly standards." },
 ];
 
 const trustSignals = [
@@ -164,7 +164,12 @@ const Index = () => {
                 <h3 className="text-sm font-semibold text-primary leading-snug">
                   {service.name}
                 </h3>
-                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                {service.code && (
+                  <span className="mt-1 inline-block text-[10px] font-mono tracking-wide text-hvhz-teal/70 bg-hvhz-teal/5 px-1.5 py-0.5 rounded">
+                    {service.code}
+                  </span>
+                )}
+                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
                   {service.description}
                 </p>
               </div>
