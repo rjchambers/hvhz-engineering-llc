@@ -5,7 +5,7 @@ const stats = [
   { value: "500+", label: "Projects Completed" },
   { value: "24hr", label: "Average Turnaround" },
   { value: "FL PE", label: "Licensed & Insured" },
-  { value: "185 mph", label: "Wind Rating Certified" },
+  { value: "170+ mph", label: "Wind Rating Certified" },
 ];
 
 export function StatsBar() {
