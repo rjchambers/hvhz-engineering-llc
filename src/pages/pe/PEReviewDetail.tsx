@@ -474,61 +474,79 @@ export default function PEReviewDetail() {
 
   const ReportPreview = () => (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="bg-[hsl(var(--hvhz-navy))] text-white p-4 rounded-t-lg">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-lg font-bold">HVHZ ENGINEERING</h2>
-            <p className="text-xs opacity-80">750 E Sample Rd, Pompano Beach FL 33064</p>
-          </div>
-          <div className="text-right text-xs opacity-80">
-            <p>{wo.orders?.job_address ?? ""}, {wo.orders?.job_city ?? ""}</p>
-            <p>Job #: {wo.id.slice(0, 8).toUpperCase()}</p>
+      {/* Header — mirrors PDF navy banner + teal accent */}
+      <div>
+        <div className="bg-[hsl(var(--hvhz-navy))] text-white p-4 rounded-t-lg">
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-lg font-bold">HVHZ ENGINEERING</h2>
+              <p className="text-xs opacity-80">Roof Engineering for South Florida's HVHZ</p>
+              <p className="text-xs opacity-60">750 E Sample Rd, Pompano Beach FL 33064</p>
+            </div>
+            <div className="text-right text-xs opacity-80">
+              <p>{wo.orders?.job_address ?? ""}, {wo.orders?.job_city ?? ""}</p>
+              <p>WO-{wo.id.slice(0, 8).toUpperCase()}</p>
+            </div>
           </div>
         </div>
-        <p className="text-center font-bold mt-2 text-sm uppercase">{wo.service_type.replace(/-/g, " ")} Report</p>
+        <div className="bg-hvhz-teal text-white text-center py-1">
+          <p className="font-bold text-sm uppercase tracking-wide">{wo.service_type.replace(/-/g, " ")} Report</p>
+        </div>
       </div>
 
-      {/* Job Info */}
-      <ReportSection title="Job Information">
-        <InfoRow label="Address" value={`${wo.orders?.job_address ?? ""}, ${wo.orders?.job_city ?? ""} ${wo.orders?.job_zip ?? ""}`} />
-        <InfoRow label="County" value={wo.orders?.job_county ?? "—"} />
-        <InfoRow label="Scheduled" value={wo.scheduled_date ?? "—"} />
-        <InfoRow label="Client" value={clientProfile?.company_name ?? "—"} />
-        <InfoRow label="Engineer" value={engineerProfile?.full_name ?? "—"} />
-        <InfoRow label="PE License" value={`FL #${engineerProfile?.pe_license_number ?? "N/A"}`} />
+      {/* Document Info Table */}
+      <div className="border rounded overflow-hidden">
+        <div className="grid grid-cols-4 text-xs">
+          {[
+            ["Report No.", `WO-${wo.id.slice(0, 8).toUpperCase()}`],
+            ["Date", format(new Date(), "PPP")],
+            ["Client", clientProfile?.company_name ?? "—"],
+            ["County", wo.orders?.job_county ?? "—"],
+            ["Job Address", `${wo.orders?.job_address ?? ""}, ${wo.orders?.job_city ?? ""}`],
+            ["Inspection", fieldData.inspection_date ? format(new Date(fieldData.inspection_date), "PPP") : "—"],
+            ["Engineer", engineerProfile?.full_name ?? "—"],
+            ["PE License", `FL #${engineerProfile?.pe_license_number ?? "N/A"}`],
+          ].map(([label, value], i) => (
+            <div key={i} className={cn("px-3 py-1.5", i % 4 < 2 ? "" : "", Math.floor(i / 4) % 2 === 1 ? "bg-muted/40" : "")}>
+              {i % 2 === 0 ? (
+                <span className="text-muted-foreground">{label}</span>
+              ) : (
+                <span className="font-medium text-foreground">{value}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 1.0 Scope */}
+      <ReportSection number="1.0" title="Scope of Engineering Services">
+        <p className="text-xs text-muted-foreground">Standard scope section per service type.</p>
       </ReportSection>
 
-      {/* Job Conditions */}
-      {fieldData.inspection_date && (
-        <ReportSection title="Job Conditions">
-          <InfoRow label="Inspection Date" value={fieldData.inspection_date ? format(new Date(fieldData.inspection_date), "PPP") : "—"} />
-          <InfoRow label="Weather" value={fieldData.weather_notes ?? "—"} />
-          <InfoRow label="Temperature" value={fieldData.temperature_f ? `${fieldData.temperature_f}°F` : "—"} />
-          <InfoRow label="Inspector" value={fieldData.inspector_name ?? "—"} />
-          {fieldData.notes && <p className="text-xs text-muted-foreground mt-2">{fieldData.notes}</p>}
-        </ReportSection>
-      )}
+      {/* 2.0 Codes */}
+      <ReportSection number="2.0" title="Applicable Codes & Standards">
+        <p className="text-xs text-muted-foreground">Code references rendered in the PDF report.</p>
+      </ReportSection>
 
       {/* Inline Calculation Results */}
       {wo.service_type === "fastener-calculation" && Object.keys(calcResults).length > 0 && (
-        <ReportSection title="Calculation Results">
+        <ReportSection number="5.0" title="Wind Pressure Calculation">
           <FastenerCalcSummary />
         </ReportSection>
       )}
       {wo.service_type === "drainage-analysis" && Object.keys(calcResults).length > 0 && (
-        <ReportSection title="Calculation Results">
+        <ReportSection number="8.0" title="Drainage Compliance Matrix">
           <DrainageCalcSummary />
         </ReportSection>
       )}
       {wo.service_type === "wind-mitigation-permit" && Object.keys(calcResults).length > 0 && (
-        <ReportSection title="Calculation Results">
+        <ReportSection number="7.0" title="Wind Pressure Analysis">
           <WindCalcSummary />
         </ReportSection>
       )}
 
-      {/* All field data rendered */}
-      <ReportSection title="Field Data">
+      {/* Field Data */}
+      <ReportSection number="" title="Field Data">
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
           {Object.entries(fieldData)
             .filter(([k]) => !["inspection_date", "weather_notes", "temperature_f", "inspector_name", "notes"].includes(k))
@@ -797,10 +815,12 @@ export default function PEReviewDetail() {
   );
 }
 
-function ReportSection({ title, children }: { title: string; children: React.ReactNode }) {
+function ReportSection({ number, title, children }: { number?: string; title: string; children: React.ReactNode }) {
   return (
     <div className="border-b pb-3">
-      <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-2 border-b border-primary/20 pb-1">{title}</h3>
+      <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-2 border-b border-primary/20 pb-1">
+        {number ? `${number}  ` : ''}{title}
+      </h3>
       {children}
     </div>
   );
