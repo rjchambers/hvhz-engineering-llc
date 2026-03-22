@@ -125,6 +125,7 @@ function WorkOrderCard({ wo }: { wo: WorkOrder }) {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [workOrders, setWorkOrders] = useState<Record<string, WorkOrder[]>>({});
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
