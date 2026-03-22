@@ -2,12 +2,16 @@ interface BrandMarkProps {
   size?: "sm" | "md" | "lg";
   showText?: boolean;
   subtitle?: string;
+  variant?: "dark" | "light";
 }
 
-export function BrandMark({ size = "md", showText = true, subtitle }: BrandMarkProps) {
+export function BrandMark({ size = "md", showText = true, subtitle, variant = "dark" }: BrandMarkProps) {
   const dims = { sm: "h-7 w-7", md: "h-8 w-8", lg: "h-11 w-11" };
   const textSz = { sm: "text-xs", md: "text-sm", lg: "text-lg" };
   const subSz = { sm: "text-[9px]", md: "text-[11px]", lg: "text-xs" };
+
+  const textColor = variant === "light" ? "text-white" : "text-primary";
+  const subOpacity = variant === "light" ? "opacity-60" : "opacity-50";
 
   return (
     <div className="flex items-center gap-2.5">
@@ -18,8 +22,8 @@ export function BrandMark({ size = "md", showText = true, subtitle }: BrandMarkP
       </div>
       {showText && (
         <div className="leading-tight min-w-0">
-          <p className={`${textSz[size]} font-extrabold tracking-tight`}>HVHZ</p>
-          <p className={`${subSz[size]} text-current opacity-50 font-medium`}>{subtitle || "Engineering"}</p>
+          <p className={`${textSz[size]} font-extrabold tracking-tight ${textColor}`}>HVHZ</p>
+          <p className={`${subSz[size]} ${textColor} ${subOpacity} font-medium`}>{subtitle || "Engineering"}</p>
         </div>
       )}
     </div>

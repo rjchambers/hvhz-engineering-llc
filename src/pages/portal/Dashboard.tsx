@@ -55,11 +55,14 @@ function WorkOrderTimeline({ status }: { status: string }) {
         return (
           <div key={step.key} className="flex items-center">
             <div className="flex flex-col items-center min-w-[64px]">
-              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
+              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold transition-colors relative ${
                 rejected ? "bg-hvhz-red text-white" :
                 done ? "bg-hvhz-teal text-white" :
                 "bg-muted text-muted-foreground"
               }`}>
+                {current && !rejected && (
+                  <span className="absolute inset-0 rounded-full bg-hvhz-teal/30 animate-pulse-ring" />
+                )}
                 {done && !rejected ? "✓" : i + 1}
               </div>
               <span className={`mt-1 text-[10px] leading-tight text-center ${
@@ -93,7 +96,7 @@ function WorkOrderCard({ wo }: { wo: WorkOrder }) {
   }, [wo.id, wo.status]);
 
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-3">
+    <div className="rounded-lg border bg-card p-4 space-y-3 shadow-elevated hover:shadow-elevated-hover transition-all duration-200">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-primary">{getServiceName(wo.service_type)}</p>
@@ -211,11 +214,17 @@ export default function Dashboard() {
 
   return (
     <PortalLayout>
-      <div className="px-6 py-8 max-w-5xl mx-auto bg-gradient-to-b from-background to-muted/30 min-h-[calc(100vh-3.5rem)]">
-        <h1 className="text-xl font-bold text-primary">Welcome back</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · Updated {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </p>
+      <div className="px-6 py-8 max-w-5xl mx-auto min-h-[calc(100vh-3.5rem)] animate-in">
+        {/* Welcome banner */}
+        <div className="rounded-2xl bg-gradient-to-r from-primary to-hvhz-navy-mid p-8 text-white mb-8">
+          <h1 className="text-2xl font-bold">Welcome back</h1>
+          <p className="mt-1 text-sm text-white/50">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · Updated {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+          <Button asChild size="sm" className="mt-4 bg-hvhz-teal text-white hover:bg-hvhz-teal/90 shadow-lg shadow-hvhz-teal/20 active:scale-[0.97] transition-all">
+            <a href="/portal/new-order">New Order</a>
+          </Button>
+        </div>
 
         {loading ? (
           <div className="mt-8 space-y-3">
