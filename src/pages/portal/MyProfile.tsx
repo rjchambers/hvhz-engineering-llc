@@ -69,6 +69,7 @@ export default function MyProfile() {
       }, { onConflict: "user_id" });
       if (error) throw error;
       toast.success("Profile updated");
+      clearProfileDraft();
     } catch (err: any) {
       toast.error(err.message);
     } finally {
