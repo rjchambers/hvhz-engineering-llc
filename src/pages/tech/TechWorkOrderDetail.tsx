@@ -453,6 +453,28 @@ export default function TechWorkOrderDetail() {
       .update({ status: "submitted", submitted_at: new Date().toISOString() })
       .eq("id", id);
 
+    // Safety net: ensure PE is assigned so it appears in the PE queue
+    const { data: currentWo } = await supabase
+      .from("work_orders")
+      .select("assigned_engineer_id")
+      .eq("id", id)
+      .single();
+
+    if (!currentWo?.assigned_engineer_id) {
+      const { data: engConfig } = await supabase
+        .from("app_config")
+        .select("value")
+        .eq("key", "default_engineer_id")
+        .maybeSingle();
+
+      if (engConfig?.value) {
+        await supabase
+          .from("work_orders")
+          .update({ assigned_engineer_id: engConfig.value })
+          .eq("id", id);
+      }
+    }
+
     toast.success("Submitted. The PE will be notified for review.");
     setSubmitting(false);
     clearDraft();
