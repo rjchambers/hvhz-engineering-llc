@@ -8,58 +8,62 @@ interface BrandMarkProps {
 }
 
 export function BrandMark({ size = "md", variant = "dark" }: BrandMarkProps) {
-  const scales = {
-    sm: { heading: "text-lg", sub: "text-[7px]", tracking: "tracking-[0.12em]", gap: "gap-0", bar: "h-[2px]" },
-    md: { heading: "text-2xl", sub: "text-[9px]", tracking: "tracking-[0.14em]", gap: "gap-0.5", bar: "h-[2px]" },
-    lg: { heading: "text-4xl", sub: "text-[11px]", tracking: "tracking-[0.16em]", gap: "gap-1", bar: "h-[3px]" },
-  };
-  const s = scales[size];
   const isLight = variant === "light";
 
+  const sizes = {
+    sm: {
+      hvhz: "text-xl",
+      eng: "text-[10px] tracking-[0.18em]",
+      llc: "text-[8px] tracking-[0.22em]",
+      bar: "w-[2px]",
+      underline: "h-[2px]",
+    },
+    md: {
+      hvhz: "text-3xl",
+      eng: "text-sm tracking-[0.2em]",
+      llc: "text-[10px] tracking-[0.24em]",
+      bar: "w-[3px]",
+      underline: "h-[2px]",
+    },
+    lg: {
+      hvhz: "text-5xl",
+      eng: "text-lg tracking-[0.22em]",
+      llc: "text-xs tracking-[0.26em]",
+      bar: "w-[4px]",
+      underline: "h-[3px]",
+    },
+  };
+
+  const s = sizes[size];
+  const textColor = isLight ? "text-white" : "text-primary";
+  const mutedColor = isLight ? "text-white/60" : "text-muted-foreground";
+
   return (
-    <div className={cn("flex flex-col select-none", s.gap)}>
-      <div className="flex items-baseline gap-[0.15em]">
+    <div className="flex flex-col select-none">
+      <div className="flex items-center gap-2">
+        {/* HVHZ */}
         <span
-          className={cn(
-            s.heading,
-            "font-black leading-none",
-            isLight ? "text-white" : "text-primary"
-          )}
-          style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
+          className={cn(s.hvhz, "font-black leading-none tracking-tight", textColor)}
         >
           HVHZ
         </span>
-        <div
-          className={cn(
-            "w-[3px] self-stretch rounded-full mx-[0.1em]",
-            isLight ? "bg-hvhz-teal" : "bg-hvhz-teal"
-          )}
-        />
+
+        {/* Teal divider */}
+        <div className={cn(s.bar, "self-stretch rounded-full bg-hvhz-teal")} />
+
+        {/* Engineering LLC */}
         <div className="flex flex-col justify-center">
-          <span
-            className={cn(
-              s.sub,
-              "font-semibold uppercase leading-tight",
-              s.tracking,
-              isLight ? "text-white/90" : "text-primary/80"
-            )}
-          >
+          <span className={cn(s.eng, "font-bold uppercase leading-tight", textColor)}>
             Engineering
           </span>
-          <span
-            className={cn(
-              "font-medium uppercase leading-tight",
-              isLight ? "text-white/50" : "text-muted-foreground",
-              size === "sm" ? "text-[5px] tracking-[0.2em]" :
-              size === "md" ? "text-[6px] tracking-[0.22em]" :
-              "text-[8px] tracking-[0.24em]"
-            )}
-          >
+          <span className={cn(s.llc, "font-semibold uppercase leading-tight mt-px", mutedColor)}>
             LLC
           </span>
         </div>
       </div>
-      <div className={cn("w-full rounded-full", s.bar, "bg-gradient-to-r from-hvhz-teal via-hvhz-teal/60 to-transparent")} />
+
+      {/* Accent underline */}
+      <div className={cn("w-full rounded-full mt-1.5", s.underline, "bg-gradient-to-r from-hvhz-teal via-hvhz-teal/50 to-transparent")} />
     </div>
   );
 }
