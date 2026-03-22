@@ -265,8 +265,7 @@ export default function TechWorkOrderDetail() {
     if (!formData.inspection_date) newErrors.inspection_date = "Required";
     if (!formData.inspector_name) newErrors.inspector_name = "Required";
 
-    const minPhotos = MIN_PHOTO_COUNTS[wo.service_type] ?? 3;
-    if (photos.length < minPhotos) newErrors.photos = `At least ${minPhotos} photos required`;
+    // Photos are optional — no minimum count enforced
 
     if (wo.service_type === "special-inspection" && !formData.inspector_certification_accepted) {
       newErrors.inspector_certification_accepted = "Must accept certification";
@@ -607,10 +606,8 @@ export default function TechWorkOrderDetail() {
         <section className="bg-card border rounded-lg p-5 mb-6">
           <h2 className="text-sm font-semibold text-primary mb-2">Photos</h2>
           <p className="text-xs text-muted-foreground mb-4">
-            Minimum {minPhotos} photos required. Current: {photos.length}
-            {photos.length < minPhotos && <span className="text-destructive ml-1">({minPhotos - photos.length} more needed)</span>}
+            Photos are optional. Current: {photos.length}
           </p>
-          {errors.photos && <p className="text-xs text-destructive mb-2 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.photos}</p>}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
             {sectionTags.map((tag) => (

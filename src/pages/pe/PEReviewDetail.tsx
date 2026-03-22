@@ -243,10 +243,8 @@ export default function PEReviewDetail() {
 
   const requiredKeys = REQUIRED_KEYS[wo?.service_type ?? ""] ?? [];
   const fieldsComplete = requiredKeys.every((k) => fieldData[k] != null && fieldData[k] !== "" && fieldData[k] !== false);
-  const minPhotos = MIN_PHOTO_COUNTS[wo?.service_type ?? ""] ?? 3;
-  const photosOk = photos.length >= minPhotos;
   const stampUploaded = !!engineerProfile?.stamp_image_url;
-  const canSign = fieldsComplete && photosOk && stampUploaded && certify;
+  const canSign = fieldsComplete && stampUploaded && certify;
   const isTas = TAS_SERVICES.includes(wo?.service_type ?? "");
 
   const handleSign = async () => {
@@ -586,7 +584,7 @@ export default function PEReviewDetail() {
         <h3 className="text-sm font-semibold text-primary mb-3">Compliance Checklist</h3>
         <div className="space-y-2">
           <CheckItem ok={fieldsComplete} label="Required fields complete" />
-          <CheckItem ok={photosOk} label={`Minimum photos uploaded (${photos.length}/${minPhotos})`} />
+          <CheckItem ok={photos.length > 0} label={`Photos uploaded (${photos.length})`} />
           <CheckItem ok={stampUploaded} label="PE stamp uploaded" />
         </div>
       </section>
