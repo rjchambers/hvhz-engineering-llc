@@ -297,18 +297,18 @@ export class HVHZReportBuilder {
         if (statusCol !== undefined && data.column.index === statusCol && data.section === 'body') {
           const val = String(data.cell.raw).toUpperCase();
           if (['COMPLIANT', 'ADEQUATE', 'PASS', 'OK', '✓'].some(s => val.includes(s))) {
-            data.cell.styles.textColor = [...PASS_GREEN];
+            data.cell.styles.textColor = [PASS_GREEN[0], PASS_GREEN[1], PASS_GREEN[2]];
             data.cell.styles.fontStyle = 'bold';
           } else if (['DEFICIENT', 'INADEQUATE', 'FAIL', '✗'].some(s => val.includes(s))) {
-            data.cell.styles.textColor = [...FAIL_RED];
+            data.cell.styles.textColor = [FAIL_RED[0], FAIL_RED[1], FAIL_RED[2]];
             data.cell.styles.fontStyle = 'bold';
           } else if (['WARNING', 'MARGINAL'].some(s => val.includes(s))) {
-            data.cell.styles.textColor = [...WARN_AMBER];
+            data.cell.styles.textColor = [WARN_AMBER[0], WARN_AMBER[1], WARN_AMBER[2]];
             data.cell.styles.fontStyle = 'bold';
           } else if (['PRESCRIPTIVE', 'NOA PRESCRIPTIVE'].some(s => val.includes(s))) {
-            data.cell.styles.textColor = [...TEAL];
+            data.cell.styles.textColor = [TEAL[0], TEAL[1], TEAL[2]];
           } else if (['RAS 117 RATIONAL', 'RATIONAL ANALYSIS'].some(s => val.includes(s))) {
-            data.cell.styles.textColor = [...WARN_AMBER];
+            data.cell.styles.textColor = [WARN_AMBER[0], WARN_AMBER[1], WARN_AMBER[2]];
           }
         }
         if (options.highlightColumn !== undefined && data.column.index === options.highlightColumn && data.section === 'body') {
