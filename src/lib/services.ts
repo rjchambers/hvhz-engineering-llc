@@ -1,24 +1,22 @@
-export const SERVICES = [
-  { key: "tas-105", name: "TAS-105 Fastener Withdrawal Test", price: 450 },
-  { key: "tas-106", name: "TAS-106 Tile Bonding Verification", price: 450 },
-  { key: "tas-126", name: "TAS-126 Moisture Survey", price: 450 },
-  { key: "drainage-analysis", name: "Drainage Analysis", price: 550 },
-  { key: "special-inspection", name: "Special Inspection", price: 400 },
-  { key: "wind-mitigation-permit", name: "Wind Mitigation (Roofing Permit)", price: 500 },
-  { key: "fastener-calculation", name: "Fastener Uplift Calculation", price: 350 },
-  { key: "other", name: "Other / Custom Request", price: 0 },
-] as const;
+import { ORDER_SERVICES, calculateServicePrice, formatCurrency as _formatCurrency } from "@/components/order/orderServices";
 
-export type ServiceKey = (typeof SERVICES)[number]["key"];
+// Re-export ORDER_SERVICES as the single source of truth
+// The "key" alias keeps existing consumers working
+export const SERVICES = ORDER_SERVICES.map((s) => ({
+  key: s.id,
+  name: s.name,
+  price: s.base, // base price (before area-based add-ons)
+}));
+
+export type ServiceKey = (typeof ORDER_SERVICES)[number]["id"];
 
 export function getServicePrice(key: string): number {
-  return SERVICES.find((s) => s.key === key)?.price ?? 0;
+  const svc = ORDER_SERVICES.find((s) => s.id === key);
+  return svc?.base ?? 0;
 }
 
 export function getServiceName(key: string): string {
-  return SERVICES.find((s) => s.key === key)?.name ?? key;
+  return ORDER_SERVICES.find((s) => s.id === key)?.name ?? key;
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
-}
+export { calculateServicePrice, _formatCurrency as formatCurrency };

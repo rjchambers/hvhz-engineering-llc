@@ -102,12 +102,14 @@ serve(async (req) => {
       });
     }
 
+    const area = Number(roofAreaSqft) || 0;
     chargeableServices.forEach((svc: string, i: number) => {
       const catalog = SERVICE_CATALOG[svc];
       if (!catalog) throw new Error(`Unknown service: ${svc}`);
+      const unitPrice = catalog.base + (catalog.perSquare > 0 ? catalog.perSquare * area : 0);
       params.append(`line_items[${i}][price_data][currency]`, "usd");
       params.append(`line_items[${i}][price_data][product_data][name]`, catalog.name);
-      params.append(`line_items[${i}][price_data][unit_amount]`, String(catalog.price * 100));
+      params.append(`line_items[${i}][price_data][unit_amount]`, String(Math.round(unitPrice * 100)));
       params.append(`line_items[${i}][quantity]`, "1");
     });
 
