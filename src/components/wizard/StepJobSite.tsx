@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { SERVICES, formatCurrency, getServicePrice } from "@/lib/services";
 import type { WizardData } from "@/lib/wizard-data";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import {
   Crosshair, Layers, TestTube2, Droplets, Search, ShieldCheck,
   CloudRain, HardHat, Wind, ArrowUpFromLine, ChevronLeft,
@@ -20,9 +21,10 @@ interface StepJobSiteProps {
   onChange: (patch: Partial<WizardData>) => void;
   onNext: () => void;
   onBack: () => void;
+  showEditCompanyLink?: boolean;
 }
 
-export function StepJobSite({ data, onChange, onNext, onBack }: StepJobSiteProps) {
+export function StepJobSite({ data, onChange, onNext, onBack, showEditCompanyLink }: StepJobSiteProps) {
   const toggleService = (key: string) => {
     const selected = data.selected_services.includes(key)
       ? data.selected_services.filter((s) => s !== key)
@@ -35,28 +37,49 @@ export function StepJobSite({ data, onChange, onNext, onBack }: StepJobSiteProps
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-bold text-primary">Job Site & Services</h2>
-        <p className="text-sm text-muted-foreground mt-1">Where's the job and what services do you need?</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-primary">Job Site & Services</h2>
+          <p className="text-sm text-muted-foreground mt-1">Where's the job and what services do you need?</p>
+        </div>
+        {showEditCompanyLink && (
+          <button onClick={onBack} className="text-xs text-hvhz-teal hover:underline">
+            Edit company info →
+          </button>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2 space-y-2">
-          <Label htmlFor="job_address">Job Address *</Label>
-          <Input id="job_address" value={data.job_address} onChange={(e) => onChange({ job_address: e.target.value })} />
+          <Label>Job Site Address *</Label>
+          <AddressAutocomplete
+            value={data.job_address}
+            onChange={(val) => onChange({ job_address: val })}
+            onSelect={(parsed) => {
+              onChange({
+                job_address: parsed.address,
+                job_city: parsed.city,
+                job_zip: parsed.zip,
+                job_county: parsed.county,
+              });
+            }}
+            placeholder="Start typing the job site address…"
+          />
         </div>
+
+        {/* Parsed fields — editable confirmation */}
         <div className="space-y-2">
-          <Label htmlFor="job_city">City *</Label>
-          <Input id="job_city" value={data.job_city} onChange={(e) => onChange({ job_city: e.target.value })} />
+          <Label className="text-xs text-muted-foreground">City *</Label>
+          <Input value={data.job_city} onChange={(e) => onChange({ job_city: e.target.value })} className="h-9 text-sm" />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="job_zip">ZIP *</Label>
-            <Input id="job_zip" value={data.job_zip} onChange={(e) => onChange({ job_zip: e.target.value })} />
+            <Label className="text-xs text-muted-foreground">ZIP *</Label>
+            <Input value={data.job_zip} onChange={(e) => onChange({ job_zip: e.target.value })} className="h-9 text-sm" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="job_county">County</Label>
-            <Input id="job_county" value={data.job_county} onChange={(e) => onChange({ job_county: e.target.value })} />
+            <Label className="text-xs text-muted-foreground">County</Label>
+            <Input value={data.job_county} onChange={(e) => onChange({ job_county: e.target.value })} className="h-9 text-sm" />
           </div>
         </div>
       </div>
