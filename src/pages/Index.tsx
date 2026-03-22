@@ -94,7 +94,7 @@ const Index = () => {
               className="bg-hvhz-teal text-white hover:bg-hvhz-teal/90 active:scale-[0.97] transition-all shadow-lg shadow-hvhz-teal/20"
               asChild
             >
-              <Link to="/auth">
+              <Link to="/order">
                 Order Services <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
