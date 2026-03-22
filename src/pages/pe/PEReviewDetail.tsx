@@ -584,7 +584,7 @@ export default function PEReviewDetail() {
         <h3 className="text-sm font-semibold text-primary mb-3">Compliance Checklist</h3>
         <div className="space-y-2">
           <CheckItem ok={fieldsComplete} label="Required fields complete" />
-          <CheckItem ok={photosOk} label={`Minimum photos uploaded (${photos.length}/${minPhotos})`} />
+          <CheckItem ok={photos.length > 0} label={`Photos uploaded (${photos.length})`} />
           <CheckItem ok={stampUploaded} label="PE stamp uploaded" />
         </div>
       </section>
