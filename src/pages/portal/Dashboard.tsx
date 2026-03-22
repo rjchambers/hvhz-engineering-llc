@@ -214,7 +214,7 @@ export default function Dashboard() {
       <div className="px-6 py-8 max-w-5xl mx-auto bg-gradient-to-b from-background to-muted/30 min-h-[calc(100vh-3.5rem)]">
         <h1 className="text-xl font-bold text-primary">Welcome back</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · Track your engineering service orders in real time.
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · Updated {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </p>
 
         {loading ? (

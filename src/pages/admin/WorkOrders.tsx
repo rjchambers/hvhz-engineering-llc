@@ -493,6 +493,18 @@ export default function WorkOrders() {
                     <p><span className="text-muted-foreground">Address:</span> {selected.orders?.job_address ?? "—"}, {selected.orders?.job_city ?? ""}</p>
                     <p><span className="text-muted-foreground">Services:</span> {selected.orders?.services?.join(", ") ?? "—"}</p>
                     {selected.orders?.notes && <p><span className="text-muted-foreground">Notes:</span> {selected.orders.notes}</p>}
+                  </div>
+                </section>
+
+                {/* Client tech instructions */}
+                {(selected.client_profiles as any)?.tech_instructions && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/40 p-3">
+                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1">Client Instructions for Technician</p>
+                    <p className="text-xs text-foreground/80">{(selected.client_profiles as any).tech_instructions}</p>
+                  </div>
+                )}
+
+                <section className="space-y-2">
                     <p>
                       <span className="text-muted-foreground">Status:</span>{" "}
                       <Badge className={cn("text-[11px]", STATUS_BADGE_CLASSES[selected.status])}>
