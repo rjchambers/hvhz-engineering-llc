@@ -129,7 +129,7 @@ export default function Pipeline() {
                     onDragLeave={() => setDragOver(null)}
                     onDrop={() => { handleDrop(col); setDragOver(null); }}
                   >
-                    <div className="p-3 border-b border-border">
+                    <div className="p-3 border-b border-border bg-hvhz-teal/5 rounded-t-lg">
                       <div className="flex items-center justify-between">
                         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                           {STATUS_LABELS[col]}
