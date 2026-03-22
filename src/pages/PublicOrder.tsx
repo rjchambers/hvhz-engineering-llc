@@ -257,6 +257,17 @@ export default function PublicOrder() {
       });
 
       if (error) throw error;
+      if (data?.skipPayment) {
+        sessionStorage.setItem("orderDetails", JSON.stringify({
+          projectName: jobInfo.projectName,
+          serviceCount: selectedServices.length,
+          total,
+          email: clientInfo.email,
+        }));
+        toast.success("Order submitted successfully!");
+        window.location.href = "/order?status=success";
+        return;
+      }
       if (data?.checkoutUrl) {
         sessionStorage.setItem("orderDetails", JSON.stringify({
           projectName: jobInfo.projectName,
