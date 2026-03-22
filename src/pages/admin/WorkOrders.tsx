@@ -255,13 +255,32 @@ export default function WorkOrders() {
       .replace(/\{\{scheduled_date\}\}/g, dispatchDate ? format(dispatchDate, "MMMM d, yyyy") : "TBD");
   };
 
-  const openSheet = (wo: WO) => {
+  const openSheet = async (wo: WO) => {
     setSelected(wo);
     setDispatchTech(wo.assigned_technician_id ?? "");
     setDispatchEngineer(wo.assigned_engineer_id ?? "");
     setDispatchDate(wo.scheduled_date ? new Date(wo.scheduled_date) : undefined);
     setSelectedPartnerId("");
     setEmailPreviewOpen(false);
+
+    // Auto-suggest tech from most recent assignment for this service type
+    if (!wo.assigned_technician_id) {
+      const { data: recent } = await supabase
+        .from("work_orders")
+        .select("assigned_technician_id")
+        .eq("service_type", wo.service_type)
+        .not("assigned_technician_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (recent?.assigned_technician_id) {
+        setDispatchTech(recent.assigned_technician_id);
+      }
+    }
+    // Auto-suggest first available PE
+    if (!wo.assigned_engineer_id && engineers.length > 0) {
+      setDispatchEngineer(engineers[0].id);
+    }
   };
 
   // Fix 5: Updated dispatch to support re-dispatch
