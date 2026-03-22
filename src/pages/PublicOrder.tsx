@@ -236,7 +236,7 @@ export default function PublicOrder() {
         total,
       };
 
-      const { data, error } = await supabase.functions.invoke("create-stripe-checkout", {
+      const { data, error } = await supabase.functions.invoke("create-guest-checkout", {
         body: {
           services: selectedServices,
           serviceNames,
@@ -387,6 +387,9 @@ export default function PublicOrder() {
             onRoofReportTypeChange={setRoofReportType}
             orderReport={orderReport}
             onOrderReportChange={setOrderReport}
+            onRoofAreaExtracted={(area) =>
+              setJobInfo((prev) => ({ ...prev, roofArea: String(area) }))
+            }
           />
         </FormSection>
 
