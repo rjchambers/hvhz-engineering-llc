@@ -66,7 +66,7 @@ export default function OrderConfirmed() {
   return (
     <PortalLayout>
       <div className="px-6 py-16 max-w-2xl mx-auto text-center">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-hvhz-green/10">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-hvhz-green-light">
           <CheckCircle2 className="h-8 w-8 text-hvhz-green" />
         </div>
 

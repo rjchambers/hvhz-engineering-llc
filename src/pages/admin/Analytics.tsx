@@ -9,6 +9,7 @@ import {
   PieChart, Pie, Cell, AreaChart, Area,
 } from "recharts";
 import { DollarSign, ShoppingCart, Clock, AlertCircle } from "lucide-react";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { cn } from "@/lib/utils";
 import { getServiceName, formatCurrency } from "@/lib/services";
 import { STATUS_LABELS, STATUS_BADGE_CLASSES, TAS_SERVICES, daysSince } from "@/lib/work-order-helpers";

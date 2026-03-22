@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { STATUS_BADGE_CLASSES, STATUS_LABELS } from "@/lib/work-order-helpers";
 import { cn } from "@/lib/utils";
 import { MapPin, Calendar, Wrench } from "lucide-react";
+import { getServiceName } from "@/lib/services";
 
 interface WO {
   id: string;
