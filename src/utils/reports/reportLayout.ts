@@ -2,15 +2,15 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 // Brand colors (RGB)
-const NAVY = [27, 42, 74] as const;
-const TEAL = [13, 148, 136] as const;
-const DARK_SLATE = [15, 23, 42] as const;
-const MID_SLATE = [100, 116, 139] as const;
-const LIGHT_GRAY = [241, 245, 249] as const;
-const WHITE = [255, 255, 255] as const;
-const PASS_GREEN = [22, 163, 74] as const;
-const FAIL_RED = [220, 38, 38] as const;
-const WARN_AMBER = [217, 119, 6] as const;
+const NAVY: [number, number, number] = [27, 42, 74];
+const TEAL: [number, number, number] = [13, 148, 136];
+const DARK_SLATE: [number, number, number] = [15, 23, 42];
+const MID_SLATE: [number, number, number] = [100, 116, 139];
+const LIGHT_GRAY: [number, number, number] = [241, 245, 249];
+const WHITE: [number, number, number] = [255, 255, 255];
+const PASS_GREEN: [number, number, number] = [22, 163, 74];
+const FAIL_RED: [number, number, number] = [220, 38, 38];
+const WARN_AMBER: [number, number, number] = [217, 119, 6];
 
 export interface PhotoData {
   base64DataUrl: string;
