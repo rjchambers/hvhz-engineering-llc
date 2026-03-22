@@ -20,7 +20,6 @@ import { useAutosave } from "@/hooks/useAutosave";
 const TAS_SERVICE_OPTIONS = [
   { key: "tas-105", label: "TAS-105 Fastener Withdrawal Test" },
   { key: "tas-106", label: "TAS-106 Tile Bonding Verification" },
-  { key: "tas-124", label: "TAS-124 Bonded Pull Test" },
   { key: "tas-126", label: "TAS-126 Moisture Survey" },
 ];
 

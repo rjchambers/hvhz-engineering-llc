@@ -8,13 +8,13 @@ import { SERVICE_BUNDLES, getRecommendedServices } from "@/lib/service-bundles";
 import type { WizardData } from "@/lib/wizard-data";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import {
-  Crosshair, Layers, TestTube2, Droplets, Search, ShieldCheck,
+  Crosshair, Layers, Droplets, Search,
   CloudRain, HardHat, Wind, ArrowUpFromLine, ChevronLeft, Plus,
 } from "lucide-react";
 
 const SERVICE_ICONS: Record<string, React.ElementType> = {
-  "tas-105": Crosshair, "tas-106": Layers, "tas-124": TestTube2, "tas-126": Droplets,
-  "roof-inspection": Search, "roof-certification": ShieldCheck, "drainage-analysis": CloudRain,
+  "tas-105": Crosshair, "tas-106": Layers, "tas-126": Droplets,
+  "drainage-analysis": CloudRain,
   "special-inspection": HardHat, "wind-mitigation-permit": Wind, "wind-mitigation": Wind,
   "fastener-calc": ArrowUpFromLine, "fastener-calculation": ArrowUpFromLine,
 };

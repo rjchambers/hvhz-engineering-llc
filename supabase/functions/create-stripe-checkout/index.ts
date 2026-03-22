@@ -9,10 +9,7 @@ const corsHeaders = {
 const SERVICE_CATALOG: Record<string, { name: string; price: number }> = {
   "tas-105": { name: "TAS-105 Fastener Withdrawal Test", price: 450 },
   "tas-106": { name: "TAS-106 Tile Bonding Verification", price: 450 },
-  "tas-124": { name: "TAS-124 Bonded Pull Test", price: 450 },
   "tas-126": { name: "TAS-126 Moisture Survey", price: 450 },
-  "roof-inspection": { name: "Roof Inspection", price: 350 },
-  "roof-certification": { name: "Roof Certification", price: 450 },
   "drainage-analysis": { name: "Drainage Analysis", price: 550 },
   "special-inspection": { name: "Special Inspection", price: 400 },
   "wind-mitigation-permit": { name: "Wind Mitigation (Roofing Permit)", price: 500 },

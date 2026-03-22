@@ -19,8 +19,8 @@ export const SERVICE_BUNDLES: ServiceBundle[] = [
   {
     id: "full-inspection",
     name: "Full Roof Assessment",
-    description: "Comprehensive inspection with moisture survey and certification.",
-    services: ["roof-inspection", "tas-126", "roof-certification"],
+    description: "Comprehensive moisture survey with fastener and drainage analysis.",
+    services: ["tas-126", "fastener-calculation", "drainage-analysis"],
     savings: 0,
   },
   {
@@ -43,8 +43,8 @@ export function getRecommendedServices(selectedServices: string[]): string[] {
     recommendations.push("fastener-calculation");
   }
 
-  if (selectedServices.includes("roof-inspection") && !selectedServices.includes("roof-certification")) {
-    recommendations.push("roof-certification");
+  if (selectedServices.includes("tas-126") && !selectedServices.includes("drainage-analysis")) {
+    recommendations.push("drainage-analysis");
   }
 
   if (selectedServices.includes("wind-mitigation-permit") && !selectedServices.includes("fastener-calculation")) {
