@@ -226,7 +226,7 @@ export default function Analytics() {
             <CardContent className="flex justify-center">
               {loading ? (
                 <div className="h-[250px] flex items-center justify-center">
-                  <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <LoadingSpinner size="sm" />
                 </div>
               ) : pieData.some((d) => d.value > 0) ? (
                 <ResponsiveContainer width="100%" height={250}>
