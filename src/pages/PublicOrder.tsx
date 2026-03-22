@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import {
   ShoppingCart, User, MapPin, Settings2, Upload, DollarSign, FileCheck, LogIn,
 } from "lucide-react";
+import { HeroNav } from "@/components/HeroNav";
 import { OrderHero } from "@/components/order/OrderHero";
 import { FormSection } from "@/components/order/FormSection";
 import { ServiceSelection } from "@/components/order/ServiceSelection";
