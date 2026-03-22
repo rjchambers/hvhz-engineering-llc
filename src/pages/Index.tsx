@@ -164,7 +164,12 @@ const Index = () => {
                 <h3 className="text-sm font-semibold text-primary leading-snug">
                   {service.name}
                 </h3>
-                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                {service.code && (
+                  <span className="mt-1 inline-block text-[10px] font-mono tracking-wide text-hvhz-teal/70 bg-hvhz-teal/5 px-1.5 py-0.5 rounded">
+                    {service.code}
+                  </span>
+                )}
+                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
                   {service.description}
                 </p>
               </div>
