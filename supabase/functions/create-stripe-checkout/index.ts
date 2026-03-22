@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const SERVICE_CATALOG: Record<string, { name: string; base: number; perSquare: number }> = {
-  "tas-105": { name: "TAS-105 Fastener Withdrawal Test", base: 350, perSquare: 2.5 },
+  "tas-105": { name: "TAS-105 Fastener Withdrawal Test", base: 450, perSquare: 2.5 },
   "tas-106": { name: "TAS-106 Tile Bonding Verification", base: 200, perSquare: 0 },
   "tas-126": { name: "TAS-126 Moisture Survey", base: 450, perSquare: 2.5 },
   "drainage": { name: "Roof Drainage Calculations", base: 400, perSquare: 0 },
