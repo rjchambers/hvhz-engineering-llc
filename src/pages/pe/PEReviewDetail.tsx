@@ -78,6 +78,13 @@ export default function PEReviewDetail() {
   const [photos, setPhotos] = useState<PhotoRow[]>([]);
   const [engineerProfile, setEngineerProfile] = useState<EngineerProfile | null>(null);
   const [peNotes, setPeNotes] = useState("");
+  const [certify, setCertify] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   const { status: notesAutosave, clearDraft: clearNotesDraft } = useAutosave({
     storageKey: `pe-notes-${id}`,
@@ -89,13 +96,6 @@ export default function PEReviewDetail() {
     },
     disabled: !loaded || wo?.status === "signed",
   });
-  const [certify, setCertify] = useState(false);
-  const [signing, setSigning] = useState(false);
-  const [rejectOpen, setRejectOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
-  const [rejecting, setRejecting] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [loaded, setLoaded] = useState(false);
 
   // PE Overrides
   const [overridesOpen, setOverridesOpen] = useState(false);
