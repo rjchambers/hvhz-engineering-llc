@@ -299,7 +299,7 @@ export default function Dashboard() {
 
                       {isExpanded && (
                         <TableRow className="hover:bg-transparent">
-                          <TableCell colSpan={5} className="bg-muted/30 p-4">
+                          <TableCell colSpan={6} className="bg-muted/30 p-4">
                             {wos.length === 0 ? (
                               <p className="text-xs text-muted-foreground text-center py-4">
                                 No work orders created yet for this order.
