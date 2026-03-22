@@ -3,6 +3,7 @@ import { PortalLayout } from "@/components/PortalLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getServiceName, formatCurrency } from "@/lib/services";
+import { STATUS_BADGE_CLASSES, STATUS_LABELS } from "@/lib/work-order-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,22 +11,11 @@ import {
 } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, Download, CalendarDays, PackageOpen } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Order = Tables<"orders">;
 type WorkOrder = Tables<"work_orders">;
-
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  pending_payment: { label: "Pending Payment", className: "bg-muted text-muted-foreground" },
-  pending_dispatch: { label: "Pending Dispatch", className: "bg-blue-100 text-blue-700" },
-  dispatched: { label: "Dispatched", className: "bg-blue-100 text-blue-700" },
-  in_progress: { label: "In Progress", className: "bg-hvhz-teal/15 text-hvhz-teal" },
-  submitted: { label: "Submitted", className: "bg-hvhz-teal/15 text-hvhz-teal" },
-  pe_review: { label: "PE Review", className: "bg-hvhz-amber/15 text-hvhz-amber" },
-  signed: { label: "Signed", className: "bg-hvhz-green/15 text-hvhz-green" },
-  rejected: { label: "Rejected", className: "bg-hvhz-red/15 text-hvhz-red" },
-  complete: { label: "Complete", className: "bg-hvhz-green text-white" },
-};
 
 const TIMELINE_STEPS = [
   { key: "received", label: "Received" },
