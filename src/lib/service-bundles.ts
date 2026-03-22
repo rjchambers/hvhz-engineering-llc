@@ -19,8 +19,8 @@ export const SERVICE_BUNDLES: ServiceBundle[] = [
   {
     id: "full-inspection",
     name: "Full Roof Assessment",
-    description: "Comprehensive inspection with moisture survey and certification.",
-    services: ["roof-inspection", "tas-126", "roof-certification"],
+    description: "Comprehensive moisture survey with fastener and drainage analysis.",
+    services: ["tas-126", "fastener-calculation", "drainage-analysis"],
     savings: 0,
   },
   {
