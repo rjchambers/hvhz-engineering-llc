@@ -10,6 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { useAutosave } from "@/hooks/useAutosave";
+import { AutosaveIndicator } from "@/components/AutosaveIndicator";
 import {
   Loader2, Upload, ShieldCheck, AlertTriangle, Check, Lock, KeyRound,
 } from "lucide-react";
