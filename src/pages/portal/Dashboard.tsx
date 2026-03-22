@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { PortalLayout } from "@/components/PortalLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { ChevronDown, ChevronRight, Download, CalendarDays, PackageOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, CalendarDays, PackageOpen, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import { saveWizardData, defaultWizardData } from "@/lib/wizard-data";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Order = Tables<"orders">;
