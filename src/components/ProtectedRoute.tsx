@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   canAccessRole,
   getDefaultRouteForRoles,
@@ -64,7 +65,7 @@ export function ProtectedRoute({ children, requiredRole }: Props) {
   if (loading || roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <LoadingSpinner label="Loading..." />
       </div>
     );
   }

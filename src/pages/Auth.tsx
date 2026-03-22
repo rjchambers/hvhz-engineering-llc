@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { getDefaultRouteForRoles, getUserRoles } from "@/lib/authz";
 import { toast } from "sonner";
 import { Mail, Lock, ArrowRight } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -47,7 +48,6 @@ export default function Auth() {
         if (error) throw error;
         toast.success("Signed in successfully");
 
-        // Redirect based on role
         if (signInData.user) {
             const roles = await getUserRoles(signInData.user.id);
             navigate(getDefaultRouteForRoles(roles), { replace: true });
@@ -70,80 +70,110 @@ export default function Auth() {
     }
   };
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-hvhz-teal">
-            <span className="text-lg font-bold text-white">HZ</span>
+  const formContent = (
+    <div className="w-full max-w-sm">
+      <div className="mb-8 text-center md:hidden">
+        <div className="flex justify-center mb-4">
+          <BrandMark size="lg" />
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {isLogin ? "Sign in to your account" : "Create a new account"}
+        </p>
+      </div>
+
+      <div className="hidden md:block mb-8">
+        <h2 className="text-xl font-bold text-primary">
+          {isLogin ? "Sign in to your account" : "Create a new account"}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {isLogin ? "Enter your credentials to continue" : "Fill in the details below to get started"}
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="pl-10"
+              required
+            />
           </div>
-          <h1 className="text-xl font-bold text-primary">HVHZ Engineering</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isLogin ? "Sign in to your account" : "Create a new account"}
-          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-10"
-                required
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="pl-10"
+              required
+              minLength={6}
+            />
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10"
-                required
-                minLength={6}
-              />
-            </div>
+        {isLogin && (
+          <div className="text-right">
+            <Link to="/forgot-password" className="text-xs text-hvhz-teal hover:underline">
+              Forgot password?
+            </Link>
           </div>
+        )}
 
-          {isLogin && (
-            <div className="text-right">
-              <Link to="/forgot-password" className="text-xs text-hvhz-teal hover:underline">
-                Forgot password?
-              </Link>
-            </div>
-          )}
+        <Button
+          type="submit"
+          className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+          disabled={loading}
+        >
+          {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </form>
 
-          <Button
-            type="submit"
-            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-            disabled={loading}
-          >
-            {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </form>
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+        <button
+          onClick={() => setIsLogin(!isLogin)}
+          className="font-medium text-hvhz-teal hover:underline"
+        >
+          {isLogin ? "Sign up" : "Sign in"}
+        </button>
+      </p>
+    </div>
+  );
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="font-medium text-hvhz-teal hover:underline"
-          >
-            {isLogin ? "Sign up" : "Sign in"}
-          </button>
-        </p>
+  return (
+    <div className="flex min-h-screen">
+      {/* Left panel — desktop only */}
+      <div className="hidden md:flex md:w-1/2 bg-primary items-center justify-center px-12">
+        <div className="text-center max-w-sm">
+          <div className="flex justify-center mb-6">
+            <BrandMark size="lg" />
+          </div>
+          <p className="text-lg font-medium text-hvhz-teal mt-4">
+            Engineered for the Storm Belt
+          </p>
+          <p className="mt-8 text-xs text-white/30 font-mono tracking-wide">
+            FBC 8th Edition · ASCE 7-22 · TAS 105
+          </p>
+        </div>
+      </div>
+
+      {/* Right panel — form */}
+      <div className="flex flex-1 items-center justify-center bg-background px-6">
+        {formContent}
       </div>
     </div>
   );
