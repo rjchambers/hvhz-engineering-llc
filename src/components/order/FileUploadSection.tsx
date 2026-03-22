@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Upload, X, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RoofReportUploader } from "./RoofReportUploader";
 
 interface FileUploadSectionProps {
   uploadedFiles: File[];
@@ -13,6 +14,7 @@ interface FileUploadSectionProps {
   onRoofReportTypeChange: (type: string) => void;
   orderReport: boolean;
   onOrderReportChange: (v: boolean) => void;
+  onRoofAreaExtracted?: (area: number) => void;
 }
 
 export function FileUploadSection({
@@ -24,17 +26,10 @@ export function FileUploadSection({
   onRoofReportTypeChange,
   orderReport,
   onOrderReportChange,
+  onRoofAreaExtracted,
 }: FileUploadSectionProps) {
-  const reportInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-
-  const handleRoofReport = (files: FileList | null) => {
-    const file = files?.[0];
-    if (file && file.type === "application/pdf" && file.size <= 20 * 1024 * 1024) {
-      onRoofReportChange(file);
-    }
-  };
 
   const handleFiles = (newFiles: FileList | null) => {
     if (!newFiles) return;
@@ -59,54 +54,13 @@ export function FileUploadSection({
   return (
     <div className="space-y-6">
       {/* Part A: Roof Report */}
-      <div className="space-y-3">
-        <h4 className="text-sm font-semibold text-primary">Roof Measurement Report</h4>
-        <div className="flex gap-2">
-          {["Roofr", "EagleView", "Other"].map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => onRoofReportTypeChange(t)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium transition-colors border",
-                roofReportType === t
-                  ? "bg-hvhz-teal text-white border-hvhz-teal"
-                  : "bg-muted text-muted-foreground border-border hover:border-hvhz-teal/30"
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-        {roofReport ? (
-          <div className="flex items-center gap-3 rounded-lg border border-hvhz-teal/30 bg-hvhz-teal/5 p-3">
-            <FileText className="h-5 w-5 text-hvhz-teal" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-primary truncate">{roofReport.name}</p>
-              <p className="text-xs text-muted-foreground">{formatSize(roofReport.size)}</p>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => onRoofReportChange(null)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => reportInputRef.current?.click()}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border p-6 text-sm text-muted-foreground hover:border-hvhz-teal/30 transition-colors"
-          >
-            <Upload className="h-5 w-5" />
-            <span>Upload PDF (max 20MB)</span>
-          </button>
-        )}
-        <input
-          ref={reportInputRef}
-          type="file"
-          accept=".pdf"
-          className="hidden"
-          onChange={(e) => handleRoofReport(e.target.files)}
-        />
-      </div>
+      <RoofReportUploader
+        roofReport={roofReport}
+        onRoofReportChange={onRoofReportChange}
+        roofReportType={roofReportType}
+        onRoofReportTypeChange={onRoofReportTypeChange}
+        onRoofAreaExtracted={onRoofAreaExtracted}
+      />
 
       {/* Part B: Additional Files */}
       <div className="space-y-3">

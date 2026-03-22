@@ -387,6 +387,9 @@ export default function PublicOrder() {
             onRoofReportTypeChange={setRoofReportType}
             orderReport={orderReport}
             onOrderReportChange={setOrderReport}
+            onRoofAreaExtracted={(area) =>
+              setJobInfo((prev) => ({ ...prev, roofArea: String(area) }))
+            }
           />
         </FormSection>
 
