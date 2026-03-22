@@ -148,7 +148,9 @@ export default function Pipeline() {
                             draggable
                             onDragStart={() => handleDragStart(wo.id)}
                             onClick={() => navigate(`/admin/work-orders?id=${wo.id}`)}
-                            className={`rounded-md p-3 cursor-grab active:cursor-grabbing shadow-sm border transition-shadow hover:shadow-md hover:border-primary/30 ${
+                            className={`rounded-md p-3 cursor-grab active:cursor-grabbing shadow-sm border transition-all hover:shadow-md hover:border-hvhz-teal/30 ${
+                              dragging === wo.id ? "shadow-elevated-hover scale-[1.02] opacity-90" : ""
+                            } ${
                               isTas
                                 ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50"
                                 : "bg-card border-border/50"
