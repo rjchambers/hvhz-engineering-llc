@@ -78,6 +78,17 @@ export default function PEReviewDetail() {
   const [photos, setPhotos] = useState<PhotoRow[]>([]);
   const [engineerProfile, setEngineerProfile] = useState<EngineerProfile | null>(null);
   const [peNotes, setPeNotes] = useState("");
+
+  const { status: notesAutosave, clearDraft: clearNotesDraft } = useAutosave({
+    storageKey: `pe-notes-${id}`,
+    data: { peNotes },
+    onRestore: (restored) => {
+      if (restored.peNotes && typeof restored.peNotes === "string") {
+        setPeNotes(restored.peNotes);
+      }
+    },
+    disabled: !loaded || wo?.status === "signed",
+  });
   const [certify, setCertify] = useState(false);
   const [signing, setSigning] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
