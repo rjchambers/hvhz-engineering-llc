@@ -56,6 +56,7 @@ serve(async (req) => {
       gatedCommunity, gateCode,
       noaDocumentPath, noaDocumentName,
       roofReportPath, roofReportName, roofReportType,
+      otherServiceDetails,
     } = await req.json();
 
     if (!services?.length || !clientId) {
