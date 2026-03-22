@@ -284,6 +284,7 @@ export default function PublicOrder() {
 
   return (
     <div className="min-h-screen bg-background">
+      <HeroNav />
       <OrderHero />
 
       {user && clientInfo.companyName && (
