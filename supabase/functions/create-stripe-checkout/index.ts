@@ -13,7 +13,7 @@ const SERVICE_CATALOG: Record<string, { name: string; base: number; perSquare: n
   "drainage": { name: "Roof Drainage Calculations", base: 400, perSquare: 0 },
   "enhanced-fastener": { name: "Enhanced Fastener Pattern", base: 250, perSquare: 0 },
   "special-inspection": { name: "Special Inspections", base: 250, perSquare: 0 },
-  "wind-mitigation": { name: "Wind Mitigation (Roofing Permit)", base: 500, perSquare: 0 },
+  "wind-mitigation": { name: "Wind Mitigation (Roofing Permit)", base: 250, perSquare: 0 },
   "asbestos-survey": { name: "Asbestos Survey", base: 425, perSquare: 2.5 },
 };
 
