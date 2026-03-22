@@ -265,7 +265,7 @@ export class HVHZReportBuilder {
   addTable(headers: string[], rows: string[][], options: TableOptions = {}) {
     this.checkPageBreak(20);
     const statusCol = options.statusColumn;
-    const hdrColor = options.headerColor === 'teal' ? [...TEAL] : [...NAVY];
+    const hdrColor: [number, number, number] = options.headerColor === 'teal' ? [TEAL[0], TEAL[1], TEAL[2]] : [NAVY[0], NAVY[1], NAVY[2]];
 
     autoTable(this.doc, {
       startY: this.yPos,
