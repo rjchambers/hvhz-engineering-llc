@@ -1,15 +1,5 @@
 // Photo section tags by service type
 export const PHOTO_SECTION_TAGS: Record<string, string[]> = {
-  "roof-inspection": [
-    "Overview", "North Elevation", "South Elevation", "East Elevation",
-    "West Elevation", "Membrane Surface", "Flashing", "Drainage", "Penetrations",
-    "Defect - 1", "Defect - 2", "Defect - 3", "Interior/Attic",
-  ],
-  "roof-certification": [
-    "Overview", "North Elevation", "South Elevation", "East Elevation",
-    "West Elevation", "Membrane Surface", "Flashing", "Drainage", "Penetrations",
-    "Defect - 1", "Defect - 2", "Defect - 3", "Interior/Attic",
-  ],
   "drainage-analysis": [
     "Primary Drain D1", "Primary Drain D2", "Primary Drain D3",
     "Secondary OD1", "Secondary OD2",

@@ -43,8 +43,8 @@ export function getRecommendedServices(selectedServices: string[]): string[] {
     recommendations.push("fastener-calculation");
   }
 
-  if (selectedServices.includes("roof-inspection") && !selectedServices.includes("roof-certification")) {
-    recommendations.push("roof-certification");
+  if (selectedServices.includes("tas-126") && !selectedServices.includes("drainage-analysis")) {
+    recommendations.push("drainage-analysis");
   }
 
   if (selectedServices.includes("wind-mitigation-permit") && !selectedServices.includes("fastener-calculation")) {
