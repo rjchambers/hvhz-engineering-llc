@@ -187,6 +187,22 @@ export default function TechWorkOrderDetail() {
       setPhotos(withUrls);
     }
     setLoaded(true);
+
+    // Restore local autosave draft if it exists
+    try {
+      const localDraft = localStorage.getItem(`tech-wo-${id}`);
+      if (localDraft) {
+        const parsed = JSON.parse(localDraft);
+        const { _savedAt, ...rest } = parsed;
+        const hasContent = Object.values(rest).some(
+          (v: any) => v !== "" && v !== null && v !== undefined
+        );
+        if (hasContent) {
+          setFormData(prev => ({ ...prev, ...rest }));
+          toast.info("Restored your unsaved draft", { duration: 3000 });
+        }
+      }
+    } catch {}
   }, [id, user]);
 
   useEffect(() => { loadData(); }, [loadData]);
