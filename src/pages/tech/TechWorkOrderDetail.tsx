@@ -265,8 +265,7 @@ export default function TechWorkOrderDetail() {
     if (!formData.inspection_date) newErrors.inspection_date = "Required";
     if (!formData.inspector_name) newErrors.inspector_name = "Required";
 
-    const minPhotos = MIN_PHOTO_COUNTS[wo.service_type] ?? 3;
-    if (photos.length < minPhotos) newErrors.photos = `At least ${minPhotos} photos required`;
+    // Photos are optional — no minimum count enforced
 
     if (wo.service_type === "special-inspection" && !formData.inspector_certification_accepted) {
       newErrors.inspector_certification_accepted = "Must accept certification";
