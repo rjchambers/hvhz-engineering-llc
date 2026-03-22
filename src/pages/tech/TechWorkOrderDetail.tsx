@@ -16,10 +16,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { STATUS_BADGE_CLASSES, STATUS_LABELS } from "@/lib/work-order-helpers";
 import { PHOTO_SECTION_TAGS, MIN_PHOTO_COUNTS, SPECIAL_INSPECTION_CHECKLISTS, compressImage } from "@/lib/tech-form-helpers";
+import { getDrainCapacity, DESIGN_RAINFALL } from "@/lib/drainage-calc";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CalendarIcon, Camera, Trash2, Plus, ArrowLeft, AlertCircle, Lock } from "lucide-react";
+import { CalendarIcon, Camera, Trash2, Plus, ArrowLeft, AlertCircle, Lock, FileText, ExternalLink, Info } from "lucide-react";
 import type { Json } from "@/integrations/supabase/types";
 
 interface WOData {
@@ -29,12 +30,19 @@ interface WOData {
   scheduled_date: string | null;
   client_id: string;
   order_id: string;
+  rejection_notes: string | null;
   orders?: {
     job_address: string | null;
     job_city: string | null;
     job_zip: string | null;
     job_county: string | null;
     roof_data: Json | null;
+    site_context: Json | null;
+    noa_document_path: string | null;
+    noa_document_name: string | null;
+    roof_report_path: string | null;
+    roof_report_name: string | null;
+    roof_report_type: string | null;
   } | null;
 }
 
@@ -59,13 +67,14 @@ export default function TechWorkOrderDetail() {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
+  const [siblingPrefilled, setSiblingPrefilled] = useState(false);
 
   // Load work order + existing field_data
   const loadData = useCallback(async () => {
     if (!id) return;
     const { data: woData } = await supabase
       .from("work_orders")
-      .select("id, service_type, status, scheduled_date, client_id, order_id, orders(job_address, job_city, job_zip, job_county, roof_data)")
+      .select("id, service_type, status, scheduled_date, client_id, order_id, rejection_notes, orders(job_address, job_city, job_zip, job_county, roof_data, site_context, noa_document_path, noa_document_name, roof_report_path, roof_report_name, roof_report_type)")
       .eq("id", id)
       .single();
     if (!woData) return;
@@ -79,6 +88,8 @@ export default function TechWorkOrderDetail() {
       .maybeSingle();
     setClientProfile(cp);
 
+    const siteContext = (woData.orders as any)?.site_context as Record<string, any> | null;
+
     // Existing field data
     const { data: fd } = await supabase
       .from("field_data")
@@ -88,14 +99,56 @@ export default function TechWorkOrderDetail() {
     if (fd?.form_data && typeof fd.form_data === "object") {
       setFormData(fd.form_data as Record<string, any>);
     } else {
-      // Pre-fill defaults
+      // Pre-fill defaults from order context
       const defaults: Record<string, any> = {
         inspector_name: user?.email ?? "",
+        county: (woData.orders as any)?.job_county ?? siteContext?.county ?? "",
+        exposure_category: "C",
+        risk_category: "II",
+        enclosure_type: "Enclosed",
+        Kzt: 1.0,
+        Ke: 1.0,
       };
-      const roofData = woData.orders?.roof_data as Record<string, any> | null;
+      const roofData = (woData.orders as any)?.roof_data as Record<string, any> | null;
       if (roofData?.area) defaults.roof_area_sqft = roofData.area;
       if (roofData?.pitch) defaults.roof_pitch = roofData.pitch;
       setFormData(defaults);
+
+      // Check sibling work orders for cross-service data sharing
+      const { data: siblingWOs } = await supabase
+        .from("work_orders")
+        .select("id, service_type")
+        .eq("order_id", woData.order_id)
+        .neq("id", woData.id);
+
+      if (siblingWOs?.length) {
+        for (const sibling of siblingWOs) {
+          const { data: sibFd } = await supabase
+            .from("field_data")
+            .select("form_data")
+            .eq("work_order_id", sibling.id)
+            .maybeSingle();
+          if (sibFd?.form_data) {
+            const sibData = sibFd.form_data as Record<string, any>;
+            const sharedKeys = [
+              "building_width_ft", "building_length_ft", "mean_roof_height_ft",
+              "parapet_height_ft", "deck_type", "noa_number", "year_built",
+              "stories", "wall_height_ft"
+            ];
+            const prefills: Record<string, any> = {};
+            for (const key of sharedKeys) {
+              if (sibData[key] && !defaults[key]) {
+                prefills[key] = sibData[key];
+              }
+            }
+            if (Object.keys(prefills).length > 0) {
+              setFormData(prev => ({ ...prev, ...prefills }));
+              setSiblingPrefilled(true);
+            }
+            break;
+          }
+        }
+      }
     }
 
     // Photos
@@ -147,7 +200,6 @@ export default function TechWorkOrderDetail() {
           sort_order: photos.length,
         });
       }
-      // Reload photos
       const { data: photoData } = await supabase
         .from("work_order_photos")
         .select("id, storage_path, caption, section_tag")
@@ -199,7 +251,13 @@ export default function TechWorkOrderDetail() {
     setSaving(false);
   };
 
-  // Validate & submit
+  const openSignedUrl = async (storagePath: string) => {
+    const { data } = await supabase.storage.from("reports").createSignedUrl(storagePath, 3600);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    else toast.error("Could not open document");
+  };
+
+  // Validate & submit with auto-calculation
   const handleSubmit = async () => {
     if (!wo || !user || !id) return;
     const newErrors: Record<string, string> = {};
@@ -210,7 +268,6 @@ export default function TechWorkOrderDetail() {
     const minPhotos = MIN_PHOTO_COUNTS[wo.service_type] ?? 3;
     if (photos.length < minPhotos) newErrors.photos = `At least ${minPhotos} photos required`;
 
-    // Service-specific validation
     if (wo.service_type === "special-inspection" && !formData.inspector_certification_accepted) {
       newErrors.inspector_certification_accepted = "Must accept certification";
     }
@@ -227,9 +284,6 @@ export default function TechWorkOrderDetail() {
       if (!formData.noa_number) newErrors.noa_number = "NOA/approval number required";
       if (!formData.noa_mdp_psf) newErrors.noa_mdp_psf = "NOA MDP required";
       if (!formData.system_type) newErrors.system_type = "Roof system type required";
-      if (!formData.exposure_category) newErrors.exposure_category = "Required";
-      if (!formData.risk_category) newErrors.risk_category = "Required";
-      if (!formData.enclosure_type) newErrors.enclosure_type = "Required";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -252,6 +306,115 @@ export default function TechWorkOrderDetail() {
 
     if (fdErr) { toast.error("Save failed"); setSubmitting(false); return; }
 
+    // Auto-calculate
+    let calculationResults: Record<string, any> = {};
+
+    if (wo.service_type === "fastener-calculation") {
+      try {
+        const { calculateFastener } = await import("@/lib/fastener-engine");
+        const normDeck = (v: string) => ({
+          Plywood: "plywood", OSB: "plywood",
+          "Structural Concrete": "structural_concrete",
+          "Steel Deck": "steel_deck", "Wood Plank": "wood_plank",
+          "LW Insulating Concrete": "lw_concrete"
+        }[v] ?? v);
+        const normCon = (v: string) => ({
+          "New Construction": "new", Reroof: "reroof", Recover: "recover"
+        }[v] ?? v);
+        const normEnc = (v: string) => ({
+          Enclosed: "enclosed", "Partially Enclosed": "partially_enclosed", Open: "open"
+        }[v] ?? v);
+
+        const fyValue = formData.tas105_mean_lbf ?? formData.fy_lbf ?? 29.48;
+        const inputs = {
+          V: 185,
+          exposureCategory: "C" as const,
+          h: parseFloat(formData.mean_roof_height_ft) || 20,
+          Kzt: 1.0,
+          Kd: 0.85,
+          Ke: 1.0,
+          enclosure: normEnc(formData.enclosure_type ?? "Enclosed"),
+          riskCategory: (formData.risk_category ?? "II"),
+          buildingLength: parseFloat(formData.building_length_ft) || 0,
+          buildingWidth: parseFloat(formData.building_width_ft) || 0,
+          parapetHeight: parseFloat(formData.parapet_height_ft) || 0,
+          systemType: formData.system_type ?? "modified_bitumen",
+          deckType: normDeck(formData.deck_type ?? "Plywood"),
+          constructionType: normCon(formData.construction_type ?? "New Construction"),
+          existingLayers: formData.existing_layers === "2+" ? 2 : 1,
+          sheetWidth_in: parseFloat(formData.sheet_width_in) || 39.375,
+          lapWidth_in: parseFloat(formData.lap_width_in) || 4,
+          Fy_lbf: parseFloat(String(fyValue)),
+          fySource: formData.tas105_mean_lbf ? "tas105" as const : "noa" as const,
+          initialRows: parseInt(formData.initial_rows) || 4,
+          noa: {
+            approvalType: formData.noa_approval_type === "FL Product Approval" ? "fl_product_approval" as const : "miami_dade_noa" as const,
+            approvalNumber: formData.noa_number ?? "",
+            manufacturer: formData.noa_manufacturer,
+            productName: formData.noa_product,
+            systemNumber: formData.noa_system_number,
+            mdp_psf: parseFloat(formData.noa_mdp_psf) || 0,
+            mdp_basis: formData.noa_mdp_basis === "Ultimate (will be ÷2 per TAS 114)" ? "ultimate" as const : "asd" as const,
+            asterisked: formData.noa_asterisked ?? false,
+          },
+          boardLength_ft: parseFloat(formData.insulation_board_length_ft) || 4,
+          boardWidth_ft: parseFloat(formData.insulation_board_width_ft) || 8,
+          insulation_Fy_lbf: parseFloat(formData.insulation_fy_lbf) || parseFloat(String(fyValue)),
+          county: formData.county === "Miami-Dade" ? "miami_dade" as const : "broward" as const,
+          isHVHZ: true,
+          ewa_membrane_ft2: 10,
+        };
+        calculationResults = calculateFastener(inputs as any);
+      } catch (e) {
+        console.error("Auto-calc fastener failed:", e);
+      }
+    }
+
+    if (wo.service_type === "drainage-analysis") {
+      try {
+        const { runDrainageCalc } = await import("@/lib/drainage-calc");
+        const county = formData.county || (wo.orders as any)?.job_county || "Broward";
+        const calcInputs = {
+          county,
+          pipe_slope_assumption: "1/8" as const,
+          zones: formData.drainage_zones ?? [],
+          primary_drains: formData.primary_drains ?? [],
+          secondary_drains: formData.secondary_drains ?? [],
+        };
+        calculationResults = runDrainageCalc(calcInputs);
+      } catch (e) {
+        console.error("Auto-calc drainage failed:", e);
+      }
+    }
+
+    if (wo.service_type === "wind-mitigation-permit") {
+      try {
+        const { computeWindPressures } = await import("@/lib/wind-calc");
+        const inputs = {
+          V: 185,
+          Kzt: 1.0,
+          Kd: 0.85,
+          Ke: 1.0,
+          W: parseFloat(formData.building_width_ft) || 0,
+          L: parseFloat(formData.building_length_ft) || 0,
+          h: parseFloat(formData.mean_roof_height_ft) || 0,
+        };
+        if (inputs.W && inputs.L && inputs.h) {
+          calculationResults = computeWindPressures(inputs);
+        }
+      } catch (e) {
+        console.error("Auto-calc wind failed:", e);
+      }
+    }
+
+    // Save calculation results
+    if (Object.keys(calculationResults).length > 0) {
+      await supabase
+        .from("field_data")
+        .update({ calculation_results: calculationResults as unknown as Json })
+        .eq("work_order_id", id);
+    }
+
     await supabase
       .from("work_orders")
       .update({ status: "submitted", submitted_at: new Date().toISOString() })
@@ -273,10 +436,6 @@ export default function TechWorkOrderDetail() {
               {[1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-muted animate-pulse rounded" />)}
             </div>
           </div>
-          <div className="bg-card border rounded-lg p-5 space-y-3">
-            <div className="h-6 w-48 bg-muted animate-pulse rounded" />
-            {[1, 2, 3].map(i => <div key={i} className="h-10 bg-muted animate-pulse rounded" />)}
-          </div>
         </div>
       </TechLayout>
     );
@@ -288,7 +447,8 @@ export default function TechWorkOrderDetail() {
 
   const sectionTags = PHOTO_SECTION_TAGS[wo.service_type] ?? ["General"];
   const minPhotos = MIN_PHOTO_COUNTS[wo.service_type] ?? 3;
-  const roofData = wo.orders?.roof_data as Record<string, any> | null;
+  const siteContext = (wo.orders?.site_context as Record<string, any>) ?? {};
+  const orderCounty = wo.orders?.job_county ?? siteContext.county ?? "";
 
   return (
     <TechLayout>
@@ -296,6 +456,14 @@ export default function TechWorkOrderDetail() {
         <Button variant="ghost" size="sm" className="mb-4 gap-1" onClick={() => navigate("/tech")}>
           <ArrowLeft className="h-4 w-4" /> Back
         </Button>
+
+        {/* Rejection banner */}
+        {wo.status === "rejected" && wo.rejection_notes && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 mb-4">
+            <p className="text-sm font-semibold text-destructive mb-1">Sent Back for Revision</p>
+            <p className="text-xs text-foreground/80">{wo.rejection_notes}</p>
+          </div>
+        )}
 
         {/* TOP SECTION */}
         <div className="bg-card border rounded-lg p-5 mb-6">
@@ -320,20 +488,62 @@ export default function TechWorkOrderDetail() {
             </div>
             <div>
               <p className="text-muted-foreground text-xs">County</p>
-              <p>{wo.orders?.job_county ?? "—"}</p>
+              <p>{orderCounty || "—"}</p>
             </div>
             <div>
               <p className="text-muted-foreground text-xs">Service</p>
               <Badge variant="outline">{wo.service_type}</Badge>
             </div>
-            {roofData && Object.keys(roofData).length > 0 && (
-              <div>
-                <p className="text-muted-foreground text-xs">Roof Data</p>
-                <p className="text-xs">{Object.entries(roofData).map(([k, v]) => `${k}: ${v}`).join(", ")}</p>
-              </div>
-            )}
           </div>
         </div>
+
+        {/* CLIENT-PROVIDED DOCUMENTS */}
+        {(wo.orders?.noa_document_path || wo.orders?.roof_report_path) && (
+          <section className="bg-card border rounded-lg p-5 mb-6">
+            <h2 className="text-sm font-semibold text-primary mb-3">Client-Provided Documents</h2>
+            <div className="space-y-2">
+              {wo.orders?.noa_document_path && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <FileText className="h-5 w-5 text-hvhz-teal" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-primary">NOA Document</p>
+                    <p className="text-xs text-muted-foreground truncate">{wo.orders.noa_document_name}</p>
+                  </div>
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => openSignedUrl(wo.orders!.noa_document_path!)}>
+                    <ExternalLink className="h-3 w-3" /> View
+                  </Button>
+                </div>
+              )}
+              {wo.orders?.roof_report_path && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <FileText className="h-5 w-5 text-hvhz-teal" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-primary">
+                      Measurement Report
+                      {wo.orders.roof_report_type && (
+                        <Badge variant="outline" className="ml-2 text-[10px]">
+                          {wo.orders.roof_report_type.charAt(0).toUpperCase() + wo.orders.roof_report_type.slice(1)}
+                        </Badge>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">{wo.orders.roof_report_name}</p>
+                  </div>
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => openSignedUrl(wo.orders!.roof_report_path!)}>
+                    <ExternalLink className="h-3 w-3" /> View
+                  </Button>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Sibling data pre-fill banner */}
+        {siblingPrefilled && (
+          <div className="flex items-start gap-2 rounded-lg bg-blue-50 border border-blue-200 p-3 mb-6">
+            <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-blue-800">Building dimensions pre-filled from a sibling work order on the same job.</p>
+          </div>
+        )}
 
         {/* JOB CONDITIONS — shared */}
         <section className="bg-card border rounded-lg p-5 mb-6">
@@ -381,8 +591,16 @@ export default function TechWorkOrderDetail() {
 
         {/* SERVICE-SPECIFIC FORM */}
         <section className="bg-card border rounded-lg p-5 mb-6">
-          <h2 className="text-sm font-semibold text-primary mb-4">{wo.service_type} Data</h2>
-          <ServiceForm serviceType={wo.service_type} formData={formData} setField={setField} errors={errors} />
+          <h2 className="text-sm font-semibold text-primary mb-4">{wo.service_type.replace(/-/g, " ")} Data</h2>
+          <ServiceForm
+            serviceType={wo.service_type}
+            formData={formData}
+            setField={setField}
+            errors={errors}
+            orderCounty={orderCounty}
+            noaDocPath={wo.orders?.noa_document_path ?? null}
+            openSignedUrl={openSignedUrl}
+          />
         </section>
 
         {/* PHOTOS */}
@@ -394,19 +612,10 @@ export default function TechWorkOrderDetail() {
           </p>
           {errors.photos && <p className="text-xs text-destructive mb-2 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.photos}</p>}
 
-          {/* Upload per section tag — large touch targets on mobile */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
             {sectionTags.map((tag) => (
               <label key={tag} className="relative">
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => handlePhotoUpload(e, tag)}
-                  disabled={uploading}
-                />
+                <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={(e) => handlePhotoUpload(e, tag)} disabled={uploading} />
                 <span className="flex items-center justify-center gap-2 w-full min-h-[44px] px-4 py-3 text-sm font-medium border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted transition-colors active:scale-[0.98]">
                   <Camera className="h-5 w-5" /> {tag}
                 </span>
@@ -415,19 +624,13 @@ export default function TechWorkOrderDetail() {
           </div>
           {uploading && <p className="text-xs text-muted-foreground mb-2 animate-pulse">Uploading…</p>}
 
-          {/* Photo grid — 2 cols on mobile */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {photos.map((p) => (
               <div key={p.id} className="border rounded-md overflow-hidden">
                 {p.url && <img src={p.url} alt={p.caption ?? "Photo"} className="w-full h-28 object-cover" />}
                 <div className="p-2 space-y-1">
                   <p className="text-[10px] text-muted-foreground">{p.section_tag}</p>
-                  <Input
-                    className="h-8 text-xs"
-                    placeholder="Caption"
-                    defaultValue={p.caption ?? ""}
-                    onBlur={(e) => updateCaption(p.id, e.target.value)}
-                  />
+                  <Input className="h-8 text-xs" placeholder="Caption" defaultValue={p.caption ?? ""} onBlur={(e) => updateCaption(p.id, e.target.value)} />
                   <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive w-full min-h-[44px] sm:min-h-0" onClick={() => deletePhoto(p)}>
                     <Trash2 className="h-3 w-3 mr-1" /> Delete
                   </Button>
@@ -439,19 +642,10 @@ export default function TechWorkOrderDetail() {
 
         {/* SUBMIT */}
         <div className="flex justify-end gap-3 pb-6">
-          <Button
-            variant="outline"
-            onClick={handleSaveDraft}
-            disabled={saving || submitting}
-            className="min-h-[44px]"
-          >
+          <Button variant="outline" onClick={handleSaveDraft} disabled={saving || submitting} className="min-h-[44px]">
             {saving ? "Saving…" : "Save Draft"}
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={submitting || saving}
-            className="bg-hvhz-navy hover:bg-hvhz-navy/90 px-8 min-h-[44px] text-base sm:text-sm"
-          >
+          <Button onClick={handleSubmit} disabled={submitting || saving} className="bg-hvhz-navy hover:bg-hvhz-navy/90 px-8 min-h-[44px] text-base sm:text-sm">
             {submitting ? "Submitting…" : "Submit Work Order"}
           </Button>
         </div>
@@ -462,24 +656,27 @@ export default function TechWorkOrderDetail() {
 
 // ─── SERVICE-SPECIFIC FORMS ─────────────────────────────────────────────────────
 
-function ServiceForm({ serviceType, formData, setField, errors }: {
+function ServiceForm({ serviceType, formData, setField, errors, orderCounty, noaDocPath, openSignedUrl }: {
   serviceType: string;
   formData: Record<string, any>;
   setField: (k: string, v: any) => void;
   errors: Record<string, string>;
+  orderCounty: string;
+  noaDocPath: string | null;
+  openSignedUrl: (path: string) => void;
 }) {
   switch (serviceType) {
     case "roof-inspection": return <RoofInspectionForm formData={formData} setField={setField} />;
     case "roof-certification": return <RoofCertificationForm formData={formData} setField={setField} />;
-    case "drainage-analysis": return <DrainageAnalysisForm formData={formData} setField={setField} errors={errors} />;
+    case "drainage-analysis": return <DrainageAnalysisForm formData={formData} setField={setField} errors={errors} orderCounty={orderCounty} />;
     case "special-inspection": return <SpecialInspectionForm formData={formData} setField={setField} errors={errors} />;
-    case "wind-mitigation-permit": return <WindMitigationForm formData={formData} setField={setField} />;
-    case "fastener-calculation": return <FastenerCalcForm formData={formData} setField={setField} errors={errors} />;
+    case "wind-mitigation-permit": return <WindMitigationForm formData={formData} setField={setField} orderCounty={orderCounty} />;
+    case "fastener-calculation": return <FastenerCalcForm formData={formData} setField={setField} errors={errors} noaDocPath={noaDocPath} openSignedUrl={openSignedUrl} orderCounty={orderCounty} />;
     default: return <p className="text-sm text-muted-foreground">No specific form for this service type.</p>;
   }
 }
 
-// ─── Shared select helper ───────────────────────────────────────────────────────
+// ─── Shared helpers ─────────────────────────────────────────────────────────────
 function FieldSelect({ label, field, options, formData, setField }: {
   label: string; field: string; options: string[]; formData: Record<string, any>; setField: (k: string, v: any) => void;
 }) {
@@ -496,8 +693,8 @@ function FieldSelect({ label, field, options, formData, setField }: {
   );
 }
 
-function FieldInput({ label, field, type = "text", formData, setField }: {
-  label: string; field: string; type?: string; formData: Record<string, any>; setField: (k: string, v: any) => void;
+function FieldInput({ label, field, type = "text", formData, setField, help }: {
+  label: string; field: string; type?: string; formData: Record<string, any>; setField: (k: string, v: any) => void; help?: string;
 }) {
   return (
     <div className="space-y-1.5">
@@ -507,6 +704,19 @@ function FieldInput({ label, field, type = "text", formData, setField }: {
         value={formData[field] ?? ""}
         onChange={(e) => setField(field, type === "number" ? Number(e.target.value) : e.target.value)}
       />
+      {help && <p className="text-[10px] text-muted-foreground">{help}</p>}
+    </div>
+  );
+}
+
+function LockedField({ label, value, note }: { label: string; value: string; note?: string }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      <div className="flex items-center h-10 px-3 bg-muted rounded text-sm">
+        <Lock className="h-3 w-3 mr-1.5 text-muted-foreground" />{value}
+        {note && <span className="ml-auto text-[10px] text-muted-foreground">{note}</span>}
+      </div>
     </div>
   );
 }
@@ -530,12 +740,10 @@ function RoofInspectionForm({ formData, setField }: { formData: Record<string, a
         <FieldInput label="Installation Year" field="installation_year" type="number" formData={formData} setField={setField} />
         <FieldSelect label="Overall Condition" field="overall_condition" options={["excellent", "good", "fair", "poor", "critical"]} formData={formData} setField={setField} />
       </div>
-
       <div className="space-y-1.5">
         <Label className="text-xs">Condition Score ({formData.condition_score ?? 50}/100)</Label>
         <Slider value={[formData.condition_score ?? 50]} onValueChange={([v]) => setField("condition_score", v)} min={0} max={100} step={1} />
       </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FieldSelect label="Drainage Condition" field="drainage_condition" options={["good", "fair", "poor"]} formData={formData} setField={setField} />
         <div className="space-y-1.5">
@@ -549,8 +757,6 @@ function RoofInspectionForm({ formData, setField }: { formData: Record<string, a
           <FieldSelect key={f} label={f.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())} field={f} options={["good", "fair", "poor", "N/A"]} formData={formData} setField={setField} />
         ))}
       </div>
-
-      {/* Defects */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <Label className="text-xs font-semibold">Defects Found</Label>
@@ -569,7 +775,6 @@ function RoofInspectionForm({ formData, setField }: { formData: Record<string, a
           </div>
         ))}
       </div>
-
       <div className="space-y-1.5">
         <Label className="text-xs">Recommendations</Label>
         <Textarea value={formData.recommendations ?? ""} onChange={(e) => setField("recommendations", e.target.value)} rows={3} />
@@ -596,34 +801,34 @@ function RoofCertificationForm({ formData, setField }: { formData: Record<string
           <Label className="text-xs">Certification Conditions</Label>
           <Textarea value={formData.certification_conditions ?? ""} onChange={(e) => setField("certification_conditions", e.target.value)} rows={3} />
         </div>
-        {formData.linked_inspection_id && (
-          <p className="text-xs text-muted-foreground">Linked inspection: {formData.linked_inspection_id}</p>
-        )}
       </div>
     </div>
   );
 }
 
-// ─── DRAINAGE ANALYSIS ──────────────────────────────────────────────────────────
-function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record<string, any>; setField: (k: string, v: any) => void; errors?: Record<string, string> }) {
+// ─── DRAINAGE ANALYSIS (enhanced) ───────────────────────────────────────────────
+function DrainageAnalysisForm({ formData, setField, errors, orderCounty }: { formData: Record<string, any>; setField: (k: string, v: any) => void; errors?: Record<string, string>; orderCounty: string }) {
   const zones: any[] = formData.drainage_zones ?? [];
   const primaryDrains: any[] = formData.primary_drains ?? [];
   const secondaryDrains: any[] = formData.secondary_drains ?? [];
   const slopes: any[] = formData.slope_measurements ?? [];
   const pondingAreas: any[] = formData.ponding_areas ?? [];
-  const zoneCount = parseInt(formData.zone_count ?? "1") || 1;
+
+  const county = formData.county || orderCounty || "Broward";
+  const rainfallRate = DESIGN_RAINFALL[county] || 8.39;
 
   const ZONE_LETTERS = ["A", "B", "C", "D", "E", "F"];
   const PIPE_DIAMETERS = ["2", "3", "4", "5", "6", "8", "10"];
   const CONDITIONS = ["Good", "Fair", "Obstructed", "Damaged"];
-  const SLOPES = ['1/16', '1/8', '1/4', '1/2'];
 
   const handleZoneCountChange = (val: string) => {
     const count = parseInt(val) || 1;
     setField("zone_count", val);
+    const totalArea = parseFloat(formData.total_roof_area_sqft) || 0;
+    const areaPerZone = totalArea > 0 ? Math.round(totalArea / count) : 0;
     const newZones = Array.from({ length: count }, (_, i) => {
       const existing = zones[i];
-      return existing ?? { zone_id: ZONE_LETTERS[i], description: "", area_sqft: "", lowest_point: "" };
+      return existing ?? { zone_id: ZONE_LETTERS[i], description: "", area_sqft: areaPerZone || "", lowest_point: "" };
     });
     setField("drainage_zones", newZones);
   };
@@ -632,13 +837,12 @@ function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record
     const updated = [...zones]; updated[i] = { ...updated[i], [key]: val }; setField("drainage_zones", updated);
   };
 
-  // Primary drains
   const addPrimary = () => {
     const id = `D${primaryDrains.length + 1}`;
     setField("primary_drains", [...primaryDrains, {
       drain_id: id, zone_id: zones[0]?.zone_id ?? "A", location_description: "",
       drain_type: "Interior", pipe_diameter_in: 4, leader_type: "Vertical",
-      pipe_slope: "1/8", condition: "Good", strainer_present: false, strainer_condition: "", photo_tag: `Primary Drain ${id}`,
+      pipe_slope: "1/8", condition: "Good", strainer_present: true, strainer_condition: "Clean", photo_tag: `Primary Drain ${id}`,
     }]);
   };
   const updatePrimary = (i: number, key: string, val: any) => {
@@ -646,7 +850,6 @@ function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record
   };
   const removePrimary = (i: number) => setField("primary_drains", primaryDrains.filter((_, idx) => idx !== i));
 
-  // Secondary drains
   const addSecondary = () => {
     const id = `OD${secondaryDrains.length + 1}`;
     setField("secondary_drains", [...secondaryDrains, {
@@ -660,14 +863,12 @@ function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record
   };
   const removeSecondary = (i: number) => setField("secondary_drains", secondaryDrains.filter((_, idx) => idx !== i));
 
-  // Slopes
   const addSlope = () => setField("slope_measurements", [...slopes, { location: "", slope_percent: "", method: "Digital level" }]);
   const updateSlope = (i: number, key: string, val: any) => {
     const updated = [...slopes]; updated[i] = { ...updated[i], [key]: val }; setField("slope_measurements", updated);
   };
   const removeSlope = (i: number) => setField("slope_measurements", slopes.filter((_, idx) => idx !== i));
 
-  // Ponding
   const addPonding = () => setField("ponding_areas", [...pondingAreas, { location: "", area_sqft: "", depth_in: "", hours_after_rain: "" }]);
   const updatePonding = (i: number, key: string, val: any) => {
     const updated = [...pondingAreas]; updated[i] = { ...updated[i], [key]: val }; setField("ponding_areas", updated);
@@ -676,17 +877,38 @@ function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record
 
   const zoneOptions = zones.length > 0 ? zones.map((z: any) => z.zone_id) : ["A"];
 
+  // Live capacity calc per zone
+  const getZoneCapacity = (zoneId: string) => {
+    const zone = zones.find((z: any) => z.zone_id === zoneId);
+    if (!zone || !zone.area_sqft) return null;
+    const qRequired = (zone.area_sqft * rainfallRate) / 96.23;
+    const zoneDrains = primaryDrains.filter((d: any) => d.zone_id === zoneId);
+    const qProvided = zoneDrains.reduce((sum: number, d: any) => {
+      const { capacity } = getDrainCapacity(d.pipe_diameter_in, d.leader_type || "Vertical", "1/8");
+      return sum + capacity;
+    }, 0);
+    const ratio = qRequired > 0 ? (qProvided / qRequired) * 100 : 0;
+    return { qRequired: qRequired.toFixed(1), qProvided: qProvided.toFixed(1), ratio: Math.round(ratio) };
+  };
+
   return (
     <div className="space-y-6">
+      {/* Auto-derived info banner */}
+      <div className="flex items-center gap-2 bg-muted/50 rounded-lg p-3">
+        <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <p className="text-xs">
+          <span className="font-medium">County:</span> {county} | <span className="font-medium">Design Rainfall:</span> {rainfallRate} in/hr (NOAA Atlas 14, 100-yr 1-hr)
+        </p>
+        <Badge variant="outline" className="text-[10px] ml-auto">Auto-derived</Badge>
+      </div>
+
       <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
         Collect exact pipe sizes, types, and locations. Calculations are auto-generated from your field data for permit submittal.
       </p>
 
       {/* Section 1 — Roof Information */}
       <details open className="border rounded-lg">
-        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">
-          Roof Information
-        </summary>
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Roof Information</summary>
         <div className="px-3 pb-3 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FieldSelect label="Roof Type" field="roof_type" options={["Low-Slope", "Flat", "Sloped", "Other"]} formData={formData} setField={setField} />
@@ -712,6 +934,24 @@ function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record
                 <Input className="h-9 text-sm" placeholder="Area (sqft)" type="number" value={z.area_sqft} onChange={(e) => updateZone(i, "area_sqft", Number(e.target.value))} />
                 <Input className="h-9 text-sm" placeholder="Lowest point" value={z.lowest_point} onChange={(e) => updateZone(i, "lowest_point", e.target.value)} />
               </div>
+              {/* Live capacity indicator */}
+              {(() => {
+                const cap = getZoneCapacity(z.zone_id);
+                if (!cap) return null;
+                const color = cap.ratio >= 100 ? "bg-green-500" : cap.ratio >= 70 ? "bg-amber-500" : "bg-red-500";
+                const textColor = cap.ratio >= 100 ? "text-green-700" : cap.ratio >= 70 ? "text-amber-700" : "text-red-700";
+                const icon = cap.ratio >= 100 ? "✓" : cap.ratio >= 70 ? "⚠" : "✗";
+                return (
+                  <div className="mt-2">
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${Math.min(cap.ratio, 100)}%` }} />
+                    </div>
+                    <p className={cn("text-[10px] mt-1", textColor)}>
+                      {icon} Zone {z.zone_id}: {cap.ratio}% capacity — {cap.qProvided} / {cap.qRequired} GPM {cap.ratio >= 100 ? "adequate" : cap.ratio >= 70 ? "marginal" : "inadequate"}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>
@@ -719,9 +959,7 @@ function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record
 
       {/* Section 2 — Primary Drains */}
       <details open className="border rounded-lg">
-        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">
-          Primary Drains ({primaryDrains.length})
-        </summary>
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Primary Drains ({primaryDrains.length})</summary>
         <div className="px-3 pb-3 space-y-3">
           {errors?.primary_drains && <p className="text-xs text-destructive">{errors.primary_drains}</p>}
           {primaryDrains.map((d: any, i: number) => (
@@ -739,7 +977,7 @@ function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px]">Drain Type</Label>
+                  <Label className="text-[10px]">Type</Label>
                   <Select value={d.drain_type} onValueChange={(v) => updatePrimary(i, "drain_type", v)}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>{["Interior", "Edge", "Parapet"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
@@ -749,28 +987,16 @@ function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record
                   <Label className="text-[10px]">Pipe Diameter</Label>
                   <Select value={String(d.pipe_diameter_in)} onValueChange={(v) => updatePrimary(i, "pipe_diameter_in", Number(v))}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>{PIPE_DIAMETERS.map((d) => <SelectItem key={d} value={d}>{d}"</SelectItem>)}</SelectContent>
+                    <SelectContent>{PIPE_DIAMETERS.map((s) => <SelectItem key={s} value={s}>{s}"</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px]">Leader Type</Label>
+                  <Label className="text-[10px]">Leader</Label>
                   <Select value={d.leader_type} onValueChange={(v) => updatePrimary(i, "leader_type", v)}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Vertical">Vertical (conductor)</SelectItem>
-                      <SelectItem value="Horizontal">Horizontal (leader)</SelectItem>
-                    </SelectContent>
+                    <SelectContent>{["Vertical", "Horizontal"].map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                {d.leader_type === "Horizontal" && (
-                  <div className="space-y-1">
-                    <Label className="text-[10px]">Pipe Slope</Label>
-                    <Select value={d.pipe_slope ?? "1/8"} onValueChange={(v) => updatePrimary(i, "pipe_slope", v)}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>{SLOPES.map((s) => <SelectItem key={s} value={s}>{s}" per ft</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                )}
                 <div className="space-y-1">
                   <Label className="text-[10px]">Condition</Label>
                   <Select value={d.condition} onValueChange={(v) => updatePrimary(i, "condition", v)}>
@@ -778,32 +1004,24 @@ function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record
                     <SelectContent>{CONDITIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-              </div>
-              <Input className="h-8 text-xs" placeholder="Location description (e.g. NE quadrant, center)" value={d.location_description} onChange={(e) => updatePrimary(i, "location_description", e.target.value)} />
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5">
-                  <Switch checked={!!d.strainer_present} onCheckedChange={(c) => updatePrimary(i, "strainer_present", c)} />
+                <div className="space-y-1">
                   <Label className="text-[10px]">Strainer</Label>
+                  <div className="flex items-center gap-2 h-8">
+                    <Switch checked={!!d.strainer_present} onCheckedChange={(c) => updatePrimary(i, "strainer_present", c)} />
+                    <span className="text-[10px]">{d.strainer_present ? "Yes" : "No"}</span>
+                  </div>
                 </div>
-                {d.strainer_present && (
-                  <Select value={d.strainer_condition ?? ""} onValueChange={(v) => updatePrimary(i, "strainer_condition", v)}>
-                    <SelectTrigger className="h-7 w-40 text-[10px]"><SelectValue placeholder="Condition" /></SelectTrigger>
-                    <SelectContent>{["Clean", "Partial blockage", "Fully blocked", "Missing"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
-                )}
               </div>
-              <p className="text-[10px] text-muted-foreground">Photo tag: {d.photo_tag}</p>
+              <Input className="h-8 text-xs" placeholder="Location description" value={d.location_description} onChange={(e) => updatePrimary(i, "location_description", e.target.value)} />
             </div>
           ))}
-          <Button variant="outline" size="sm" className="gap-1" onClick={addPrimary}><Plus className="h-3 w-3" /> Add Drain</Button>
+          <Button variant="outline" size="sm" className="gap-1" onClick={addPrimary}><Plus className="h-3 w-3" /> Add Primary Drain</Button>
         </div>
       </details>
 
-      {/* Section 3 — Secondary / Overflow Drains */}
+      {/* Section 3 — Secondary Drains */}
       <details open className="border rounded-lg">
-        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">
-          Secondary Drains ({secondaryDrains.length})
-        </summary>
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Secondary Drains ({secondaryDrains.length})</summary>
         <div className="px-3 pb-3 space-y-3">
           <p className="text-[10px] text-muted-foreground">FBC §1502.3 requires independent secondary drainage for all HVHZ roofs.</p>
           {errors?.secondary_drains && <p className="text-xs text-destructive">{errors.secondary_drains}</p>}
@@ -864,7 +1082,6 @@ function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record
                 </div>
               </div>
               <Input className="h-8 text-xs" placeholder="Location description" value={d.location_description} onChange={(e) => updateSecondary(i, "location_description", e.target.value)} />
-              <p className="text-[10px] text-muted-foreground">2" min per FBC §1101.7 · Photo tag: {d.photo_tag}</p>
             </div>
           ))}
           <Button variant="outline" size="sm" className="gap-1" onClick={addSecondary}><Plus className="h-3 w-3" /> Add Secondary Drain</Button>
@@ -873,9 +1090,7 @@ function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record
 
       {/* Section 4 — Slope Observations */}
       <details open className="border rounded-lg">
-        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">
-          Slope Observations ({slopes.length})
-        </summary>
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Slope Observations ({slopes.length})</summary>
         <div className="px-3 pb-3 space-y-3">
           {slopes.map((s: any, i: number) => (
             <div key={i} className="flex flex-wrap gap-2 items-end">
@@ -915,9 +1130,7 @@ function DrainageAnalysisForm({ formData, setField, errors }: { formData: Record
 
       {/* Section 5 — Conditions and Notes */}
       <details open className="border rounded-lg">
-        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">
-          Conditions & Notes
-        </summary>
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Conditions & Notes</summary>
         <div className="px-3 pb-3 space-y-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Drain Conditions Summary</Label>
@@ -945,9 +1158,7 @@ function SpecialInspectionForm({ formData, setField, errors }: { formData: Recor
   const handleTypeChange = (val: string) => {
     setField("inspection_type", val);
     const items = (SPECIAL_INSPECTION_CHECKLISTS[val] ?? []).map((desc) => ({
-      item_description: desc,
-      result: "",
-      corrective_action: "",
+      item_description: desc, result: "", corrective_action: "",
     }));
     setField("checklist_items", items);
   };
@@ -998,11 +1209,7 @@ function SpecialInspectionForm({ formData, setField, errors }: { formData: Recor
       )}
 
       <div className="flex items-center gap-2">
-        <Checkbox
-          id="cert-accept"
-          checked={!!formData.inspector_certification_accepted}
-          onCheckedChange={(c) => setField("inspector_certification_accepted", !!c)}
-        />
+        <Checkbox id="cert-accept" checked={!!formData.inspector_certification_accepted} onCheckedChange={(c) => setField("inspector_certification_accepted", !!c)} />
         <Label htmlFor="cert-accept" className="text-xs">I certify this inspection was performed in accordance with FBC requirements *</Label>
       </div>
       {errors.inspector_certification_accepted && <p className="text-xs text-destructive">{errors.inspector_certification_accepted}</p>}
@@ -1010,10 +1217,19 @@ function SpecialInspectionForm({ formData, setField, errors }: { formData: Recor
   );
 }
 
-// ─── WIND MITIGATION ────────────────────────────────────────────────────────────
-function WindMitigationForm({ formData, setField }: { formData: Record<string, any>; setField: (k: string, v: any) => void }) {
+// ─── WIND MITIGATION (enhanced) ─────────────────────────────────────────────────
+function WindMitigationForm({ formData, setField, orderCounty }: { formData: Record<string, any>; setField: (k: string, v: any) => void; orderCounty: string }) {
   return (
     <div className="space-y-4">
+      {/* Locked HVHZ context */}
+      <div className="flex items-center gap-2 bg-muted/50 rounded-lg p-3">
+        <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <p className="text-xs">
+          <span className="font-medium">V = 185 mph</span> | <span className="font-medium">Exposure C</span> | <span className="font-medium">County:</span> {orderCounty || "—"}
+        </p>
+        <Badge variant="outline" className="text-[10px] ml-auto">HVHZ Mandated</Badge>
+      </div>
+
       <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
         PERMIT-STYLE ENGINEERING REPORT — Not an insurance form. This documents HVHZ compliance for roofing permit submittal.
       </p>
@@ -1063,8 +1279,11 @@ function WindMitigationForm({ formData, setField }: { formData: Record<string, a
   );
 }
 
-// ─── FASTENER CALCULATION ───────────────────────────────────────────────────────
-function FastenerCalcForm({ formData, setField, errors }: { formData: Record<string, any>; setField: (k: string, v: any) => void; errors?: Record<string, string> }) {
+// ─── FASTENER CALCULATION (redesigned) ──────────────────────────────────────────
+function FastenerCalcForm({ formData, setField, errors, noaDocPath, openSignedUrl, orderCounty }: {
+  formData: Record<string, any>; setField: (k: string, v: any) => void; errors?: Record<string, string>;
+  noaDocPath: string | null; openSignedUrl: (path: string) => void; orderCounty: string;
+}) {
   const SYSTEM_TYPES = [
     { key: "modified_bitumen", label: "Modified Bitumen", sub: "RAS 117" },
     { key: "single_ply", label: "Single-Ply TPO/EPDM", sub: "RAS 137" },
@@ -1076,64 +1295,45 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
 
   return (
     <div className="space-y-6">
-      <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
-        Document all roof system parameters from field observation and NOA approval sheets. Your entries pre-populate the PE calculation tool.
-      </p>
+      {/* Locked Design Parameters */}
+      <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+        <div className="flex items-center gap-2">
+          <Lock className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-xs font-semibold text-primary">Locked Design Parameters</h3>
+          <Badge variant="outline" className="text-[10px] ml-auto">HVHZ Mandated</Badge>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+          <span><span className="font-medium">V</span> = 185 mph (FBC §1620.1)</span>
+          <span><span className="font-medium">Exposure</span> C (FBC §1620)</span>
+          <span><span className="font-medium">Kd</span> = 0.85</span>
+          <span><span className="font-medium">Ke</span> = 1.0</span>
+          <span><span className="font-medium">Kzt</span> = 1.0</span>
+          <span><span className="font-medium">County</span>: {orderCounty || "—"}</span>
+        </div>
+      </div>
 
-      {/* Section 1 — Design Parameters */}
+      {/* Field Observations */}
       <details open className="border rounded-lg">
-        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Design Parameters</summary>
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Building Dimensions</summary>
         <div className="px-3 pb-3 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <FieldSelect label="Exposure Category *" field="exposure_category" options={["B", "C", "D"]} formData={formData} setField={setField} />
-              <p className="text-[10px] text-muted-foreground">C is mandatory for all HVHZ projects per FBC §1620</p>
-              {formData.exposure_category && formData.exposure_category !== "C" && (
-                <p className="text-[10px] text-amber-700 bg-amber-50 p-1 rounded">HVHZ requires Exposure C per FBC §1620 and ASCE 7-22 §26.7.3</p>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <FieldSelect label="Risk Category *" field="risk_category" options={["I", "II", "III", "IV"]} formData={formData} setField={setField} />
-              <p className="text-[10px] text-muted-foreground">From building permit — most residential = II</p>
-            </div>
-            <div className="space-y-1.5">
-              <FieldSelect label="Enclosure Classification *" field="enclosure_type" options={["Enclosed", "Partially Enclosed", "Open"]} formData={formData} setField={setField} />
-              <p className="text-[10px] text-muted-foreground">Enclosed unless building has large unprotected openings</p>
-            </div>
-            <div className="space-y-1.5">
-              <FieldInput label="Kzt — Topographic Factor" field="Kzt" type="number" formData={formData} setField={setField} />
-              <p className="text-[10px] text-muted-foreground">1.0 for flat terrain — adjust for hilltop/escarpment</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Kd — Wind Directionality</Label>
-              <div className="flex items-center h-10 px-3 bg-muted rounded text-sm">
-                <Lock className="h-3 w-3 mr-1.5 text-muted-foreground" />0.85
-                <span className="ml-auto text-[10px] text-muted-foreground">Table 26.6-1 — not user adjustable</span>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <FieldInput label="Ke — Ground Elevation Factor" field="Ke" type="number" formData={formData} setField={setField} />
-              <p className="text-[10px] text-muted-foreground">1.0 for sea level elevations (all of South Florida)</p>
-            </div>
+            <FieldInput label="Building Width (ft) *" field="building_width_ft" type="number" formData={formData} setField={setField} />
+            <FieldInput label="Building Length (ft) *" field="building_length_ft" type="number" formData={formData} setField={setField} />
+            <FieldInput label="Mean Roof Height (ft) *" field="mean_roof_height_ft" type="number" formData={formData} setField={setField} />
+            <FieldInput label="Parapet Height (ft)" field="parapet_height_ft" type="number" formData={formData} setField={setField} help="0 if no parapet" />
+            <FieldInput label="Eave Height (ft)" field="eave_height_ft" type="number" formData={formData} setField={setField} />
           </div>
-          <div className="flex items-center gap-2 bg-muted/50 rounded p-2 mt-2">
-            <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <p className="text-xs font-medium">V = 185 mph — HVHZ mandate per FBC §1620.1</p>
-            <Badge variant="outline" className="text-[10px] ml-auto">Locked</Badge>
-          </div>
-          {errors?.exposure_category && <p className="text-xs text-destructive">{errors.exposure_category}</p>}
-          {errors?.risk_category && <p className="text-xs text-destructive">{errors.risk_category}</p>}
-          {errors?.enclosure_type && <p className="text-xs text-destructive">{errors.enclosure_type}</p>}
+          {errors?.building_width_ft && <p className="text-xs text-destructive">{errors.building_width_ft}</p>}
+          {errors?.building_length_ft && <p className="text-xs text-destructive">{errors.building_length_ft}</p>}
+          {errors?.mean_roof_height_ft && <p className="text-xs text-destructive">{errors.mean_roof_height_ft}</p>}
         </div>
       </details>
 
-      {/* Section 2 — Site & Building Dimensions */}
       <details open className="border rounded-lg">
-        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Site & Building Dimensions</summary>
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Construction Context</summary>
         <div className="px-3 pb-3 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FieldSelect label="County" field="county" options={["Miami-Dade", "Broward", "Palm Beach", "Other"]} formData={formData} setField={setField} />
-            <FieldSelect label="Construction Type" field="construction_type" options={["New Construction", "Reroof", "Recover"]} formData={formData} setField={setField} />
+            <FieldSelect label="Construction Type *" field="construction_type" options={["New Construction", "Reroof", "Recover"]} formData={formData} setField={setField} />
             {formData.construction_type === "Recover" && (
               <div className="space-y-1.5">
                 <FieldSelect label="Existing Roof Layers" field="existing_layers" options={["1", "2+"]} formData={formData} setField={setField} />
@@ -1142,23 +1342,18 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
                 )}
               </div>
             )}
-            <FieldInput label="Building Width (ft) *" field="building_width_ft" type="number" formData={formData} setField={setField} />
-            <FieldInput label="Building Length (ft) *" field="building_length_ft" type="number" formData={formData} setField={setField} />
-            <FieldInput label="Eave Height (ft)" field="eave_height_ft" type="number" formData={formData} setField={setField} />
-            <FieldInput label="Mean Roof Height (ft) *" field="mean_roof_height_ft" type="number" formData={formData} setField={setField} />
             <div className="space-y-1.5">
-              <FieldInput label="Parapet Height (ft)" field="parapet_height_ft" type="number" formData={formData} setField={setField} />
-              <p className="text-[10px] text-muted-foreground">0 if no parapet. Affects Zone 3 corner location.</p>
+              <FieldSelect label="Risk Category" field="risk_category" options={["I", "II", "III", "IV"]} formData={formData} setField={setField} />
+              <p className="text-[10px] text-muted-foreground">From building permit — most residential = II</p>
+            </div>
+            <div className="space-y-1.5">
+              <FieldSelect label="Enclosure Classification" field="enclosure_type" options={["Enclosed", "Partially Enclosed", "Open"]} formData={formData} setField={setField} />
+              <p className="text-[10px] text-muted-foreground">Enclosed unless building has large unprotected openings</p>
             </div>
           </div>
-          {errors?.building_width_ft && <p className="text-xs text-destructive">{errors.building_width_ft}</p>}
-          {errors?.building_length_ft && <p className="text-xs text-destructive">{errors.building_length_ft}</p>}
-          {errors?.mean_roof_height_ft && <p className="text-xs text-destructive">{errors.mean_roof_height_ft}</p>}
-          <p className="text-[10px] text-muted-foreground">Mean Roof Height = to midpoint of roof slope.</p>
         </div>
       </details>
 
-      {/* Section 3 — Roof System */}
       <details open className="border rounded-lg">
         <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Roof System</summary>
         <div className="px-3 pb-3 space-y-4">
@@ -1167,13 +1362,9 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {SYSTEM_TYPES.map((st) => (
                 <button
-                  key={st.key}
-                  type="button"
-                  className={cn(
-                    "rounded-lg border p-3 text-left transition-colors text-xs",
-                    formData.system_type === st.key
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card hover:bg-muted"
+                  key={st.key} type="button"
+                  className={cn("rounded-lg border p-3 text-left transition-colors text-xs",
+                    formData.system_type === st.key ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-muted"
                   )}
                   onClick={() => setField("system_type", st.key)}
                 >
@@ -1185,36 +1376,34 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
             {errors?.system_type && <p className="text-xs text-destructive mt-1">{errors.system_type}</p>}
           </div>
           <FieldSelect label="Deck Type" field="deck_type" options={["Plywood", "OSB", "Structural Concrete", "Steel Deck", "Wood Plank", "LW Insulating Concrete"]} formData={formData} setField={setField} />
-          <FieldInput label="Roof Membrane Product" field="membrane_product" formData={formData} setField={setField} />
           {(formData.system_type === "modified_bitumen" || formData.system_type === "single_ply") && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <FieldInput label="Sheet Width (in) *" field="sheet_width_in" type="number" formData={formData} setField={setField} />
-              <FieldInput label="Lap Width (in) *" field="lap_width_in" type="number" formData={formData} setField={setField} />
+              <FieldInput label="Sheet Width (in)" field="sheet_width_in" type="number" formData={formData} setField={setField} help="Full roll width from NOA" />
+              <FieldInput label="Lap Width (in)" field="lap_width_in" type="number" formData={formData} setField={setField} help="Overlap seam width from NOA" />
               <FieldInput label="Initial Fastener Rows" field="initial_rows" type="number" formData={formData} setField={setField} />
             </div>
           )}
           {formData.system_type === "adhered" && (
             <p className="text-xs text-blue-700 bg-blue-50 p-2 rounded">Adhered system — no row spacing. PE verifies adhesive bond strength vs zone pressures.</p>
           )}
-          <div className="space-y-1.5">
-            <FieldInput label="Effective Wind Area — Membrane (ft²)" field="ewa_membrane_ft2" type="number" formData={formData} setField={setField} />
-            <p className="text-[10px] text-muted-foreground">EWA = fastener spacing × tributary width. Default 10 ft² is conservative per ASCE 7-22 Fig. 30.3-2A. Leave blank for default.</p>
-          </div>
-          <p className="text-[10px] text-muted-foreground">Sheet Width = full roll width incl. lap. Lap Width = width of overlap seam. Default rows: 4.</p>
         </div>
       </details>
 
-      {/* Section 4 — NOA / Product Approval */}
       <details open className="border rounded-lg">
         <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">NOA / Product Approval</summary>
         <div className="px-3 pb-3 space-y-4">
+          {noaDocPath && (
+            <button type="button" onClick={() => openSignedUrl(noaDocPath)} className="flex items-center gap-2 text-xs text-hvhz-teal hover:underline">
+              <FileText className="h-4 w-4" /> Client uploaded NOA — View Document
+            </button>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FieldSelect label="Approval Type" field="noa_approval_type" options={["Miami-Dade NOA", "FL Product Approval"]} formData={formData} setField={setField} />
             <FieldInput label="Approval Number *" field="noa_number" formData={formData} setField={setField} />
             <FieldInput label="Manufacturer" field="noa_manufacturer" formData={formData} setField={setField} />
             <FieldInput label="Product / System Name" field="noa_product" formData={formData} setField={setField} />
             <FieldInput label="System Number" field="noa_system_number" formData={formData} setField={setField} />
-            <FieldInput label="NOA MDP (psf) *" field="noa_mdp_psf" type="number" formData={formData} setField={setField} />
+            <FieldInput label="NOA MDP (psf) *" field="noa_mdp_psf" type="number" formData={formData} setField={setField} help="Enter as negative. ASD-level from NOA." />
             <FieldSelect label="MDP Basis" field="noa_mdp_basis" options={["ASD Level", "Ultimate (will be ÷2 per TAS 114)"]} formData={formData} setField={setField} />
           </div>
           {errors?.noa_number && <p className="text-xs text-destructive">{errors.noa_number}</p>}
@@ -1223,35 +1412,24 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
             <Switch checked={!!formData.noa_asterisked} onCheckedChange={(c) => setField("noa_asterisked", c)} />
             <Label className="text-xs">(*) marked in NOA — extrapolation prohibited</Label>
           </div>
-          <p className="text-[10px] text-muted-foreground">Enter MDP as negative, e.g. -60. ASD-level Maximum Design Pressure from NOA.</p>
         </div>
       </details>
 
-      {/* Section 5 — Attachment System */}
       <details open className="border rounded-lg">
-        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Attachment System</summary>
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Fastener Data</summary>
         <div className="px-3 pb-3 space-y-4">
-          <div className="space-y-1.5">
-            <FieldInput label="Fastener Withdrawal Value Fy (lbf)" field="fy_lbf" type="number" formData={formData} setField={setField} />
-            <p className="text-[10px] text-muted-foreground">From NOA approval sheet — typically 29.48 lbf for #12 fasteners per RAS 117 Table 1</p>
-          </div>
+          <FieldInput label="Fy (lbf)" field="fy_lbf" type="number" formData={formData} setField={setField} help="From NOA. Typically 29.48 for #12 fasteners." />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <FieldInput label="Insulation Board Length (ft)" field="insulation_board_length_ft" type="number" formData={formData} setField={setField} />
             <FieldInput label="Insulation Board Width (ft)" field="insulation_board_width_ft" type="number" formData={formData} setField={setField} />
-            <div className="space-y-1.5">
-              <FieldInput label="Insulation Fastener Fy (lbf)" field="insulation_fy_lbf" type="number" formData={formData} setField={setField} />
-              <p className="text-[10px] text-muted-foreground">Same as membrane Fy unless separate insulation NOA</p>
-            </div>
+            <FieldInput label="Insulation Fastener Fy (lbf)" field="insulation_fy_lbf" type="number" formData={formData} setField={setField} help="Same as membrane Fy unless separate NOA" />
           </div>
           {needsTas105 && (
-            <div className="space-y-3 border-t pt-3 mt-3">
+            <div className="space-y-3 border-t pt-3">
               <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
                 TAS 105 pull test may be required. If a third-party lab report has been received, enter the mean pullout value (lbf) below.
               </p>
-              <div className="space-y-1.5">
-                <FieldInput label="Mean Pullout Value Fy from TAS 105 (lbf)" field="tas105_mean_lbf" type="number" formData={formData} setField={setField} />
-                <p className="text-[10px] text-muted-foreground">Enter mean value from lab report. Overrides NOA Fy.</p>
-              </div>
+              <FieldInput label="Mean Pullout Value Fy from TAS 105 (lbf)" field="tas105_mean_lbf" type="number" formData={formData} setField={setField} help="Enter mean value from lab report. Overrides NOA Fy." />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FieldInput label="Testing Agency" field="tas105_agency" formData={formData} setField={setField} />
                 <div className="space-y-1.5">
@@ -1264,18 +1442,10 @@ function FastenerCalcForm({ formData, setField, errors }: { formData: Record<str
         </div>
       </details>
 
-      <p className="text-xs text-blue-700 bg-blue-50 p-2 rounded">
-        If a TAS 105 pull test was performed by a third-party lab, attach the lab report to the work order photos. The PE will enter test results in the calculation tool.
-      </p>
-
-      {/* Section 6 — Inspector Notes */}
       <details open className="border rounded-lg">
-        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Inspector Notes</summary>
+        <summary className="p-3 text-sm font-semibold text-primary cursor-pointer select-none">Field Observations</summary>
         <div className="px-3 pb-3 space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Field Observations</Label>
-            <Textarea rows={3} placeholder="Note deck conditions, existing attachment, visible damage, moisture, ponding..." value={formData.field_observations ?? ""} onChange={(e) => setField("field_observations", e.target.value)} />
-          </div>
+          <Textarea rows={3} placeholder="Note deck conditions, existing attachment, visible damage, moisture, ponding..." value={formData.field_observations ?? ""} onChange={(e) => setField("field_observations", e.target.value)} />
         </div>
       </details>
     </div>

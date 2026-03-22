@@ -6,6 +6,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const DESIGN_RAINFALL: Record<string, number> = {
+  "Miami-Dade": 8.85, "Broward": 8.39, "Palm Beach": 8.10,
+  "Monroe": 8.50, "Collier": 7.80,
+};
+
 async function verifyStripeSignature(payload: string, sigHeader: string, secret: string): Promise<boolean> {
   const parts = sigHeader.split(",");
   const timestamp = parts.find((p) => p.startsWith("t="))?.split("=")[1];
@@ -66,6 +71,26 @@ serve(async (req) => {
     const jobAddress = session.metadata?.jobAddress || "";
     const totalAmount = (session.amount_total || 0) / 100;
 
+    // Derive site context
+    const county = session.metadata?.jobCounty || "";
+    const rainfallRate = DESIGN_RAINFALL[county] || 8.39;
+
+    const siteContext = {
+      county,
+      design_rainfall_rate: rainfallRate,
+      rainfall_source: `NOAA Atlas 14, ${county || "Broward"} County, 1-hr 100-yr`,
+      hvhz_constants: {
+        V: 185,
+        exposure_category: "C",
+        Kd: 0.85,
+        Ke: 1.0,
+        Kzt: 1.0,
+        is_hvhz: true,
+      },
+      gated_community: session.metadata?.gatedCommunity === "true",
+      gate_code: session.metadata?.gateCode || "",
+    };
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -79,7 +104,7 @@ serve(async (req) => {
         .is("stripe_customer_id", null);
     }
 
-    // Create order
+    // Create order with ALL client data
     const { data: order, error: orderErr } = await supabase
       .from("orders")
       .insert({
@@ -87,6 +112,17 @@ serve(async (req) => {
         stripe_session_id: session.id,
         services,
         job_address: jobAddress,
+        job_city: session.metadata?.jobCity || "",
+        job_zip: session.metadata?.jobZip || "",
+        job_county: county,
+        noa_document_path: session.metadata?.noaDocumentPath || null,
+        noa_document_name: session.metadata?.noaDocumentName || null,
+        roof_report_path: session.metadata?.roofReportPath || null,
+        roof_report_name: session.metadata?.roofReportName || null,
+        roof_report_type: session.metadata?.roofReportType || null,
+        gated_community: siteContext.gated_community,
+        gate_code: siteContext.gate_code,
+        site_context: siteContext,
         total_amount: totalAmount,
         status: "pending_dispatch",
       })

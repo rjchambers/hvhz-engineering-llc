@@ -1,5 +1,5 @@
 export interface WizardData {
-  // Step 1
+  // Step 1 - Company
   company_name: string;
   contact_name: string;
   contact_email: string;
@@ -8,7 +8,7 @@ export interface WizardData {
   company_city: string;
   company_state: string;
   company_zip: string;
-  // Step 2
+  // Step 2 - Job Site & Services
   job_address: string;
   job_city: string;
   job_zip: string;
@@ -16,10 +16,14 @@ export interface WizardData {
   gated_community: boolean;
   gate_code: string;
   selected_services: string[];
-  // Step 3
+  // Step 3 - Site Data Collection
+  noa_document_path: string;
+  noa_document_name: string;
+  noa_system_number: string;
   roof_report_path: string;
   roof_report_name: string;
-  // Step 4
+  roof_report_type: string; // "roofr" | "eagleview" | "other"
+  // Step 4 - Review & Pay
   terms_accepted: boolean;
 }
 
@@ -41,8 +45,12 @@ export const defaultWizardData: WizardData = {
   gated_community: false,
   gate_code: "",
   selected_services: [],
+  noa_document_path: "",
+  noa_document_name: "",
+  noa_system_number: "",
   roof_report_path: "",
   roof_report_name: "",
+  roof_report_type: "",
   terms_accepted: false,
 };
 

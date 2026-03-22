@@ -115,6 +115,7 @@ export type Database = {
       }
       field_data: {
         Row: {
+          calculation_results: Json | null
           created_at: string
           form_data: Json
           id: string
@@ -124,6 +125,7 @@ export type Database = {
           work_order_id: string
         }
         Insert: {
+          calculation_results?: Json | null
           created_at?: string
           form_data?: Json
           id?: string
@@ -133,6 +135,7 @@ export type Database = {
           work_order_id: string
         }
         Update: {
+          calculation_results?: Json | null
           created_at?: string
           form_data?: Json
           id?: string
@@ -156,15 +159,23 @@ export type Database = {
           client_id: string
           created_at: string
           distance_fee: number | null
+          gate_code: string | null
+          gated_community: boolean | null
           id: string
           job_address: string | null
           job_city: string | null
           job_county: string | null
           job_zip: string | null
+          noa_document_name: string | null
+          noa_document_path: string | null
           notes: string | null
           roof_area_sqft: number | null
           roof_data: Json | null
+          roof_report_name: string | null
+          roof_report_path: string | null
+          roof_report_type: string | null
           services: string[]
+          site_context: Json | null
           status: string
           stripe_session_id: string | null
           total_amount: number | null
@@ -174,15 +185,23 @@ export type Database = {
           client_id: string
           created_at?: string
           distance_fee?: number | null
+          gate_code?: string | null
+          gated_community?: boolean | null
           id?: string
           job_address?: string | null
           job_city?: string | null
           job_county?: string | null
           job_zip?: string | null
+          noa_document_name?: string | null
+          noa_document_path?: string | null
           notes?: string | null
           roof_area_sqft?: number | null
           roof_data?: Json | null
+          roof_report_name?: string | null
+          roof_report_path?: string | null
+          roof_report_type?: string | null
           services: string[]
+          site_context?: Json | null
           status?: string
           stripe_session_id?: string | null
           total_amount?: number | null
@@ -192,15 +211,23 @@ export type Database = {
           client_id?: string
           created_at?: string
           distance_fee?: number | null
+          gate_code?: string | null
+          gated_community?: boolean | null
           id?: string
           job_address?: string | null
           job_city?: string | null
           job_county?: string | null
           job_zip?: string | null
+          noa_document_name?: string | null
+          noa_document_path?: string | null
           notes?: string | null
           roof_area_sqft?: number | null
           roof_data?: Json | null
+          roof_report_name?: string | null
+          roof_report_path?: string | null
+          roof_report_type?: string | null
           services?: string[]
+          site_context?: Json | null
           status?: string
           stripe_session_id?: string | null
           total_amount?: number | null

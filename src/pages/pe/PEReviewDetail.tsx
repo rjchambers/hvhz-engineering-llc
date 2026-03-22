@@ -30,7 +30,7 @@ interface WOData {
   order_id: string;
   result_pdf_url: string | null;
   assigned_engineer_id: string | null;
-  orders?: { job_address: string | null; job_city: string | null; job_zip: string | null; job_county: string | null; roof_data: Json | null; services: string[]; notes: string | null } | null;
+  orders?: { job_address: string | null; job_city: string | null; job_zip: string | null; job_county: string | null; roof_data: Json | null; services: string[]; notes: string | null; noa_document_path: string | null; noa_document_name: string | null; roof_report_path: string | null; roof_report_name: string | null; roof_report_type: string | null; site_context: Json | null } | null;
 }
 
 interface PhotoRow { id: string; storage_path: string; caption: string | null; section_tag: string | null; url?: string; }

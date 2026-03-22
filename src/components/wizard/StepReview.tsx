@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { SERVICES, formatCurrency, getServicePrice, getServiceName } from "@/lib/services";
 import type { WizardData } from "@/lib/wizard-data";
 import { ChevronLeft, FileText, AlertTriangle } from "lucide-react";
@@ -41,6 +42,32 @@ export function StepReview({ data, onChange, onSubmit, onBack, submitting }: Ste
         {data.gated_community && <p className="text-xs text-muted-foreground">Gated · Code: {data.gate_code || "N/A"}</p>}
       </div>
 
+      {/* Uploaded Documents */}
+      {(data.noa_document_name || data.roof_report_name) && (
+        <div className="rounded-lg border bg-card p-4 space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Uploaded Documents</p>
+          {data.noa_document_name && (
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-hvhz-teal" />
+              <span className="text-sm text-primary">NOA Document</span>
+              <span className="text-xs text-muted-foreground truncate">{data.noa_document_name}</span>
+            </div>
+          )}
+          {data.roof_report_name && (
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-hvhz-teal" />
+              <span className="text-sm text-primary">Measurement Report</span>
+              {data.roof_report_type && (
+                <Badge variant="outline" className="text-[10px]">
+                  {data.roof_report_type.charAt(0).toUpperCase() + data.roof_report_type.slice(1)}
+                </Badge>
+              )}
+              <span className="text-xs text-muted-foreground truncate">{data.roof_report_name}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Services */}
       <div className="rounded-lg border bg-card p-4 space-y-3">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Services</p>
@@ -65,14 +92,6 @@ export function StepReview({ data, onChange, onSubmit, onBack, submitting }: Ste
           A <strong>$50 distance surcharge</strong> may apply for job sites outside our standard service area. We'll confirm before charging.
         </p>
       </div>
-
-      {/* Roof report */}
-      {data.roof_report_name && (
-        <div className="flex items-center gap-2 rounded-lg border bg-card p-3">
-          <FileText className="h-5 w-5 text-hvhz-teal" />
-          <span className="text-sm text-primary">{data.roof_report_name}</span>
-        </div>
-      )}
 
       {/* Terms */}
       <div className="flex items-start gap-3 rounded-lg border bg-card p-4">
