@@ -55,12 +55,16 @@ function WorkOrderTimeline({ status }: { status: string }) {
         return (
           <div key={step.key} className="flex items-center">
             <div className="flex flex-col items-center min-w-[64px]">
-              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
+              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold transition-colors relative ${
                 rejected ? "bg-hvhz-red text-white" :
                 done ? "bg-hvhz-teal text-white" :
                 "bg-muted text-muted-foreground"
               }`}>
+                {current && !rejected && (
+                  <span className="absolute inset-0 rounded-full bg-hvhz-teal/30 animate-pulse-ring" />
+                )}
                 {done && !rejected ? "✓" : i + 1}
+              </div>
               </div>
               <span className={`mt-1 text-[10px] leading-tight text-center ${
                 current || rejected ? "font-semibold text-primary" : "text-muted-foreground"
