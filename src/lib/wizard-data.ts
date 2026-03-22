@@ -46,6 +46,7 @@ export const defaultWizardData: WizardData = {
   gated_community: false,
   gate_code: "",
   selected_services: [],
+  other_service_details: "",
   noa_document_path: "",
   noa_document_name: "",
   noa_system_number: "",

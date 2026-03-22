@@ -6,6 +6,7 @@ export const SERVICES = [
   { key: "special-inspection", name: "Special Inspection", price: 400 },
   { key: "wind-mitigation-permit", name: "Wind Mitigation (Roofing Permit)", price: 500 },
   { key: "fastener-calculation", name: "Fastener Uplift Calculation", price: 350 },
+  { key: "other", name: "Other / Custom Request", price: 0 },
 ] as const;
 
 export type ServiceKey = (typeof SERVICES)[number]["key"];

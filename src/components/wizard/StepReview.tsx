@@ -74,8 +74,15 @@ export function StepReview({ data, onChange, onSubmit, onBack, submitting }: Ste
         <div className="divide-y">
           {data.selected_services.map((key) => (
             <div key={key} className="flex items-center justify-between py-2 first:pt-0 last:pb-0">
-              <span className="text-sm text-primary">{getServiceName(key)}</span>
-              <span className="text-sm font-medium tabular-nums text-primary">{formatCurrency(getServicePrice(key))}</span>
+              <div className="min-w-0 flex-1">
+                <span className="text-sm text-primary">{getServiceName(key)}</span>
+                {key === "other" && data.other_service_details && (
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{data.other_service_details}</p>
+                )}
+              </div>
+              <span className="text-sm font-medium tabular-nums text-primary shrink-0 ml-4">
+                {getServicePrice(key) > 0 ? formatCurrency(getServicePrice(key)) : "TBD"}
+              </span>
             </div>
           ))}
         </div>
