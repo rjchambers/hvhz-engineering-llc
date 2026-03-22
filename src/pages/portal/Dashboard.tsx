@@ -3,6 +3,7 @@ import { PortalLayout } from "@/components/PortalLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getServiceName, formatCurrency } from "@/lib/services";
+import { STATUS_BADGE_CLASSES, STATUS_LABELS } from "@/lib/work-order-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,22 +11,11 @@ import {
 } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, Download, CalendarDays, PackageOpen } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Order = Tables<"orders">;
 type WorkOrder = Tables<"work_orders">;
-
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  pending_payment: { label: "Pending Payment", className: "bg-muted text-muted-foreground" },
-  pending_dispatch: { label: "Pending Dispatch", className: "bg-blue-100 text-blue-700" },
-  dispatched: { label: "Dispatched", className: "bg-blue-100 text-blue-700" },
-  in_progress: { label: "In Progress", className: "bg-hvhz-teal/15 text-hvhz-teal" },
-  submitted: { label: "Submitted", className: "bg-hvhz-teal/15 text-hvhz-teal" },
-  pe_review: { label: "PE Review", className: "bg-hvhz-amber/15 text-hvhz-amber" },
-  signed: { label: "Signed", className: "bg-hvhz-green/15 text-hvhz-green" },
-  rejected: { label: "Rejected", className: "bg-hvhz-red/15 text-hvhz-red" },
-  complete: { label: "Complete", className: "bg-hvhz-green text-white" },
-};
 
 const TIMELINE_STEPS = [
   { key: "received", label: "Received" },
@@ -45,8 +35,9 @@ function statusToTimelineIndex(status: string): number {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const config = STATUS_CONFIG[status] ?? { label: status, className: "bg-muted text-muted-foreground" };
-  return <Badge variant="secondary" className={`text-[11px] font-semibold px-2 py-0.5 ${config.className}`}>{config.label}</Badge>;
+  const label = STATUS_LABELS[status] ?? status;
+  const className = STATUS_BADGE_CLASSES[status] ?? "bg-muted text-muted-foreground";
+  return <Badge variant="secondary" className={cn("text-[11px] font-semibold px-2 py-0.5", className)}>{label}</Badge>;
 }
 
 function WorkOrderTimeline({ status }: { status: string }) {
@@ -62,7 +53,7 @@ function WorkOrderTimeline({ status }: { status: string }) {
         return (
           <div key={step.key} className="flex items-center">
             <div className="flex flex-col items-center min-w-[64px]">
-              <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
+              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
                 rejected ? "bg-hvhz-red text-white" :
                 done ? "bg-hvhz-teal text-white" :
                 "bg-muted text-muted-foreground"
@@ -215,10 +206,10 @@ export default function Dashboard() {
 
   return (
     <PortalLayout>
-      <div className="px-6 py-8 max-w-5xl mx-auto">
-        <h1 className="text-xl font-bold text-primary">My Orders</h1>
+      <div className="px-6 py-8 max-w-5xl mx-auto bg-gradient-to-b from-background to-muted/30 min-h-[calc(100vh-3.5rem)]">
+        <h1 className="text-xl font-bold text-primary">Welcome back</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Track your engineering service orders in real time.
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · Track your engineering service orders in real time.
         </p>
 
         {loading ? (

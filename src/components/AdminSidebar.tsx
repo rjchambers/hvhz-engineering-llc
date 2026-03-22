@@ -1,6 +1,7 @@
 import { Kanban, List, Users, BarChart3, Settings, HardHat, FileCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { BrandMark } from "@/components/BrandMark";
 import {
   Sidebar,
   SidebarContent,
@@ -36,23 +37,10 @@ export function AdminSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
-        {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-hvhz-teal">
-              <span className="text-sm font-bold text-white">HZ</span>
-            </div>
-            <div className="leading-tight">
-              <p className="text-sm font-semibold text-sidebar-foreground">HVHZ</p>
-              <p className="text-[11px] text-sidebar-foreground/60">Admin Portal</p>
-            </div>
-          </div>
-        )}
-        {collapsed && (
-          <div className="flex items-center justify-center">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-hvhz-teal">
-              <span className="text-sm font-bold text-white">HZ</span>
-            </div>
-          </div>
+        {!collapsed ? (
+          <BrandMark size="md" subtitle="Admin Portal" />
+        ) : (
+          <BrandMark size="md" showText={false} />
         )}
       </SidebarHeader>
 
@@ -77,7 +65,7 @@ export function AdminSidebar() {
                       to={item.url}
                       end={item.url === "/admin"}
                       className="hover:bg-sidebar-accent"
-                      activeClassName="bg-sidebar-accent text-hvhz-teal font-medium"
+                      activeClassName="bg-sidebar-accent text-hvhz-teal font-medium border-l-2 border-l-hvhz-teal -ml-[2px]"
                     >
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
@@ -104,7 +92,7 @@ export function AdminSidebar() {
                     <NavLink
                       to={item.url}
                       className="hover:bg-sidebar-accent"
-                      activeClassName="bg-sidebar-accent text-hvhz-teal font-medium"
+                      activeClassName="bg-sidebar-accent text-hvhz-teal font-medium border-l-2 border-l-hvhz-teal -ml-[2px]"
                     >
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
@@ -119,9 +107,10 @@ export function AdminSidebar() {
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
         {!collapsed && (
-          <p className="text-[11px] text-sidebar-foreground/40 text-center">
-            © 2026 HVHZ Engineering
-          </p>
+          <div className="text-center space-y-0.5">
+            <p className="text-[11px] text-sidebar-foreground/40">© 2026 HVHZ Engineering</p>
+            <p className="text-[9px] text-sidebar-foreground/25 font-mono">AI-Powered · FBC 8th Ed.</p>
+          </div>
         )}
       </SidebarFooter>
     </Sidebar>

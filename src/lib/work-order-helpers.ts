@@ -21,15 +21,15 @@ export const STATUS_LABELS: Record<string, string> = {
 };
 
 export const STATUS_BADGE_CLASSES: Record<string, string> = {
-  pending_payment: "bg-gray-100 text-gray-700",
-  pending_dispatch: "bg-gray-100 text-gray-700",
-  dispatched: "bg-blue-100 text-blue-700",
-  in_progress: "bg-teal-100 text-teal-700",
-  submitted: "bg-teal-100 text-teal-700",
-  pe_review: "bg-amber-100 text-amber-700",
-  signed: "bg-green-100 text-green-700",
-  complete: "bg-green-100 text-green-700",
-  rejected: "bg-red-100 text-red-700",
+  pending_payment: "bg-muted text-muted-foreground",
+  pending_dispatch: "bg-muted text-muted-foreground",
+  dispatched: "bg-blue-50 text-blue-700 border border-blue-200",
+  in_progress: "bg-hvhz-teal-light text-hvhz-teal border border-hvhz-teal/20",
+  submitted: "bg-hvhz-amber-light text-hvhz-amber border border-hvhz-amber/20",
+  pe_review: "bg-purple-50 text-purple-700 border border-purple-200",
+  signed: "bg-hvhz-green-light text-hvhz-green border border-hvhz-green/20",
+  complete: "bg-hvhz-green-light text-hvhz-green border border-hvhz-green/20",
+  rejected: "bg-hvhz-red-light text-hvhz-red border border-hvhz-red/20",
 };
 
 export const TAS_SERVICES = ["tas-105", "tas-106", "tas-124", "tas-126"];

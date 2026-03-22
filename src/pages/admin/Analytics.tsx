@@ -9,6 +9,7 @@ import {
   PieChart, Pie, Cell, AreaChart, Area,
 } from "recharts";
 import { DollarSign, ShoppingCart, Clock, AlertCircle } from "lucide-react";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { cn } from "@/lib/utils";
 import { getServiceName, formatCurrency } from "@/lib/services";
 import { STATUS_LABELS, STATUS_BADGE_CLASSES, TAS_SERVICES, daysSince } from "@/lib/work-order-helpers";
@@ -201,7 +202,7 @@ export default function Analytics() {
             <CardContent>
               {loading ? (
                 <div className="h-[300px] flex items-center justify-center">
-                  <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <LoadingSpinner size="sm" />
                 </div>
               ) : serviceData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
@@ -226,7 +227,7 @@ export default function Analytics() {
             <CardContent className="flex justify-center">
               {loading ? (
                 <div className="h-[250px] flex items-center justify-center">
-                  <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <LoadingSpinner size="sm" />
                 </div>
               ) : pieData.some((d) => d.value > 0) ? (
                 <ResponsiveContainer width="100%" height={250}>
@@ -252,7 +253,7 @@ export default function Analytics() {
           <CardContent>
             {loading ? (
               <div className="h-[300px] flex items-center justify-center">
-                <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <LoadingSpinner size="sm" />
               </div>
             ) : revenueByMonth.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
