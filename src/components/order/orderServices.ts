@@ -5,7 +5,7 @@ export const ORDER_SERVICES = [
   { id: "drainage", name: "Roof Drainage Calculations", icon: "CloudRain", base: 400, perSquare: 0 },
   { id: "enhanced-fastener", name: "Enhanced Fastener Pattern", icon: "ArrowUpFromLine", base: 250, perSquare: 0 },
   { id: "special-inspection", name: "Special Inspections", icon: "HardHat", base: 250, perSquare: 0 },
-  { id: "wind-mitigation", name: "Wind Mitigation (Roofing Permit)", icon: "Wind", base: 500, perSquare: 0 },
+  { id: "wind-mitigation", name: "Wind Mitigation (Roofing Permit)", icon: "Wind", base: 250, perSquare: 0 },
   { id: "asbestos-survey", name: "Asbestos Survey", icon: "TestTube2", base: 425, perSquare: 2.5 },
   { id: "other", name: "Other / Custom Request", icon: "MessageSquarePlus", base: 0, perSquare: 0 },
 ] as const;
