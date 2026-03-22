@@ -179,11 +179,11 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
 
   rb.addSubSection('5.2', 'Zone Pressures');
   rb.addTable(
-    ['Zone', 'GCp', 'Net Pressure (psf)'],
+    ['Zone', 'Net Pressure (psf)', 'MDP (psf)'],
     outputs.noaResults.map(nr => [
       `Zone ${nr.zone}`,
-      nr.GCp != null ? String(nr.GCp) : '—',
       `${Math.abs(nr.P_psf).toFixed(1)}`,
+      `${Math.abs(nr.MDP_psf)}`,
     ]),
   );
 

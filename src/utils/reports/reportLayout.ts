@@ -347,11 +347,11 @@ export class HVHZReportBuilder {
 
   // ─── CALLOUT BOX ─────────────────────────────────────────────
   addCalloutBox(text: string, type: 'info' | 'warning' | 'error' | 'success') {
-    const colors = {
-      info: { border: TEAL, bg: [237, 250, 250] as const },
-      warning: { border: WARN_AMBER, bg: [255, 248, 235] as const },
-      error: { border: FAIL_RED, bg: [254, 242, 242] as const },
-      success: { border: PASS_GREEN, bg: [240, 253, 244] as const },
+    const colors: Record<string, { border: [number, number, number]; bg: [number, number, number] }> = {
+      info: { border: TEAL, bg: [237, 250, 250] },
+      warning: { border: WARN_AMBER, bg: [255, 248, 235] },
+      error: { border: FAIL_RED, bg: [254, 242, 242] },
+      success: { border: PASS_GREEN, bg: [240, 253, 244] },
     };
     const { border, bg } = colors[type];
 
@@ -360,11 +360,11 @@ export class HVHZReportBuilder {
     this.checkPageBreak(boxH + 4);
 
     // Background
-    this.doc.setFillColor(...bg);
+    this.doc.setFillColor(bg[0], bg[1], bg[2]);
     this.doc.roundedRect(this.ml, this.yPos - 1, this.cw, boxH, 1, 1, 'F');
 
     // Left accent stripe
-    this.doc.setFillColor(...border);
+    this.doc.setFillColor(border[0], border[1], border[2]);
     this.doc.rect(this.ml, this.yPos - 1, 1.5, boxH, 'F');
 
     // Text
