@@ -6,6 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -33,6 +35,8 @@ export default function Users() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [search, setSearch] = useState("");
   const [pendingRoleChange, setPendingRoleChange] = useState<{ userId: string; newRole: string; displayName: string } | null>(null);
+  const [defaultTechId, setDefaultTechId] = useState("");
+  const [defaultEngId, setDefaultEngId] = useState("");
 
   const fetchUsers = useCallback(async () => {
     const { data: roles } = await supabase.from("user_roles").select("user_id, role, created_at").order("created_at", { ascending: false });
@@ -46,7 +50,7 @@ export default function Users() {
     const { data: engProfiles } = await supabase.from("engineer_profiles").select("user_id, full_name").in("user_id", uids);
     const engMap = new Map((engProfiles ?? []).map((p) => [p.user_id, p]));
 
-    setUsers(roles.map((r) => {
+    const mappedUsers = roles.map((r) => {
       const cp = clientMap.get(r.user_id);
       const ep = engMap.get(r.user_id);
 
@@ -62,12 +66,42 @@ export default function Users() {
         email: cp?.contact_email ?? "—",
         company: cp?.company_name ?? "—",
       };
-    }));
+    });
+
+    setUsers(mappedUsers);
+
+    // Load default assignments
+    const { data: configs } = await supabase
+      .from("app_config")
+      .select("key, value")
+      .in("key", ["default_technician_id", "default_engineer_id"]);
+
+    let currentTechDefault = "";
+    let currentEngDefault = "";
+    configs?.forEach((c) => {
+      if (c.key === "default_technician_id") currentTechDefault = c.value;
+      if (c.key === "default_engineer_id") currentEngDefault = c.value;
+    });
+
+    // Auto-set if only one of each role
+    const techs = mappedUsers.filter((u) => u.role === "technician");
+    const engs = mappedUsers.filter((u) => u.role === "engineer");
+
+    if (techs.length === 1 && !currentTechDefault) {
+      await supabase.from("app_config").upsert({ key: "default_technician_id", value: techs[0].user_id, updated_at: new Date().toISOString() });
+      currentTechDefault = techs[0].user_id;
+    }
+    if (engs.length === 1 && !currentEngDefault) {
+      await supabase.from("app_config").upsert({ key: "default_engineer_id", value: engs[0].user_id, updated_at: new Date().toISOString() });
+      currentEngDefault = engs[0].user_id;
+    }
+
+    setDefaultTechId(currentTechDefault);
+    setDefaultEngId(currentEngDefault);
   }, []);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  // Fix 6: Role change confirmation
   const requestRoleChange = (userId: string, newRole: string, displayName: string) => {
     setPendingRoleChange({ userId, newRole, displayName });
   };
@@ -89,10 +123,63 @@ export default function Users() {
     return u.displayName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.company.toLowerCase().includes(q);
   });
 
+  const techUsers = users.filter((u) => u.role === "technician");
+  const engUsers = users.filter((u) => u.role === "engineer");
+
+  const handleDefaultChange = async (key: string, value: string, setter: (v: string) => void, label: string) => {
+    const { error } = await supabase.from("app_config").upsert({ key, value, updated_at: new Date().toISOString() });
+    if (error) toast.error(error.message);
+    else { setter(value); toast.success(`Default ${label} updated`); }
+  };
+
   return (
     <AdminLayout>
       <div className="p-6">
         <h1 className="text-2xl font-bold text-primary mb-6">Users</h1>
+
+        {/* Default Assignments Card */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Default Assignments</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              New work orders are automatically assigned to these users.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Default Technician</Label>
+                {techUsers.length <= 1 ? (
+                  <Badge className="bg-teal-100 text-teal-700">{techUsers[0]?.displayName ?? "No technicians"}</Badge>
+                ) : (
+                  <Select value={defaultTechId} onValueChange={(v) => handleDefaultChange("default_technician_id", v, setDefaultTechId, "technician")}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select technician…" /></SelectTrigger>
+                    <SelectContent>
+                      {techUsers.map((t) => (
+                        <SelectItem key={t.user_id} value={t.user_id}>{t.displayName} ({t.email})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Default PE (Engineer)</Label>
+                {engUsers.length <= 1 ? (
+                  <Badge className="bg-amber-100 text-amber-700">{engUsers[0]?.displayName ?? "No engineers"}</Badge>
+                ) : (
+                  <Select value={defaultEngId} onValueChange={(v) => handleDefaultChange("default_engineer_id", v, setDefaultEngId, "engineer")}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select engineer…" /></SelectTrigger>
+                    <SelectContent>
+                      {engUsers.map((e) => (
+                        <SelectItem key={e.user_id} value={e.user_id}>{e.displayName} ({e.email})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="relative mb-4 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -150,7 +237,7 @@ export default function Users() {
         </div>
       </div>
 
-      {/* Fix 6: Role change confirmation dialog */}
+      {/* Role change confirmation dialog */}
       <Dialog open={!!pendingRoleChange} onOpenChange={(o) => !o && setPendingRoleChange(null)}>
         <DialogContent>
           <DialogHeader>
