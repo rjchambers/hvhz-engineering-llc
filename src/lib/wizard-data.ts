@@ -16,6 +16,7 @@ export interface WizardData {
   gated_community: boolean;
   gate_code: string;
   selected_services: string[];
+  other_service_details: string;
   // Step 3 - Site Data Collection
   noa_document_path: string;
   noa_document_name: string;
@@ -45,6 +46,7 @@ export const defaultWizardData: WizardData = {
   gated_community: false,
   gate_code: "",
   selected_services: [],
+  other_service_details: "",
   noa_document_path: "",
   noa_document_name: "",
   noa_system_number: "",

@@ -134,15 +134,24 @@ export default function NewOrder() {
             roofReportPath: data.roof_report_path,
             roofReportName: data.roof_report_name,
             roofReportType: data.roof_report_type,
+            otherServiceDetails: data.other_service_details,
           },
         }
       );
 
       if (fnError) throw new Error(fnError.message || "Failed to create checkout session");
       if (checkoutData?.error) throw new Error(checkoutData.error);
-      if (!checkoutData?.checkoutUrl) throw new Error("No checkout URL returned");
 
       clearWizardData();
+
+      if (checkoutData?.skipPayment) {
+        // Only "other" was selected — no payment, go straight to confirmation
+        toast.success("Request submitted! We'll reach out with a quote.");
+        window.location.href = "/portal/order-confirmed";
+        return;
+      }
+
+      if (!checkoutData?.checkoutUrl) throw new Error("No checkout URL returned");
 
       // Redirect to Stripe Checkout
       window.location.href = checkoutData.checkoutUrl;

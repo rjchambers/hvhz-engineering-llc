@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -8,7 +9,7 @@ import { SERVICE_BUNDLES, getRecommendedServices } from "@/lib/service-bundles";
 import type { WizardData } from "@/lib/wizard-data";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import {
-  Crosshair, Layers, Droplets, Search,
+  Crosshair, Layers, Droplets, Search, MessageSquarePlus,
   CloudRain, HardHat, Wind, ArrowUpFromLine, ChevronLeft, Plus,
 } from "lucide-react";
 
@@ -17,6 +18,7 @@ const SERVICE_ICONS: Record<string, React.ElementType> = {
   "drainage-analysis": CloudRain,
   "special-inspection": HardHat, "wind-mitigation-permit": Wind, "wind-mitigation": Wind,
   "fastener-calc": ArrowUpFromLine, "fastener-calculation": ArrowUpFromLine,
+  "other": MessageSquarePlus,
 };
 
 interface StepJobSiteProps {
@@ -36,7 +38,9 @@ export function StepJobSite({ data, onChange, onNext, onBack, showEditCompanyLin
   };
 
   const total = data.selected_services.reduce((sum, key) => sum + getServicePrice(key), 0);
-  const valid = data.job_address.trim() && data.job_city.trim() && data.job_zip.trim() && data.selected_services.length > 0;
+  const hasOther = data.selected_services.includes("other");
+  const otherValid = !hasOther || data.other_service_details.trim().length > 0;
+  const valid = data.job_address.trim() && data.job_city.trim() && data.job_zip.trim() && data.selected_services.length > 0 && otherValid;
   const recommendations = getRecommendedServices(data.selected_services);
 
   return (
@@ -142,7 +146,7 @@ export function StepJobSite({ data, onChange, onNext, onBack, showEditCompanyLin
       <div>
         <Label className="mb-3 block">Select Services * <span className="text-muted-foreground font-normal">(at least 1)</span></Label>
         <div className="grid gap-3 sm:grid-cols-2">
-          {SERVICES.map((service) => {
+          {SERVICES.filter((s) => s.key !== "other").map((service) => {
             const selected = data.selected_services.includes(service.key);
             const Icon = SERVICE_ICONS[service.key] ?? Search;
             return (
@@ -168,6 +172,41 @@ export function StepJobSite({ data, onChange, onNext, onBack, showEditCompanyLin
               </button>
             );
           })}
+        </div>
+
+        {/* Other / Custom Request */}
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => toggleService("other")}
+            className={`flex w-full items-center gap-3 rounded-lg border-2 border-dashed p-3 text-left transition-all active:scale-[0.98] ${
+              hasOther
+                ? "border-hvhz-teal bg-hvhz-teal/5"
+                : "border-border bg-card hover:border-muted-foreground/30"
+            }`}
+          >
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${hasOther ? "bg-hvhz-teal/10 text-hvhz-teal" : "bg-muted text-muted-foreground"}`}>
+              <MessageSquarePlus className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className={`text-sm font-medium leading-snug ${hasOther ? "text-hvhz-teal" : "text-primary"}`}>Other / Custom Request</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Need something not listed? Describe it and we'll quote you.</p>
+            </div>
+            <span className={`shrink-0 text-xs font-medium ${hasOther ? "text-hvhz-teal" : "text-muted-foreground"}`}>
+              Quote on request
+            </span>
+          </button>
+          {hasOther && (
+            <div className="mt-2 ml-4 border-l-2 border-hvhz-teal/30 pl-4">
+              <Label className="text-xs text-muted-foreground mb-1 block">Describe what you need *</Label>
+              <Textarea
+                value={data.other_service_details}
+                onChange={(e) => onChange({ other_service_details: e.target.value })}
+                placeholder="E.g. We need a structural assessment for a tile re-roof on a 3-story condo…"
+                className="min-h-[80px] text-sm"
+              />
+            </div>
+          )}
         </div>
       </div>
 

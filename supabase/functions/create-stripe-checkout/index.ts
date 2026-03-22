@@ -56,6 +56,7 @@ serve(async (req) => {
       gatedCommunity, gateCode,
       noaDocumentPath, noaDocumentName,
       roofReportPath, roofReportName, roofReportType,
+      otherServiceDetails,
     } = await req.json();
 
     if (!services?.length || !clientId) {
@@ -85,8 +86,22 @@ serve(async (req) => {
     params.append("metadata[roofReportPath]", roofReportPath || "");
     params.append("metadata[roofReportName]", roofReportName || "");
     params.append("metadata[roofReportType]", roofReportType || "");
+    if (otherServiceDetails) {
+      params.append("metadata[otherServiceDetails]", otherServiceDetails.slice(0, 500));
+    }
 
-    services.forEach((svc: string, i: number) => {
+    // Filter out "other" (no charge) from Stripe line items
+    const chargeableServices = services.filter((s: string) => s !== "other");
+
+    if (chargeableServices.length === 0) {
+      // Only "other" selected — no payment needed, just return success
+      return new Response(JSON.stringify({ skipPayment: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    chargeableServices.forEach((svc: string, i: number) => {
       const catalog = SERVICE_CATALOG[svc];
       if (!catalog) throw new Error(`Unknown service: ${svc}`);
       params.append(`line_items[${i}][price_data][currency]`, "usd");
