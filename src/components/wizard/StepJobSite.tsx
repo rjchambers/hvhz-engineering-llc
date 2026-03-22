@@ -38,7 +38,9 @@ export function StepJobSite({ data, onChange, onNext, onBack, showEditCompanyLin
   };
 
   const total = data.selected_services.reduce((sum, key) => sum + getServicePrice(key), 0);
-  const valid = data.job_address.trim() && data.job_city.trim() && data.job_zip.trim() && data.selected_services.length > 0;
+  const hasOther = data.selected_services.includes("other");
+  const otherValid = !hasOther || data.other_service_details.trim().length > 0;
+  const valid = data.job_address.trim() && data.job_city.trim() && data.job_zip.trim() && data.selected_services.length > 0 && otherValid;
   const recommendations = getRecommendedServices(data.selected_services);
 
   return (
