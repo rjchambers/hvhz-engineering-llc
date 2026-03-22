@@ -2,8 +2,8 @@ import { FileSearch, User, ArrowLeft } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { getUserRoles } from "@/lib/authz";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -23,9 +23,24 @@ export function PESidebar() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin")
-      .maybeSingle().then(({ data }) => setIsAdmin(!!data));
+    let cancelled = false;
+
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+
+    getUserRoles(user.id)
+      .then((roles) => {
+        if (!cancelled) setIsAdmin(roles.has("admin"));
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   return (
