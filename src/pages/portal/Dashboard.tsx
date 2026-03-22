@@ -53,7 +53,7 @@ function WorkOrderTimeline({ status }: { status: string }) {
         return (
           <div key={step.key} className="flex items-center">
             <div className="flex flex-col items-center min-w-[64px]">
-              <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
+              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
                 rejected ? "bg-hvhz-red text-white" :
                 done ? "bg-hvhz-teal text-white" :
                 "bg-muted text-muted-foreground"
