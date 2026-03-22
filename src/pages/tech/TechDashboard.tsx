@@ -69,7 +69,7 @@ export default function TechDashboard() {
   const Card = ({ wo }: { wo: WO }) => (
     <div
       onClick={() => navigate(`/tech/work-order/${wo.id}`)}
-      className="bg-card border rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98]"
+      className="bg-card border rounded-lg p-4 cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 active:scale-[0.98]"
     >
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-semibold text-primary">{wo.service_type}</p>
