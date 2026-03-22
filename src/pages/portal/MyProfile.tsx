@@ -10,6 +10,7 @@ import { Save, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAutosave } from "@/hooks/useAutosave";
 import { AutosaveIndicator } from "@/components/AutosaveIndicator";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 export default function MyProfile() {
   const { user } = useAuth();
@@ -111,8 +112,20 @@ export default function MyProfile() {
                 <Input id="contact_phone" type="tel" value={form.contact_phone} onChange={(e) => update("contact_phone", e.target.value)} />
               </div>
               <div className="sm:col-span-2 space-y-2">
-                <Label htmlFor="company_address">Company Address</Label>
-                <Input id="company_address" value={form.company_address} onChange={(e) => update("company_address", e.target.value)} />
+                <Label>Company Address</Label>
+                <AddressAutocomplete
+                  value={form.company_address}
+                  onChange={(val) => update("company_address", val)}
+                  onSelect={(parsed) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      company_address: parsed.address,
+                      company_city: parsed.city,
+                      company_state: parsed.state,
+                      company_zip: parsed.zip,
+                    }));
+                  }}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="company_city">City</Label>

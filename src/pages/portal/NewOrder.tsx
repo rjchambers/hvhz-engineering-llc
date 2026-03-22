@@ -43,6 +43,12 @@ export default function NewOrder() {
           company_state: profile.company_state ?? prev.company_state,
           company_zip: profile.company_zip ?? prev.company_zip,
         }));
+
+        // Auto-skip to Step 2 if profile is already complete
+        const isComplete = profile.company_name?.trim() && profile.contact_name?.trim();
+        if (isComplete) {
+          setStep(1);
+        }
       }
     };
     prefill();
@@ -181,7 +187,7 @@ export default function NewOrder() {
             <StepCompany data={data} onChange={onChange} onNext={handleStep1Next} saving={saving} />
           )}
           {step === 1 && (
-            <StepJobSite data={data} onChange={onChange} onNext={() => setStep(2)} onBack={() => setStep(0)} />
+            <StepJobSite data={data} onChange={onChange} onNext={() => setStep(2)} onBack={() => setStep(0)} showEditCompanyLink={step === 1} />
           )}
           {step === 2 && user && (
             <StepSiteData data={data} onChange={onChange} onNext={() => setStep(3)} onBack={() => setStep(1)} userId={user.id} />

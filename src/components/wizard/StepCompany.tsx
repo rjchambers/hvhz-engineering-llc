@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import type { WizardData } from "@/lib/wizard-data";
 
 interface StepCompanyProps {
@@ -38,21 +39,32 @@ export function StepCompany({ data, onChange, onNext, saving }: StepCompanyProps
           <Input id="contact_phone" type="tel" value={data.contact_phone} onChange={(e) => onChange({ contact_phone: e.target.value })} placeholder="(555) 123-4567" />
         </div>
         <div className="sm:col-span-2 space-y-2">
-          <Label htmlFor="company_address">Company Address</Label>
-          <Input id="company_address" value={data.company_address} onChange={(e) => onChange({ company_address: e.target.value })} />
+          <Label>Company Address</Label>
+          <AddressAutocomplete
+            value={data.company_address}
+            onChange={(val) => onChange({ company_address: val })}
+            onSelect={(parsed) => {
+              onChange({
+                company_address: parsed.address,
+                company_city: parsed.city,
+                company_state: parsed.state,
+                company_zip: parsed.zip,
+              });
+            }}
+          />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="company_city">City</Label>
-          <Input id="company_city" value={data.company_city} onChange={(e) => onChange({ company_city: e.target.value })} />
+          <Label className="text-xs text-muted-foreground">City</Label>
+          <Input value={data.company_city} onChange={(e) => onChange({ company_city: e.target.value })} className="h-9 text-sm" />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="company_state">State</Label>
-            <Input id="company_state" value={data.company_state} onChange={(e) => onChange({ company_state: e.target.value })} />
+            <Label className="text-xs text-muted-foreground">State</Label>
+            <Input value={data.company_state} onChange={(e) => onChange({ company_state: e.target.value })} className="h-9 text-sm" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="company_zip">ZIP</Label>
-            <Input id="company_zip" value={data.company_zip} onChange={(e) => onChange({ company_zip: e.target.value })} />
+            <Label className="text-xs text-muted-foreground">ZIP</Label>
+            <Input value={data.company_zip} onChange={(e) => onChange({ company_zip: e.target.value })} className="h-9 text-sm" />
           </div>
         </div>
       </div>
