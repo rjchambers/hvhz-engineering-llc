@@ -55,9 +55,9 @@ export function TechSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
         {!collapsed ? (
-          <BrandMark size="md" subtitle="Field Tech" />
+          <BrandMark size="md" variant="light" subtitle="Field Tech" />
         ) : (
-          <BrandMark size="md" showText={false} />
+          <BrandMark size="sm" variant="light" />
         )}
       </SidebarHeader>
 
