@@ -22,6 +22,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { CalendarIcon, Camera, Trash2, Plus, ArrowLeft, AlertCircle, Lock, FileText, ExternalLink, Info } from "lucide-react";
 import type { Json } from "@/integrations/supabase/types";
+import { useAutosave } from "@/hooks/useAutosave";
+import { AutosaveIndicator } from "@/components/AutosaveIndicator";
 
 interface WOData {
   id: string;
