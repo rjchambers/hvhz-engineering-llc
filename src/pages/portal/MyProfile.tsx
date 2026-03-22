@@ -48,6 +48,16 @@ export default function MyProfile() {
       });
   }, [user]);
 
+  const { status: profileAutosave, clearDraft: clearProfileDraft } = useAutosave({
+    storageKey: `client-profile-${user?.id}`,
+    data: form,
+    onRestore: (restored) => {
+      setForm(prev => ({ ...prev, ...restored }));
+      toast.info("Restored your unsaved changes", { duration: 3000 });
+    },
+    disabled: loading || !user,
+  });
+
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
