@@ -86,7 +86,7 @@ const Index = () => {
             AI-Powered Roof Engineering for South Florida
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/60" style={{ textWrap: 'balance' }}>
-            Permit-ready calculations. Signed and sealed by licensed Florida PEs. Delivered in hours, not weeks.
+            Permit-ready calculations for Palm Beach, Broward, and Miami-Dade Counties. Signed and sealed by licensed Florida PEs. Delivered in hours, not weeks.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button
