@@ -309,6 +309,7 @@ export default function PEReviewDetail() {
       if (fnErr) throw new Error("Sign function failed: " + fnErr.message);
 
       toast.success("Report signed and sealed. Client notified.");
+      clearNotesDraft();
       navigate("/pe");
     } catch (err: any) {
       toast.error(err.message || "Signing failed");
