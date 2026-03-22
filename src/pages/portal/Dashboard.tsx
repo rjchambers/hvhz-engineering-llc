@@ -146,6 +146,7 @@ export default function Dashboard() {
       setOrders(data ?? []);
     }
     setLoading(false);
+    setLastRefreshed(new Date());
   }, [user]);
 
   const fetchWorkOrders = useCallback(async (orderId: string) => {
