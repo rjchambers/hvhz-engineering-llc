@@ -7,25 +7,23 @@ import { HeroNav } from "@/components/HeroNav";
 import { FloatingCalcCard } from "@/components/hero/FloatingCalcCard";
 import { StatsBar } from "@/components/hero/StatsBar";
 import {
-  Crosshair, Layers, TestTube2, Droplets, Search, ShieldCheck,
+  Crosshair, Layers, Droplets,
   CloudRain, HardHat, Wind, ArrowUpFromLine, Shield, Zap, Clock,
-  FileCode2, ArrowRight,
+  FileCode2, ArrowRight, TestTube2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
 
 const services = [
-  { name: "TAS-105 Fastener Withdrawal Test", price: "$450", icon: Crosshair, code: "FBC 8th Ed. · HVHZ", description: "Field withdrawal resistance testing of mechanical fasteners per TAS 105-20." },
-  { name: "TAS-106 Tile Bonding Verification", price: "$450", icon: Layers, code: "FBC 8th Ed. · HVHZ", description: "Field verification of mortar-set and adhesive-set tile systems per TAS 106." },
-  { name: "TAS-124 Membrane Uplift Test", price: "$450", icon: TestTube2, code: "FBC 8th Ed. · HVHZ", description: "In-situ uplift resistance testing of membrane roof systems per TAS 124-20." },
-  { name: "TAS-126 Moisture Survey", price: "$450", icon: Droplets, code: "FBC 8th Ed. · HVHZ", description: "Infrared thermographic moisture survey per TAS 126-95 for reroof permits." },
-  { name: "Roof Inspection", price: "$350", icon: Search, code: "FBC Ch. 15", description: "Visual and structural condition assessment of decking, flashing, and details." },
-  { name: "Roof Certification", price: "$450", icon: ShieldCheck, code: "FBC · 40/50-Year", description: "PE-signed roof condition certification for recertification and transactions." },
-  { name: "Drainage Analysis", price: "$550", icon: CloudRain, code: "FBC 1611 · NOAA Atlas 14", description: "Hydraulic roof drainage calculation using NOAA Atlas 14 rainfall data." },
-  { name: "Special Inspection", price: "$400", icon: HardHat, code: "FBC Ch. 17", description: "Threshold and special inspector services for permit close-out." },
-  { name: "Wind Mitigation", price: "$500", icon: Wind, code: "ASCE 7-22 · FBC 1609", description: "Wind pressure analysis for roofing permits up to 185 mph in HVHZ." },
-  { name: "Fastener Uplift Calculation", price: "$350", icon: ArrowUpFromLine, code: "ASCE 7-22 · RAS 117", description: "Engineering calculation of required fastener spacing and uplift capacity." },
+  { name: "TAS-105 Fastener Withdrawal Test", price: "From $450", icon: Crosshair, code: "FBC 8th Ed. · HVHZ", description: "Field withdrawal resistance testing of mechanical fasteners per TAS 105-20. +$2.50/sq ft." },
+  { name: "TAS-106 Tile Bonding Verification", price: "$200", icon: Layers, code: "FBC 8th Ed. · HVHZ", description: "Field verification of mortar-set and adhesive-set tile systems per TAS 106." },
+  { name: "TAS-126 Moisture Survey", price: "From $450", icon: Droplets, code: "FBC 8th Ed. · HVHZ", description: "Infrared thermographic moisture survey per TAS 126-95 for reroof permits. +$2.50/sq ft." },
+  { name: "Drainage Analysis", price: "$400", icon: CloudRain, code: "FBC 1611 · NOAA Atlas 14", description: "Hydraulic roof drainage calculation using NOAA Atlas 14 rainfall data." },
+  { name: "Enhanced Fastener Pattern", price: "$250", icon: ArrowUpFromLine, code: "ASCE 7-22 · RAS 117", description: "Engineering calculation of required fastener spacing and uplift capacity." },
+  { name: "Special Inspections", price: "$250", icon: HardHat, code: "FBC Ch. 17", description: "Threshold and special inspector services for permit close-out." },
+  { name: "Wind Mitigation", price: "$250", icon: Wind, code: "ASCE 7-22 · FBC 1609", description: "Wind pressure analysis for roofing permits up to 185 mph in HVHZ." },
+  { name: "Asbestos Survey", price: "From $425", icon: TestTube2, code: "EPA · NESHAP", description: "Asbestos content survey and sampling for reroof and demolition projects. +$2.50/sq ft." },
 ];
 
 const trustSignals = [
