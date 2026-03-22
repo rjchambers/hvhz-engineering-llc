@@ -109,7 +109,7 @@ export function StepReview({ data, onChange, onSubmit, onBack, submitting }: Ste
           className="mt-0.5"
         />
         <Label htmlFor="terms" className="text-sm text-muted-foreground cursor-pointer leading-relaxed">
-          I agree to the HVHZ Engineering Terms of Service and authorize payment for the selected services. I understand that final pricing may include applicable distance surcharges.
+          I agree to the <a href="/hvhz-terms-and-conditions.pdf" target="_blank" rel="noopener noreferrer" className="text-hvhz-teal underline hover:text-hvhz-teal/80">HVHZ Engineering Terms and Conditions of Service</a> and authorize payment for the selected services. I understand that final pricing may include applicable distance surcharges and that certain services involve destructive testing procedures.
         </Label>
       </div>
 
