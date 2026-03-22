@@ -14,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { STATUS_LABELS, STATUS_BADGE_CLASSES, isOutsourced, daysSince } from "@/lib/work-order-helpers";
 import { SERVICES, getServiceName } from "@/lib/services";
-import { CalendarIcon, ChevronLeft, ChevronRight, Upload, ChevronDown, AlertTriangle, ExternalLink, FlaskConical } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, Upload, ChevronDown, AlertTriangle, ExternalLink, FlaskConical, Zap } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
