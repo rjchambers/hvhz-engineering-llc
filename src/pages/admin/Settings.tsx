@@ -71,6 +71,23 @@ function PartnerDialog({
     }
   }, [partner, open]);
 
+  const dialogFormData = { name, contactName, contactEmail, services, template, active };
+
+  const { clearDraft } = useAutosave({
+    storageKey: partner ? `admin-partner-${partner.id}` : "admin-partner-new",
+    data: dialogFormData,
+    onRestore: (restored) => {
+      if (!partner) {
+        if (restored.name) setName(restored.name);
+        if (restored.contactName) setContactName(restored.contactName);
+        if (restored.contactEmail) setContactEmail(restored.contactEmail);
+        if (restored.services) setServices(restored.services);
+        if (restored.template) setTemplate(restored.template);
+      }
+    },
+    disabled: !open,
+  });
+
   const toggleService = (key: string) => {
     setServices((prev) => prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key]);
   };
