@@ -25,14 +25,15 @@ export async function getUserRoles(userId: string) {
   let request = roleCache.get(userId);
 
   if (!request) {
-    request = supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .then(({ data, error }) => {
-        if (error) throw error;
-        return normalizeRoles(data);
-      });
+    request = (async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
+
+      if (error) throw error;
+      return normalizeRoles(data);
+    })();
 
     roleCache.set(userId, request);
   }
