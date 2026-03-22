@@ -83,7 +83,7 @@ const Index = () => {
             <BrandMark size="lg" subtitle="Engineering" />
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl text-display text-white" style={{ lineHeight: '1.05' }}>
-            AI-Powered Roof Engineering for the Storm Belt
+            AI-Powered Roof Engineering for South Florida
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/60" style={{ textWrap: 'balance' }}>
             Permit-ready calculations. Signed and sealed by licensed Florida PEs. Delivered in hours, not weeks.

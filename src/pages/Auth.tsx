@@ -163,7 +163,7 @@ export default function Auth() {
             <BrandMark size="lg" />
           </div>
           <p className="text-lg font-medium text-hvhz-teal mt-4">
-            Engineered for the Storm Belt
+            Serving Palm Beach, Broward &amp; Miami-Dade Counties
           </p>
           <p className="mt-8 text-xs text-white/30 font-mono tracking-wide">
             FBC 8th Edition · ASCE 7-22 · TAS 105
