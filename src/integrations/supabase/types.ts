@@ -24,9 +24,12 @@ export type Database = {
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
+          contractor_license: string | null
           created_at: string
           id: string
+          preferred_contact: string | null
           stripe_customer_id: string | null
+          tech_instructions: string | null
           terms_accepted_at: string | null
           updated_at: string
           user_id: string
@@ -40,9 +43,12 @@ export type Database = {
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
+          contractor_license?: string | null
           created_at?: string
           id?: string
+          preferred_contact?: string | null
           stripe_customer_id?: string | null
+          tech_instructions?: string | null
           terms_accepted_at?: string | null
           updated_at?: string
           user_id: string
@@ -56,9 +62,12 @@ export type Database = {
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
+          contractor_license?: string | null
           created_at?: string
           id?: string
+          preferred_contact?: string | null
           stripe_customer_id?: string | null
+          tech_instructions?: string | null
           terms_accepted_at?: string | null
           updated_at?: string
           user_id?: string
