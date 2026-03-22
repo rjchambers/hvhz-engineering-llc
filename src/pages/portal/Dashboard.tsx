@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { PortalLayout } from "@/components/PortalLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { ChevronDown, ChevronRight, Download, CalendarDays, PackageOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, CalendarDays, PackageOpen, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import { saveWizardData, defaultWizardData } from "@/lib/wizard-data";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Order = Tables<"orders">;
@@ -123,6 +125,7 @@ function WorkOrderCard({ wo }: { wo: WorkOrder }) {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [workOrders, setWorkOrders] = useState<Record<string, WorkOrder[]>>({});
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
@@ -237,6 +240,7 @@ export default function Dashboard() {
                   <TableHead className="text-xs">Services</TableHead>
                   <TableHead className="text-xs text-right">Total</TableHead>
                   <TableHead className="text-xs text-right">Status</TableHead>
+                  <TableHead className="text-xs text-right" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -270,11 +274,32 @@ export default function Dashboard() {
                         <TableCell className="text-right">
                           <StatusBadge status={order.status} />
                         </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1 text-xs text-hvhz-teal hover:text-hvhz-teal"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              saveWizardData({
+                                ...defaultWizardData,
+                                job_address: order.job_address ?? "",
+                                job_city: order.job_city ?? "",
+                                job_zip: order.job_zip ?? "",
+                                job_county: order.job_county ?? "",
+                                selected_services: order.services ?? [],
+                              });
+                              navigate("/portal/new-order");
+                            }}
+                          >
+                            <RefreshCw className="h-3 w-3" /> Reorder
+                          </Button>
+                        </TableCell>
                       </TableRow>
 
                       {isExpanded && (
                         <TableRow className="hover:bg-transparent">
-                          <TableCell colSpan={5} className="bg-muted/30 p-4">
+                          <TableCell colSpan={6} className="bg-muted/30 p-4">
                             {wos.length === 0 ? (
                               <p className="text-xs text-muted-foreground text-center py-4">
                                 No work orders created yet for this order.
@@ -301,4 +326,4 @@ export default function Dashboard() {
   );
 }
 
-import { Fragment } from "react";
+
