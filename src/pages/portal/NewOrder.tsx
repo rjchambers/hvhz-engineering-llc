@@ -43,6 +43,12 @@ export default function NewOrder() {
           company_state: profile.company_state ?? prev.company_state,
           company_zip: profile.company_zip ?? prev.company_zip,
         }));
+
+        // Auto-skip to Step 2 if profile is already complete
+        const isComplete = profile.company_name?.trim() && profile.contact_name?.trim();
+        if (isComplete) {
+          setStep(1);
+        }
       }
     };
     prefill();
