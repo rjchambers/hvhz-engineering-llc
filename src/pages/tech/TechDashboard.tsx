@@ -72,7 +72,7 @@ export default function TechDashboard() {
       className="bg-card border rounded-lg p-4 cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 active:scale-[0.98]"
     >
       <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-semibold text-primary">{wo.service_type}</p>
+        <p className="text-sm font-semibold text-primary">{getServiceName(wo.service_type)}</p>
         <Badge className={cn("text-[11px]", STATUS_BADGE_CLASSES[wo.status])}>
           {STATUS_LABELS[wo.status] ?? wo.status}
         </Badge>
