@@ -761,6 +761,9 @@ export default function PEReviewDetail() {
         <div className="flex items-center gap-3 mb-4">
           <h1 className="text-xl font-bold text-primary">{wo.service_type.replace(/-/g, " ")}</h1>
           <Badge className={cn("text-[11px]", STATUS_BADGE_CLASSES[wo.status])}>{STATUS_LABELS[wo.status] ?? wo.status}</Badge>
+          {fieldData.pe_override_applied && (
+            <Badge className="text-[10px] bg-amber-100 text-amber-800">PE Overrides Applied</Badge>
+          )}
         </div>
         {/* Desktop: split layout */}
         <div className="hidden lg:grid lg:grid-cols-[55%_45%] gap-6">
