@@ -15,9 +15,9 @@ import {
 
 const SERVICE_ICONS: Record<string, React.ElementType> = {
   "tas-105": Crosshair, "tas-106": Layers, "tas-126": Droplets,
-  "drainage-analysis": CloudRain,
-  "special-inspection": HardHat, "wind-mitigation-permit": Wind, "wind-mitigation": Wind,
-  "fastener-calc": ArrowUpFromLine, "fastener-calculation": ArrowUpFromLine,
+  "drainage": CloudRain,
+  "special-inspection": HardHat, "wind-mitigation": Wind,
+  "enhanced-fastener": ArrowUpFromLine,
   "other": MessageSquarePlus,
 };
 
