@@ -107,7 +107,7 @@ export default function PEProfile() {
         });
 
     if (error) toast.error("Save failed: " + error.message);
-    else toast.success("Profile saved");
+    else { toast.success("Profile saved"); clearProfileDraft(); }
     setSaving(false);
   };
 
