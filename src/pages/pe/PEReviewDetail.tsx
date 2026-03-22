@@ -22,6 +22,8 @@ import { format } from "date-fns";
 import { CheckCircle, XCircle, ArrowLeft, ExternalLink, Loader2, X, Calculator, Eye, ChevronLeft, ChevronRight, ChevronDown, FileText, Settings2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Json } from "@/integrations/supabase/types";
+import { useAutosave } from "@/hooks/useAutosave";
+import { AutosaveIndicator } from "@/components/AutosaveIndicator";
 
 interface WOData {
   id: string;
