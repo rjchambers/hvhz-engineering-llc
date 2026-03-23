@@ -77,6 +77,8 @@ serve(async (req) => {
 
     const siteContext = {
       county,
+      lat: session.metadata?.jobLat ? parseFloat(session.metadata.jobLat) : null,
+      lng: session.metadata?.jobLng ? parseFloat(session.metadata.jobLng) : null,
       design_rainfall_rate: rainfallRate,
       rainfall_source: `NOAA Atlas 14, ${county || "Broward"} County, 1-hr 100-yr`,
       hvhz_constants: {
