@@ -290,8 +290,17 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
     });
   }
 
-  // 9.0 Warnings
-  rb.addSection('9.0', 'WARNINGS & ENGINEERING NOTES');
+  // 9.0 Zone Plan Diagram
+  rb.addZonePlanDiagram(
+    '9.0',
+    fd.building_width_ft ?? 0,
+    fd.building_length_ft ?? 0,
+    ccResults.zoneWidths,
+    ccResults.computedSpacings
+  );
+
+  // 10.0 Warnings
+  rb.addSection('10.0', 'WARNINGS & ENGINEERING NOTES');
   const nonInfoWarnings = legacyOutputs.warnings.filter(w => w.level !== 'info');
   if (nonInfoWarnings.length > 0) {
     nonInfoWarnings.forEach(w => {
@@ -300,6 +309,12 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
   } else {
     rb.addCalloutBox('No engineering warnings. System meets all HVHZ requirements.', 'success');
   }
+
+  // Fastener-specific disclaimer
+  rb.addTextBlock(
+    'Calculations based on information provided by client and ASCE. Standard code requirements apply with this design. No warranties or guaranties implied. Other code issues should be documented but are not included in this calculation. All work shall be inspected by this office or the authority having jurisdiction to verify compliance.',
+    { color: 'slate' }
+  );
 }
 
 

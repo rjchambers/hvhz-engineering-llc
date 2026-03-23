@@ -838,10 +838,16 @@ export class HVHZReportBuilder {
     this.doc.setFontSize(7.5);
     this.doc.setFont('helvetica', 'italic');
     this.doc.setTextColor(...MID_SLATE);
-    const facText = `This item has been digitally signed and sealed by ${peProfile.full_name} on ${signedDate}. Printed copies of this document are not considered signed and sealed and the signature must be verified on any electronic copies. FAC 61G15-23.004`;
+    const facText = `This item has been digitally signed and sealed by ${peProfile.full_name} on ${signedDate}. Printed copies of this document are not considered signed and sealed and the signature must be verified on any electronic copies.`;
     const facLines = this.doc.splitTextToSize(facText, this.cw);
     this.doc.text(facLines, this.ml, this.yPos);
-    this.yPos += facLines.length * 4 + 15;
+    this.yPos += facLines.length * 4 + 4;
+
+    // FL Statute & FAC compliance
+    const complianceText = `The method and software that have been utilized to sign and seal this report comply with the intent of the Board Rules. Specifically, with reference to Florida Statutes 471 and the Florida Administrative Code Rule 61G15-23.003 for Engineers.`;
+    const compLines = this.doc.splitTextToSize(complianceText, this.cw);
+    this.doc.text(compLines, this.ml, this.yPos);
+    this.yPos += compLines.length * 4 + 15;
 
     // END OF REPORT
     this.doc.setDrawColor(...TEAL);
