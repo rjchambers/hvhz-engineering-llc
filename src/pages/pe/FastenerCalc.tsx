@@ -19,10 +19,11 @@ import {
   ArrowLeft, ArrowRight, Save, Loader2, MapPin, Wind, Building2, Home, Wrench,
   FileText, Layers, TestTube, ChevronDown, AlertCircle, AlertTriangle, Info, Copy, Check
 } from "lucide-react";
-import { usePEFastenerStore } from "@/stores/pe-fastener-store";
+import { usePEFastenerStore, type CCCalcFields } from "@/stores/pe-fastener-store";
 import { isTAS105Required } from "@/lib/fastener-engine";
 import { lookupByCounty, FLORIDA_COUNTY_WIND } from "@/lib/county-wind-data";
 import { useIsMobile } from "@/hooks/use-mobile";
+import type { FastenerCalcResults } from "@/lib/wind-calc";
 
 // ─── Constants ──────────────────────────────────────────────
 const SYSTEM_LABELS: Record<string, string> = {
@@ -40,17 +41,11 @@ const DECK_OPTIONS = [
   { value: "wood_plank", label: "Wood Plank" },
   { value: "lw_concrete", label: "LW Insulating Concrete" },
 ];
-const BASIS_BADGES: Record<string, { cls: string; label: string; icon: string }> = {
-  prescriptive: { cls: "bg-blue-100 text-blue-800", label: "NOA Prescriptive", icon: "📋" },
-  rational_analysis: { cls: "bg-amber-100 text-amber-800", label: "RAS 117 Rational", icon: "🔩" },
-  exceeds_300pct: { cls: "bg-orange-100 text-orange-800", label: "Exceeds 300%", icon: "⚠️" },
-  asterisked_fail: { cls: "bg-red-100 text-red-800", label: "Asterisked Fail", icon: "🔴" },
-};
-const ZONE_COLORS = {
+const ZONE_COLORS: Record<string, { fill: string; stroke: string; label: string }> = {
   '3':      { fill: 'hsl(0 72% 51% / 0.18)',   stroke: 'hsl(0 72% 51% / 0.5)',   label: 'hsl(0 72% 51%)' },
   '2':      { fill: 'hsl(38 92% 44% / 0.15)',   stroke: 'hsl(38 92% 44% / 0.4)',  label: 'hsl(38 92% 44%)' },
   '1':      { fill: 'hsl(45 93% 47% / 0.10)',   stroke: 'hsl(45 93% 47% / 0.3)',  label: 'hsl(45 93% 47% / 0.8)' },
-  '1prime': { fill: 'hsl(217 91% 53% / 0.08)',  stroke: 'hsl(217 91% 53% / 0.2)', label: 'hsl(217 91% 53% / 0.6)' },
+  "1'":     { fill: 'hsl(217 91% 53% / 0.08)',  stroke: 'hsl(217 91% 53% / 0.2)', label: 'hsl(217 91% 53% / 0.6)' },
 };
 
 // ─── Main Component ─────────────────────────────────────────
@@ -65,7 +60,7 @@ export default function FastenerCalc() {
   const [orderData, setOrderData] = useState<any>(null);
 
   const store = usePEFastenerStore();
-  const { inputs, outputs, tas105Inputs, tas105Outputs, dirty } = store;
+  const { inputs, outputs, ccFields, ccResults, tas105Inputs, tas105Outputs, dirty } = store;
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
@@ -76,40 +71,28 @@ export default function FastenerCalc() {
     if (!wo) return;
     setWoData(wo);
     setOrderData(wo.orders);
-
     const { data: fdRow } = await supabase
       .from("field_data").select("form_data").eq("work_order_id", id).maybeSingle();
-
     const fd = (fdRow?.form_data as Record<string, any>) ?? {};
     const siteCtx = ((wo.orders as any)?.site_context as Record<string, any>) ?? {};
-
-    // Only load if this is a different work order than what's persisted
-    if (store.workOrderId !== id) {
-      store.loadFromFieldData(fd, siteCtx, id);
-    }
+    if (store.workOrderId !== id) store.loadFromFieldData(fd, siteCtx, id);
     setLoaded(true);
   }, [id, user]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Warn before closing with unsaved changes
   useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (dirty) e.preventDefault();
-    };
+    const handler = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
 
-  // Server autosave — debounced 10s after any change
   const serverSaveTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
     if (!dirty || !id) return;
     clearTimeout(serverSaveTimer.current);
     serverSaveTimer.current = setTimeout(async () => {
-      try {
-        await store.saveToFieldData(id);
-      } catch { /* Silent failure */ }
+      try { await store.saveToFieldData(id); } catch { /* Silent */ }
     }, 10000);
     return () => clearTimeout(serverSaveTimer.current);
   }, [dirty, id]);
@@ -117,10 +100,8 @@ export default function FastenerCalc() {
   const handleSave = async () => {
     if (!id) return;
     setSaving(true);
-    try {
-      await store.saveToFieldData(id);
-      toast.success("Calculation saved. Results will appear in the signed report.");
-    } catch { toast.error("Failed to save"); }
+    try { await store.saveToFieldData(id); toast.success("Calculation saved."); }
+    catch { toast.error("Failed to save"); }
     setSaving(false);
   };
 
@@ -130,18 +111,10 @@ export default function FastenerCalc() {
   };
 
   if (!loaded) {
-    return (
-      <PELayout>
-        <div className="flex items-center justify-center h-[calc(100vh-56px)]">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      </PELayout>
-    );
+    return (<PELayout><div className="flex items-center justify-center h-[calc(100vh-56px)]"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div></PELayout>);
   }
 
-  const address = orderData
-    ? [orderData.job_address, orderData.job_city, orderData.job_zip].filter(Boolean).join(", ")
-    : "";
+  const address = orderData ? [orderData.job_address, orderData.job_city, orderData.job_zip].filter(Boolean).join(", ") : "";
 
   const headerBar = (
     <div className="h-14 border-b bg-card flex items-center justify-between px-4 shrink-0">
@@ -149,17 +122,14 @@ export default function FastenerCalc() {
         <ArrowLeft className="h-4 w-4" /> Back to Review
       </Button>
       <div className="hidden sm:flex items-center gap-2 text-sm">
-        <span className="font-semibold text-primary">FastenerCalc HVHZ</span>
+        <span className="font-semibold text-primary">FastenerCalc HVHZ — C&C</span>
         {address && <span className="text-muted-foreground text-xs truncate max-w-[260px]">· {address}</span>}
       </div>
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={handleSave} disabled={saving} className="gap-1">
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-          Save
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save
         </Button>
-        <Button size="sm" onClick={handleReturn} className="gap-1">
-          Return <ArrowRight className="h-3.5 w-3.5" />
-        </Button>
+        <Button size="sm" onClick={handleReturn} className="gap-1">Return <ArrowRight className="h-3.5 w-3.5" /></Button>
       </div>
     </div>
   );
@@ -174,10 +144,10 @@ export default function FastenerCalc() {
             <TabsTrigger value="results" className="flex-1">Results</TabsTrigger>
           </TabsList>
           <TabsContent value="inputs" className="p-4 overflow-y-auto" style={{ height: 'calc(100vh - 112px)' }}>
-            <FormPanel inputs={inputs} store={store} orderData={orderData} tas105Inputs={tas105Inputs} tas105Outputs={tas105Outputs} />
+            <FormPanel inputs={inputs} ccFields={ccFields} store={store} orderData={orderData} tas105Inputs={tas105Inputs} tas105Outputs={tas105Outputs} />
           </TabsContent>
           <TabsContent value="results" className="p-4 overflow-y-auto" style={{ height: 'calc(100vh - 112px)' }}>
-            <ResultsPanel inputs={inputs} outputs={outputs} tas105Outputs={tas105Outputs} />
+            <ResultsPanel inputs={inputs} ccFields={ccFields} ccResults={ccResults} outputs={outputs} tas105Outputs={tas105Outputs} />
           </TabsContent>
         </Tabs>
       </PELayout>
@@ -189,10 +159,10 @@ export default function FastenerCalc() {
       {headerBar}
       <div className="flex flex-1 min-h-0">
         <div className="w-[420px] shrink-0 border-r overflow-y-auto p-4" style={{ height: 'calc(100vh - 56px)' }}>
-          <FormPanel inputs={inputs} store={store} orderData={orderData} tas105Inputs={tas105Inputs} tas105Outputs={tas105Outputs} />
+          <FormPanel inputs={inputs} ccFields={ccFields} store={store} orderData={orderData} tas105Inputs={tas105Inputs} tas105Outputs={tas105Outputs} />
         </div>
         <div className="flex-1 overflow-y-auto p-4" style={{ height: 'calc(100vh - 56px)' }}>
-          <ResultsPanel inputs={inputs} outputs={outputs} tas105Outputs={tas105Outputs} />
+          <ResultsPanel inputs={inputs} ccFields={ccFields} ccResults={ccResults} outputs={outputs} tas105Outputs={tas105Outputs} />
         </div>
       </div>
     </PELayout>
@@ -208,14 +178,11 @@ function Section({ title, icon: Icon, defaultOpen = true, children }: {
     <Collapsible open={open} onOpenChange={setOpen} className="border rounded-lg">
       <CollapsibleTrigger className="flex items-center justify-between w-full p-3 hover:bg-muted/50 transition-colors rounded-t-lg">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <Icon className="h-4 w-4 text-primary" />
-          {title}
+          <Icon className="h-4 w-4 text-primary" /> {title}
         </div>
         <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
       </CollapsibleTrigger>
-      <CollapsibleContent className="px-3 pb-3 space-y-3">
-        {children}
-      </CollapsibleContent>
+      <CollapsibleContent className="px-3 pb-3 space-y-3">{children}</CollapsibleContent>
     </Collapsible>
   );
 }
@@ -236,20 +203,14 @@ function NumField({ label, value, onChange, unit, step = 1, tooltip, disabled }:
     </div>
   );
   if (!tooltip) return inner;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{inner}</TooltipTrigger>
-      <TooltipContent side="right" className="text-xs max-w-[200px]">{tooltip}</TooltipContent>
-    </Tooltip>
-  );
+  return (<Tooltip><TooltipTrigger asChild>{inner}</TooltipTrigger><TooltipContent side="right" className="text-xs max-w-[200px]">{tooltip}</TooltipContent></Tooltip>);
 }
 
 // ─── Form Panel ─────────────────────────────────────────────
-function FormPanel({ inputs, store, orderData, tas105Inputs, tas105Outputs }: {
-  inputs: any; store: any; orderData: any; tas105Inputs: any; tas105Outputs: any;
+function FormPanel({ inputs, ccFields, store, orderData, tas105Inputs, tas105Outputs }: {
+  inputs: any; ccFields: CCCalcFields; store: any; orderData: any; tas105Inputs: any; tas105Outputs: any;
 }) {
   const countyLabel = inputs.county === 'miami_dade' ? 'Miami-Dade' : inputs.county === 'broward' ? 'Broward' : 'Other';
-  const countyInfo = lookupByCounty(countyLabel);
   const tas105Req = isTAS105Required(inputs.deckType, inputs.constructionType);
   const showTAS105 = tas105Req.required || inputs.fySource === 'tas105';
 
@@ -267,7 +228,7 @@ function FormPanel({ inputs, store, orderData, tas105Inputs, tas105Outputs }: {
 
   return (
     <div className="space-y-3">
-      {/* Section 1: Site & Code */}
+      {/* 1: Site & Code */}
       <Section title="Site & Code" icon={MapPin}>
         <div>
           <Label className="text-xs text-muted-foreground">County</Label>
@@ -279,9 +240,6 @@ function FormPanel({ inputs, store, orderData, tas105Inputs, tas105Outputs }: {
             </SelectContent>
           </Select>
         </div>
-        {countyInfo?.note && (
-          <div className="text-xs bg-blue-50 text-blue-800 border border-blue-200 rounded p-2">{countyInfo.note}</div>
-        )}
         <div>
           <Label className="text-xs text-muted-foreground">Construction Type</Label>
           <Select value={inputs.constructionType} onValueChange={v => store.setInput('constructionType', v)}>
@@ -297,9 +255,7 @@ function FormPanel({ inputs, store, orderData, tas105Inputs, tas105Outputs }: {
           <Label className="text-xs text-muted-foreground">Risk Category</Label>
           <Select value={inputs.riskCategory} onValueChange={v => store.setInput('riskCategory', v)}>
             <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {['I','II','III','IV'].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-            </SelectContent>
+            <SelectContent>{['I','II','III','IV'].map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div className="flex items-center justify-between">
@@ -311,24 +267,19 @@ function FormPanel({ inputs, store, orderData, tas105Inputs, tas105Outputs }: {
         </div>
       </Section>
 
-      {/* Section 2: Wind & Exposure */}
-      <Section title="Wind & Exposure" icon={Wind}>
+      {/* 2: Design Criteria */}
+      <Section title="Design Criteria" icon={Wind}>
         <NumField label="Basic Wind Speed (V)" value={inputs.V} onChange={v => store.setInput('V', v)} unit="mph" />
         <div>
           <Label className="text-xs text-muted-foreground">Exposure Category</Label>
           <Select value={inputs.exposureCategory} onValueChange={v => store.setInput('exposureCategory', v)}>
             <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {['B','C','D'].map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
-            </SelectContent>
+            <SelectContent>{['B','C','D'].map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
           </Select>
           {inputs.isHVHZ && inputs.exposureCategory !== 'C' && (
             <p className="text-[10px] text-destructive mt-1">⚠ HVHZ requires Exposure C</p>
           )}
         </div>
-        <NumField label="Kzt" value={inputs.Kzt} onChange={v => store.setInput('Kzt', v)} step={0.01} tooltip="§26.8 — Topographic Factor" />
-        <NumField label="Kd" value={inputs.Kd} onChange={v => store.setInput('Kd', v)} step={0.01} tooltip="Table 26.6-1" />
-        <NumField label="Ke" value={inputs.Ke} onChange={v => store.setInput('Ke', v)} step={0.01} tooltip="Table 26.9-1" />
         <div>
           <Label className="text-xs text-muted-foreground">Enclosure</Label>
           <Select value={inputs.enclosure} onValueChange={v => store.setInput('enclosure', v)}>
@@ -340,9 +291,36 @@ function FormPanel({ inputs, store, orderData, tas105Inputs, tas105Outputs }: {
             </SelectContent>
           </Select>
         </div>
+        <div className="grid grid-cols-3 gap-2">
+          <NumField label="Kzt" value={inputs.Kzt} onChange={v => store.setInput('Kzt', v)} step={0.01} tooltip="§26.8 Topographic" />
+          <NumField label="Kd" value={inputs.Kd} onChange={v => store.setInput('Kd', v)} step={0.01} tooltip="Table 26.6-1" />
+          <NumField label="Ke" value={inputs.Ke} onChange={v => store.setInput('Ke', v)} step={0.01} tooltip="Table 26.9-1" />
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">Roof Type</Label>
+          <Select value={ccFields.roofType} onValueChange={v => store.setCCField('roofType', v)}>
+            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Flat">Flat</SelectItem>
+              <SelectItem value="Gable">Gable</SelectItem>
+              <SelectItem value="Hip">Hip</SelectItem>
+              <SelectItem value="Monoslope">Monoslope</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <NumField label="Roof Slope" value={ccFields.slopeDeg} onChange={v => store.setCCField('slopeDeg', v)} unit="°" tooltip="0 for flat, drives GCp table selection" />
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Continuous Parapet ≥ 3'</Label>
+          <Switch checked={ccFields.hasParapet} onCheckedChange={v => store.setCCField('hasParapet', v)} />
+        </div>
+        {ccFields.hasParapet && (
+          <p className="text-[10px] text-blue-700 bg-blue-50 rounded p-2 border border-blue-200">
+            PE may apply reduced Zone 1' pressure per ASCE 7-22 §30.9
+          </p>
+        )}
       </Section>
 
-      {/* Section 3: Building Geometry */}
+      {/* 3: Building Geometry */}
       <Section title="Building Geometry" icon={Building2}>
         <div className="grid grid-cols-2 gap-2">
           <NumField label="Length" value={inputs.buildingLength} onChange={v => store.setInput('buildingLength', v)} unit="ft" />
@@ -350,10 +328,9 @@ function FormPanel({ inputs, store, orderData, tas105Inputs, tas105Outputs }: {
         </div>
         <NumField label="Mean Roof Height (h)" value={inputs.h} onChange={v => store.setInput('h', v)} unit="ft" />
         <NumField label="Parapet Height" value={inputs.parapetHeight} onChange={v => store.setInput('parapetHeight', v)} unit="ft" />
-        <p className="text-[10px] text-muted-foreground">Low-slope (≤ 7°) only. Zone geometry per ASCE 7-22 Fig. 30.3-2A.</p>
       </Section>
 
-      {/* Section 4: Roof System */}
+      {/* 4: Roof System */}
       <Section title="Roof System" icon={Home}>
         <div className="grid grid-cols-3 gap-2">
           {(['modified_bitumen','single_ply','adhered'] as const).map(sys => (
@@ -370,31 +347,13 @@ function FormPanel({ inputs, store, orderData, tas105Inputs, tas105Outputs }: {
           <Label className="text-xs text-muted-foreground">Deck Type</Label>
           <Select value={inputs.deckType} onValueChange={v => store.setInput('deckType', v)}>
             <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {DECK_OPTIONS.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-            </SelectContent>
+            <SelectContent>{DECK_OPTIONS.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       </Section>
 
-      {/* Section 5: Fastener / Assembly */}
-      <Section title="Fastener / Assembly" icon={Wrench}>
-        <div className="grid grid-cols-2 gap-2">
-          <NumField label="Sheet Width (SW)" value={inputs.sheetWidth_in} onChange={v => store.setInput('sheetWidth_in', v)} unit="in" step={0.125} />
-          <NumField label="Lap Width (LW)" value={inputs.lapWidth_in} onChange={v => store.setInput('lapWidth_in', v)} unit="in" step={0.5} />
-        </div>
-        <div>
-          <NumField label="Fastener Value (Fy)" value={inputs.Fy_lbf} onChange={v => store.setInput('Fy_lbf', v)} unit="lbf" step={0.1}
-            disabled={inputs.fySource === 'tas105' && tas105Outputs?.pass} />
-          {inputs.fySource === 'tas105' && tas105Outputs?.pass && (
-            <p className="text-[10px] text-amber-700 mt-1">Design Fy set to MCRF = {tas105Outputs.MCRF_lbf} lbf from TAS 105 field test</p>
-          )}
-        </div>
-        <NumField label="Initial Rows (n)" value={inputs.initialRows} onChange={v => store.setInput('initialRows', Math.max(2, Math.round(v)))} step={1} />
-      </Section>
-
-      {/* Section 6: Product Approval / NOA */}
-      <Section title="Product Approval / NOA" icon={FileText}>
+      {/* 5: NOA System Data */}
+      <Section title="NOA System Data" icon={FileText}>
         <div>
           <Label className="text-xs text-muted-foreground">Approval Type</Label>
           <Select value={inputs.noa.approvalType} onValueChange={v => store.setNOA('approvalType', v)}>
@@ -405,61 +364,60 @@ function FormPanel({ inputs, store, orderData, tas105Inputs, tas105Outputs }: {
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">Approval Number</Label>
-          <Input value={inputs.noa.approvalNumber} onChange={e => store.setNOA('approvalNumber', e.target.value)} className="h-8 text-sm font-mono" />
-        </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label className="text-xs text-muted-foreground">Manufacturer</Label>
             <Input value={inputs.noa.manufacturer ?? ''} onChange={e => store.setNOA('manufacturer', e.target.value)} className="h-8 text-sm" />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">Product / System</Label>
-            <Input value={inputs.noa.productName ?? ''} onChange={e => store.setNOA('productName', e.target.value)} className="h-8 text-sm" />
+            <Label className="text-xs text-muted-foreground">NOA / Approval #</Label>
+            <Input value={inputs.noa.approvalNumber} onChange={e => store.setNOA('approvalNumber', e.target.value)} className="h-8 text-sm font-mono" />
           </div>
         </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">System Number</Label>
-          <Input value={inputs.noa.systemNumber ?? ''} onChange={e => store.setNOA('systemNumber', e.target.value)} className="h-8 text-sm font-mono" />
-        </div>
-        <NumField label="Max Design Pressure (MDP)" value={Math.abs(inputs.noa.mdp_psf)} onChange={v => store.setNOA('mdp_psf', -Math.abs(v))} unit="psf" />
-        <p className="text-[10px] text-muted-foreground">Tested uplift capacity of Zone 1 prescriptive pattern.</p>
-        <div>
-          <Label className="text-xs text-muted-foreground">MDP Basis</Label>
-          <Select value={inputs.noa.mdp_basis ?? 'asd'} onValueChange={v => store.setNOA('mdp_basis', v)}>
-            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="asd">ASD Level</SelectItem>
-              <SelectItem value="ultimate">Ultimate (will be ÷2 per TAS 114)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center justify-between">
-          <Label className="text-xs">Asterisked Assembly (*)</Label>
-          <Switch checked={inputs.noa.asterisked} onCheckedChange={v => store.setNOA('asterisked', v)} />
-        </div>
-        {inputs.noa.asterisked && (
-          <div className="text-xs bg-amber-50 text-amber-800 border border-amber-200 rounded p-2">
-            Asterisked assemblies cannot be extrapolated beyond their listed MDP.
-          </div>
-        )}
-        {orderData?.noa_document_path && (
-          <NOADocLink path={orderData.noa_document_path} name={orderData.noa_document_name} />
-        )}
-      </Section>
-
-      {/* Section 7: Insulation Board */}
-      <Section title="Insulation Board" icon={Layers} defaultOpen={false}>
         <div className="grid grid-cols-2 gap-2">
-          <NumField label="Board Length" value={inputs.boardLength_ft} onChange={v => store.setInput('boardLength_ft', v)} unit="ft" />
-          <NumField label="Board Width" value={inputs.boardWidth_ft} onChange={v => store.setInput('boardWidth_ft', v)} unit="ft" />
+          <div>
+            <Label className="text-xs text-muted-foreground">Page / Option Ref</Label>
+            <Input value={ccFields.noaPageRef} onChange={e => store.setCCField('noaPageRef', e.target.value)} className="h-8 text-sm" placeholder="e.g. Page 19/Option #3" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Membrane</Label>
+            <Input value={ccFields.membraneDesc} onChange={e => store.setCCField('membraneDesc', e.target.value)} className="h-8 text-sm" placeholder="per NOA" />
+          </div>
         </div>
-        <NumField label="Insulation Fy" value={inputs.insulation_Fy_lbf} onChange={v => store.setInput('insulation_Fy_lbf', v)} unit="lbf" />
+        <div>
+          <Label className="text-xs text-muted-foreground">Insulation</Label>
+          <Input value={ccFields.insulationDesc} onChange={e => store.setCCField('insulationDesc', e.target.value)} className="h-8 text-sm" placeholder="N/A" />
+        </div>
+        <NumField label="Design Pressure (DP)" value={ccFields.designPressure} onChange={v => store.setCCField('designPressure', v)} unit="psf" step={1} tooltip="Negative value from NOA (e.g. -75)" />
+        <div className="grid grid-cols-2 gap-2">
+          <NumField label="Roll Width (NOA)" value={ccFields.rollWidth} onChange={v => store.setCCField('rollWidth', v)} unit="in" step={0.01} />
+          <NumField label="Side Lap (NOA)" value={ccFields.sideLap} onChange={v => store.setCCField('sideLap', v)} unit="in" step={0.5} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <NumField label="Lap Fastener Spacing" value={ccFields.lapFastenerSpacing} onChange={v => store.setCCField('lapFastenerSpacing', v)} unit="in" tooltip="Per NOA" />
+          <NumField label="Field Fastener Spacing" value={ccFields.fieldFastenerSpacing} onChange={v => store.setCCField('fieldFastenerSpacing', v)} unit="in" tooltip="Per NOA" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <NumField label="Rows in Lap" value={ccFields.lapRows} onChange={v => store.setCCField('lapRows', Math.max(1, Math.round(v)))} step={1} />
+          <NumField label="Rows in Field" value={ccFields.fieldRows} onChange={v => store.setCCField('fieldRows', Math.max(1, Math.round(v)))} step={1} />
+        </div>
+        {orderData?.noa_document_path && <NOADocLink path={orderData.noa_document_path} name={orderData.noa_document_name} />}
       </Section>
 
-      {/* Section 8: TAS 105 */}
-      {showTAS105 && (
+      {/* 6: Legacy Fastener / Assembly */}
+      <Section title="Fastener / Assembly (Legacy)" icon={Wrench} defaultOpen={false}>
+        <div className="grid grid-cols-2 gap-2">
+          <NumField label="Sheet Width (SW)" value={inputs.sheetWidth_in} onChange={v => store.setInput('sheetWidth_in', v)} unit="in" step={0.125} />
+          <NumField label="Lap Width (LW)" value={inputs.lapWidth_in} onChange={v => store.setInput('lapWidth_in', v)} unit="in" step={0.5} />
+        </div>
+        <NumField label="Fastener Value (Fy)" value={inputs.Fy_lbf} onChange={v => store.setInput('Fy_lbf', v)} unit="lbf" step={0.1}
+          disabled={inputs.fySource === 'tas105' && tas105Outputs?.pass} />
+        <NumField label="Initial Rows (n)" value={inputs.initialRows} onChange={v => store.setInput('initialRows', Math.max(2, Math.round(v)))} step={1} />
+        <NumField label="MDP (legacy)" value={Math.abs(inputs.noa.mdp_psf)} onChange={v => store.setNOA('mdp_psf', -Math.abs(v))} unit="psf" />
+      </Section>
+
+      {/* 7: TAS 105 */}
+      {(tas105Req.required || inputs.fySource === 'tas105' || showTAS105) && (
         <Section title="TAS 105 Field Test" icon={TestTube}>
           {tas105Req.required && (
             <Badge className={cn("text-[10px]", inputs.deckType === 'lw_concrete' ? "bg-red-100 text-red-800" : "bg-muted text-muted-foreground")}>REQUIRED</Badge>
@@ -474,15 +432,8 @@ function FormPanel({ inputs, store, orderData, tas105Inputs, tas105Outputs }: {
               <Input type="date" value={tas105Inputs.testDate ?? ''} onChange={e => store.setTAS105Meta({ testDate: e.target.value })} className="h-8 text-sm" />
             </div>
           </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Deck Condition Notes</Label>
-            <Input value={tas105Inputs.deckConditionNotes ?? ''} onChange={e => store.setTAS105Meta({ deckConditionNotes: e.target.value })} className="h-8 text-sm" />
-          </div>
           <TAS105ValueGrid values={tas105Inputs.rawValues_lbf} onChange={store.setTAS105Values} />
           {tas105Outputs && <TAS105Stats outputs={tas105Outputs} />}
-          {tas105Inputs.rawValues_lbf.length >= 5 && tas105Outputs && (
-            <TAS105Histogram values={tas105Inputs.rawValues_lbf} mean={tas105Outputs.mean_lbf} mcrf={tas105Outputs.MCRF_lbf} pass={tas105Outputs.pass} />
-          )}
         </Section>
       )}
     </div>
@@ -500,7 +451,7 @@ function NOADocLink({ path, name }: { path: string; name?: string }) {
   if (!url) return null;
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline">
-      📄 View Client-Uploaded NOA Document {name && `(${name})`}
+      📄 View NOA Document {name && `(${name})`}
     </a>
   );
 }
@@ -510,22 +461,11 @@ function TAS105ValueGrid({ values, onChange }: { values: number[]; onChange: (v:
   const [csvInput, setCsvInput] = useState('');
   const slots = Math.max(values.length + 1, 5);
   const padded = [...values, ...Array(Math.max(0, slots - values.length)).fill(0)];
-
-  const updateAt = (i: number, v: number) => {
-    const next = [...padded];
-    next[i] = v;
-    onChange(next.filter(x => x > 0));
-  };
-
+  const updateAt = (i: number, v: number) => { const next = [...padded]; next[i] = v; onChange(next.filter(x => x > 0)); };
   const importCSV = () => {
     const parsed = csvInput.split(/[,\s]+/).map(Number).filter(n => !isNaN(n) && n > 0);
-    if (parsed.length > 0) {
-      onChange([...values, ...parsed]);
-      setCsvInput('');
-      toast.success(`${parsed.length} values imported`);
-    }
+    if (parsed.length > 0) { onChange([...values, ...parsed]); setCsvInput(''); toast.success(`${parsed.length} values imported`); }
   };
-
   return (
     <div>
       <Label className="text-xs text-muted-foreground mb-1 block">Pullout Values (lbf)</Label>
@@ -536,9 +476,7 @@ function TAS105ValueGrid({ values, onChange }: { values: number[]; onChange: (v:
             className="h-7 text-xs font-mono px-1 text-center" />
         ))}
       </div>
-      <Button variant="ghost" size="sm" className="text-xs mt-1" onClick={() => onChange([...values, 0])}>
-        + Add Sample
-      </Button>
+      <Button variant="ghost" size="sm" className="text-xs mt-1" onClick={() => onChange([...values, 0])}>+ Add Sample</Button>
       <div className="flex gap-1 mt-2">
         <Input placeholder="Paste CSV: 350, 420, 380…" value={csvInput} onChange={e => setCsvInput(e.target.value)} className="h-7 text-xs flex-1" />
         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={importCSV}>Import</Button>
@@ -547,12 +485,11 @@ function TAS105ValueGrid({ values, onChange }: { values: number[]; onChange: (v:
   );
 }
 
-// ─── TAS 105 Stats ──────────────────────────────────────────
 function TAS105Stats({ outputs }: { outputs: any }) {
   return (
     <div className="bg-muted/50 rounded p-3 text-xs space-y-1 font-mono">
       <p>n = {outputs.n}, X̄ = {outputs.mean_lbf} lbf, σ = {outputs.stdDev_lbf} lbf</p>
-      <p>t = {outputs.tFactor.toFixed(3)} ({outputs.n >= 10 ? 'n ≥ 10' : 'conservative'})</p>
+      <p>t = {outputs.tFactor.toFixed(3)}</p>
       <p className="font-bold">MCRF = {outputs.MCRF_lbf} lbf</p>
       <Badge className={cn("text-[10px]", outputs.pass ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
         {outputs.pass ? '✅ PASS (≥ 275 lbf)' : '🔴 FAIL (< 275 lbf)'}
@@ -561,95 +498,45 @@ function TAS105Stats({ outputs }: { outputs: any }) {
   );
 }
 
-// ─── TAS 105 Histogram ──────────────────────────────────────
-function TAS105Histogram({ values, mean, mcrf, pass }: { values: number[]; mean: number; mcrf: number; pass: boolean }) {
-  const min = Math.min(...values, mcrf, 275) - 20;
-  const max = Math.max(...values, mean) + 20;
-  const range = max - min || 1;
-  const bins = 8;
-  const binWidth = range / bins;
-  const histogram = Array(bins).fill(0);
-  values.forEach(v => {
-    const idx = Math.min(Math.floor((v - min) / binWidth), bins - 1);
-    if (idx >= 0) histogram[idx]++;
-  });
-  const maxCount = Math.max(...histogram, 1);
-  const w = 240, h = 80, barW = w / bins;
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h + 16}`} className="w-full border rounded bg-card">
-      {histogram.map((count, i) => (
-        <rect key={i} x={i * barW + 1} y={h - (count / maxCount) * h} width={barW - 2}
-          height={(count / maxCount) * h} fill="hsl(var(--primary) / 0.3)" rx={1} />
-      ))}
-      {/* Mean line */}
-      <line x1={((mean - min) / range) * w} y1={0} x2={((mean - min) / range) * w} y2={h}
-        stroke="white" strokeWidth={1.5} strokeDasharray="4 2" />
-      {/* MCRF line */}
-      <line x1={((mcrf - min) / range) * w} y1={0} x2={((mcrf - min) / range) * w} y2={h}
-        stroke={pass ? 'hsl(142 71% 45%)' : 'hsl(0 72% 51%)'} strokeWidth={2} />
-      {/* 275 threshold */}
-      <line x1={((275 - min) / range) * w} y1={0} x2={((275 - min) / range) * w} y2={h}
-        stroke="hsl(0 72% 51%)" strokeWidth={1} strokeDasharray="3 3" />
-      <text x={((mean - min) / range) * w} y={h + 10} textAnchor="middle" fontSize={8} fill="hsl(var(--muted-foreground))">X̄</text>
-      <text x={((mcrf - min) / range) * w} y={h + 10} textAnchor="middle" fontSize={8} fill={pass ? 'hsl(142 71% 45%)' : 'hsl(0 72% 51%)'}>MCRF</text>
-    </svg>
-  );
-}
-
 // ─── Results Panel ──────────────────────────────────────────
-function ResultsPanel({ inputs, outputs, tas105Outputs }: { inputs: any; outputs: any; tas105Outputs: any }) {
-  if (!outputs) return <p className="text-sm text-muted-foreground p-4">Enter parameters to see results.</p>;
+function ResultsPanel({ inputs, ccFields, ccResults, outputs, tas105Outputs }: {
+  inputs: any; ccFields: CCCalcFields; ccResults: FastenerCalcResults | null; outputs: any; tas105Outputs: any;
+}) {
+  if (!ccResults) return <p className="text-sm text-muted-foreground p-4">Enter parameters to see results.</p>;
+  const r = ccResults;
 
   return (
     <div className="space-y-4">
-      {/* 3A: Interactive Zone Diagram */}
-      <ZoneDiagram inputs={inputs} outputs={outputs} />
-
-      {/* 3B: Summary Cards */}
-      <SummaryCards outputs={outputs} />
-
-      {/* 3C: Velocity Pressure Derivation */}
+      {/* 1: Pressure Coefficients */}
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-xs">Velocity Pressure Derivation</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-xs">Pressure Coefficients</CardTitle></CardHeader>
         <CardContent>
           <div className="bg-muted/50 rounded p-3 font-mono text-[11px] space-y-1">
-            <p>Kh = {outputs.Kh} (Exp {inputs.exposureCategory}, h = {inputs.h} ft)</p>
-            <p>qh,ASD = 0.00256 × {outputs.Kh} × {inputs.Kzt} × {inputs.Kd} × {inputs.Ke} × {inputs.V}² × 0.6</p>
-            <p className="font-bold">qh,ASD = {outputs.qh_ASD} psf</p>
+            <p>Kz = {r.Kz} (h={inputs.h}ft, Exposure {inputs.exposureCategory})</p>
+            <p>qz = 0.00256 × {r.Kz} × {inputs.Kzt} × {inputs.Kd} × {inputs.Ke} × {inputs.V}² = <span className="font-bold">{r.qh} psf</span></p>
+            <p>Dqz = 0.6 × {r.qh} = <span className="font-bold">{r.Dqz} psf</span> (ASD)</p>
+            <p>GCpi = ±{r.GCpi} ({inputs.enclosure === 'enclosed' ? 'Enclosed' : inputs.enclosure === 'partially_enclosed' ? 'Partially Enclosed' : 'Open'})</p>
+            <p className="text-muted-foreground">{r.gcpTableName}</p>
           </div>
         </CardContent>
       </Card>
 
-      {/* 3D: Zone Pressures & Attachment Basis */}
+      {/* 2: Uplift Pressures */}
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-xs">Zone Pressures & Attachment Basis</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-xs">Uplift Pressures — C&C</CardTitle></CardHeader>
         <CardContent>
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-xs">
               <thead className="bg-muted/60">
-                <tr><th className="text-left p-2">Zone</th><th className="text-right p-2">P (psf)</th><th className="text-right p-2">Width (ft)</th><th className="p-2">Attachment Basis</th><th className="text-right p-2">Extrap Factor</th></tr>
+                <tr><th className="p-2 text-left">Zone</th><th className="p-2 text-right">GCp</th><th className="p-2 text-right">P = Dqz[(GCp)-(GCpi)]</th><th className="p-2 text-right font-bold">psf</th></tr>
               </thead>
               <tbody>
-                {outputs.noaResults.map((nr: any) => (
-                  <tr key={nr.zone} className="border-t">
-                    <td className="p-2 font-medium">{nr.zone}</td>
-                    <td className="p-2 text-right font-bold">{Math.abs(nr.P_psf).toFixed(1)}</td>
-                    <td className="p-2 text-right">{outputs.zonePressures.zoneWidth_ft}</td>
-                    <td className="p-2">
-                      <Badge className={cn("text-[10px]", BASIS_BADGES[nr.basis]?.cls)}>
-                        {BASIS_BADGES[nr.basis]?.icon} {BASIS_BADGES[nr.basis]?.label}
-                      </Badge>
-                    </td>
-                    <td className="p-2 text-right">
-                      <div className="flex items-center gap-1 justify-end">
-                        <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                          <div className={cn("h-full rounded-full", extrapColor(nr.extrapFactor))}
-                            style={{ width: `${Math.min(nr.extrapFactor / 3 * 100, 100)}%` }} />
-                        </div>
-                        <span className="font-mono">{nr.extrapFactor.toFixed(2)}×</span>
-                      </div>
-                    </td>
+                {r.zones.map(z => (
+                  <tr key={z.zone} className="border-t">
+                    <td className="p-2 font-medium">{z.zone} ({z.label})</td>
+                    <td className="p-2 text-right font-mono">{z.GCp}</td>
+                    <td className="p-2 text-right font-mono text-muted-foreground">{r.Dqz} × ({z.GCp} − {r.GCpi})</td>
+                    <td className="p-2 text-right font-bold font-mono">{z.pressure.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -658,112 +545,147 @@ function ResultsPanel({ inputs, outputs, tas105Outputs }: { inputs: any; outputs
         </CardContent>
       </Card>
 
-      {/* 3E: Fastener Pattern Results */}
-      {inputs.systemType !== 'adhered' ? (
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xs">Fastener Pattern Results — RAS {inputs.systemType === 'single_ply' ? '137' : '117'}</CardTitle>
-              <span className="text-[10px] text-muted-foreground font-mono">Fy = {inputs.Fy_lbf} lbf ({inputs.fySource === 'tas105' ? 'TAS 105' : 'NOA'})</span>
-            </div>
-          </CardHeader>
-          <CardContent>
+      {/* 3: Zone Widths */}
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-xs">Zone Widths</CardTitle></CardHeader>
+        <CardContent>
+          <div className="bg-muted/50 rounded p-3 font-mono text-[11px] space-y-1">
+            {r.zoneWidths.hasZone1Prime && <p>Zone 1' (interior): inside zone boundaries</p>}
+            <p>Zone 1 (field): {r.zoneWidths.zone1} ft {r.zoneWidths.hasZone1Prime ? '(0.6h)' : '(a)'}</p>
+            <p>Zone 2 (perimeter): {r.zoneWidths.zone2} ft</p>
+            <p>Zone 3 (corner): {r.zoneWidths.zone3outer} ft{r.zoneWidths.hasZone1Prime ? `, inner ${r.zoneWidths.zone3inner} ft (0.2h)` : ''}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 4: Fastener Calculation Chain */}
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-xs">Fastener Calculation Chain</CardTitle></CardHeader>
+        <CardContent>
+          <div className="bg-muted/50 rounded p-3 font-mono text-[11px] space-y-1">
+            <p>Net Width: <span className="font-bold">{r.netWidth}"</span> ({ccFields.rollWidth}" − {ccFields.sideLap}")</p>
+            <p>Net Length per Square: <span className="font-bold">{r.netLengthPerSquare} ft</span></p>
+            <p>Row Spacing (Zone 1): <span className="font-bold">{r.baseRowSpacing}"</span> ({r.netWidth}" / {ccFields.fieldRows + ccFields.lapRows})</p>
+            <p>Fasteners Per Square (FPS): <span className="font-bold">{r.fastenersPerSquare}</span></p>
+            <p>Sq Ft Per Fastener: <span className="font-bold">{r.sqftPerFastener}</span></p>
+            <p>Fastener Value (Fv): <span className="font-bold">{r.fastenerValue} LBF</span> (DP × 100 / FPS)</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 5: Computed Spacings */}
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-xs">Computed Spacings</CardTitle></CardHeader>
+        <CardContent>
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/60">
+                <tr><th className="p-2 text-left">Zone</th><th className="p-2 text-right">RS</th><th className="p-2 text-right">Computed</th><th className="p-2">Formula</th></tr>
+              </thead>
+              <tbody>
+                {r.computedSpacings.map(s => {
+                  const zPressure = r.zones.find(z => z.zone === s.zone);
+                  return (
+                    <tr key={s.zone} className="border-t">
+                      <td className="p-2 font-medium">{s.zone} ({s.label})</td>
+                      <td className="p-2 text-right font-mono">{s.rowSpacing}"</td>
+                      <td className="p-2 text-right font-mono">{s.computed}"</td>
+                      <td className="p-2 text-[10px] text-muted-foreground font-mono">
+                        ({Math.abs(r.fastenerValue)}×144)/({Math.abs(zPressure?.pressure ?? 0).toFixed(1)}×{s.rowSpacing})
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 6: Fastener Requirements (permit-ready) */}
+      <Card className="border-primary/30">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xs">Fastener Requirements — Permit-Ready</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/60">
+                <tr>
+                  <th className="p-2 text-left">Zone</th>
+                  <th className="p-2 text-right">Lap Spacing</th>
+                  <th className="p-2 text-right"># Rows</th>
+                  <th className="p-2 text-right">Field Spacing</th>
+                </tr>
+              </thead>
+              <tbody>
+                {r.computedSpacings.map(s => (
+                  <tr key={s.zone} className="border-t">
+                    <td className="p-2 font-medium">Zone {s.zone} ({s.label})</td>
+                    <td className="p-2 text-right font-mono font-bold">{s.lapSpacing}" O.C.</td>
+                    <td className="p-2 text-right font-mono font-bold">{s.fieldRows} rows</td>
+                    <td className="p-2 text-right font-mono font-bold">{s.final}" O.C.</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <CopyPatternButton ccResults={r} ccFields={ccFields} inputs={inputs} />
+        </CardContent>
+      </Card>
+
+      {/* 7: Zone Diagram */}
+      <ZoneDiagram inputs={inputs} ccResults={r} />
+
+      {/* 8: Legacy Results (collapsed) */}
+      {outputs && inputs.systemType !== 'adhered' && (
+        <Collapsible className="border rounded-lg">
+          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 hover:bg-muted/50 transition-colors rounded-t-lg">
+            <span className="text-xs font-medium text-muted-foreground">Legacy RAS 117 Results</span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="px-3 pb-3">
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full text-xs">
                 <thead className="bg-muted/60">
-                  <tr><th className="p-2">Zone</th><th className="text-right p-2">P</th><th className="p-2">Basis</th><th className="text-right p-2">Rows</th><th className="text-right p-2">RS</th><th className="text-right p-2">FS Calc</th><th className="text-right p-2 font-bold">FS Used</th><th className="text-right p-2">D/R</th><th className="p-2">½</th></tr>
+                  <tr><th className="p-2">Zone</th><th className="p-2 text-right">P</th><th className="p-2 text-right">Rows</th><th className="p-2 text-right">RS</th><th className="p-2 text-right">FS</th></tr>
                 </thead>
                 <tbody>
-                  {outputs.fastenerResults.map((fr: any) => (
+                  {outputs.fastenerResults?.map((fr: any) => (
                     <tr key={fr.zone} className="border-t">
-                      <td className="p-2 font-medium">{fr.zone}</td>
+                      <td className="p-2">{fr.zone}</td>
                       <td className="p-2 text-right">{fr.P_psf}</td>
-                      <td className="p-2"><Badge className={cn("text-[9px]", BASIS_BADGES[fr.noaCheck.basis]?.cls)}>{fr.noaCheck.basis === 'prescriptive' ? 'NOA' : 'RAS'}</Badge></td>
                       <td className="p-2 text-right">{fr.n_rows}</td>
                       <td className="p-2 text-right font-mono">{fr.RS_in}"</td>
-                      <td className="p-2 text-right font-mono">{fr.FS_calculated_in}"</td>
-                      <td className="p-2 text-right font-bold font-mono">{fr.FS_used_in}"</td>
-                      <td className="p-2 text-right">
-                        <div className="flex items-center gap-1 justify-end">
-                          <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">
-                            <div className={cn("h-full rounded-full", drColor(fr.demandRatio))}
-                              style={{ width: `${Math.min(fr.demandRatio * 100, 100)}%` }} />
-                          </div>
-                          <span className="font-mono text-[10px]">{(fr.demandRatio * 100).toFixed(0)}%</span>
-                        </div>
-                      </td>
-                      <td className="p-2">{fr.halfSheetRequired ? '⚠️' : '—'}</td>
+                      <td className="p-2 text-right font-mono font-bold">{fr.FS_used_in}"</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="py-4">
-            <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-800">
-              <Info className="h-4 w-4 inline mr-1" />
-              Adhered Membrane System — No mechanical fastener spacing applies. Verify adhesive bond ≥ zone pressures per NOA / TAS 124.
-            </div>
-          </CardContent>
-        </Card>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
-      {/* 3F: Pattern Summary (permit-ready) */}
-      {inputs.systemType !== 'adhered' && outputs.fastenerResults.length > 0 && (
-        <PatternSummary inputs={inputs} outputs={outputs} />
-      )}
-
-      {/* 3G: Insulation Board Fasteners */}
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-xs">Insulation Board Fasteners (RAS 117 §8)</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {outputs.insulationResults.map((ir: any) => (
-              <div key={ir.zone} className="border rounded p-2 text-xs">
-                <p className="font-semibold">Zone {ir.zone}</p>
-                <p className="text-muted-foreground">{ir.P_psf} psf</p>
-                <p className="font-bold">{ir.N_used} fasteners</p>
-                <p className="text-[10px] text-muted-foreground">{ir.layout}</p>
-                {ir.N_used > ir.N_prescribed && <p className="text-[10px] text-amber-600">Exceeds prescriptive ({ir.N_prescribed})</p>}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 3H: TAS 105 Results */}
+      {/* 9: TAS 105 Results */}
       {tas105Outputs && (
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-xs">TAS 105 Results</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent>
             <div className="text-xs font-mono space-y-1">
-              <p>n = {tas105Outputs.n}, X̄ = {tas105Outputs.mean_lbf} lbf, σ = {tas105Outputs.stdDev_lbf} lbf, t = {tas105Outputs.tFactor.toFixed(3)}</p>
+              <p>n = {tas105Outputs.n}, X̄ = {tas105Outputs.mean_lbf} lbf, σ = {tas105Outputs.stdDev_lbf} lbf</p>
               <p className="font-bold">MCRF = {tas105Outputs.MCRF_lbf} lbf
                 <Badge className={cn("ml-2 text-[10px]", tas105Outputs.pass ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")}>
                   {tas105Outputs.pass ? '✅ PASS' : '🔴 FAIL'}
                 </Badge>
               </p>
             </div>
-            {!tas105Outputs.pass && (
-              <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-800 space-y-1">
-                <p className="font-semibold">Remediation Required:</p>
-                <ol className="list-decimal ml-4 space-y-0.5">
-                  <li>Verify test methodology</li>
-                  <li>Consider alternative fastener</li>
-                  <li>Provide deck repair specification</li>
-                  <li>Re-test after repair</li>
-                </ol>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
 
-      {/* 3I: Warnings */}
-      {outputs.warnings.length > 0 && (
+      {/* 10: Warnings */}
+      {outputs?.warnings?.length > 0 && (
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-xs">Warnings & Compliance</CardTitle></CardHeader>
           <CardContent className="space-y-1.5">
@@ -783,186 +705,120 @@ function ResultsPanel({ inputs, outputs, tas105Outputs }: { inputs: any; outputs
         </Card>
       )}
 
-      {/* 3J: Footer */}
       <p className="text-[10px] text-muted-foreground text-center pb-4">
-        FastenerCalc HVHZ provides calculations as a design aid based on FBC 8th Edition, ASCE 7-22, and Florida Test Protocols (RAS 117, 128, 137, TAS 105). All results must be reviewed and approved by a licensed PE.
+        FastenerCalc HVHZ — ASCE 7-22 Ch. 30 C&C · FBC 8th Edition (2023) · RAS 117/128/137 · TAS 105
       </p>
     </div>
   );
 }
 
-// ─── Pattern Summary Card ───────────────────────────────────
-function PatternSummary({ inputs, outputs }: { inputs: any; outputs: any }) {
+// ─── Copy Pattern Button ────────────────────────────────────
+function CopyPatternButton({ ccResults: r, ccFields, inputs }: { ccResults: FastenerCalcResults; ccFields: CCCalcFields; inputs: any }) {
   const [copied, setCopied] = useState(false);
-  const lines = outputs.fastenerResults.map((fr: any) => {
-    const basis = fr.noaCheck.basis === 'prescriptive' ? 'NOA' : 'RAS 117';
-    const half = fr.halfSheetRequired ? ' [HALF SHEET]' : '';
-    return `Zone ${fr.zone}: ${fr.FS_used_in}" o.c. at ${inputs.lapWidth_in}" lap + ${fr.FS_used_in}" o.c. at ${fr.n_rows} rows (${basis})${half}`;
-  });
-  const text = `NOA: ${inputs.noa.approvalNumber || '—'} | MDP: ${Math.abs(inputs.noa.mdp_psf)} psf\n\n${lines.join('\n')}`;
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <Card className="border-primary/30">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xs">Pattern Summary — Permit-Ready</CardTitle>
-          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
-            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-            {copied ? 'Copied' : 'Copy'}
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-[10px] text-muted-foreground mb-2">NOA: {inputs.noa.approvalNumber || '—'} | MDP: {Math.abs(inputs.noa.mdp_psf)} psf</p>
-        <div className="bg-muted/50 rounded p-3 font-mono text-[11px] space-y-0.5">
-          {lines.map((line: string, i: number) => <p key={i}>{line}</p>)}
-        </div>
-      </CardContent>
-    </Card>
+  const lines = r.computedSpacings.map(s =>
+    `Zone ${s.zone} (${s.label}): ${s.lapSpacing}" O.C. lap + ${s.fieldRows} rows @ ${s.final}" O.C.`
   );
-}
-
-// ─── Summary Cards ──────────────────────────────────────────
-function SummaryCards({ outputs }: { outputs: any }) {
-  const z3 = outputs.noaResults.find((r: any) => r.zone === '3');
-  const minFS = outputs.fastenerResults.length > 0 ? outputs.minFS_in : null;
+  const text = `NOA: ${inputs.noa.approvalNumber || '—'} | DP: ${ccFields.designPressure} psf | V=${inputs.V} mph\n${lines.join('\n')}`;
+  const handleCopy = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-      <MetricCard label="qh (ASD)" value={`${outputs.qh_ASD} psf`} />
-      <MetricCard label="Zone 3" value={`${z3 ? Math.abs(z3.P_psf).toFixed(1) : '—'} psf`} className="text-red-600" />
-      <MetricCard label="Zone 3 Extrap" value={`${z3 ? z3.extrapFactor.toFixed(2) : '—'}× of 3.0×`}
-        className={z3 ? (z3.extrapFactor < 2 ? 'text-green-600' : z3.extrapFactor <= 3 ? 'text-amber-600' : 'text-red-600') : ''} />
-      <MetricCard label="Min FS" value={minFS != null ? `${minFS}"` : '—'}
-        className={minFS != null && minFS < 6 ? 'text-red-600' : ''} />
-      <MetricCard label="NOA MDP" value={`${Math.abs(outputs.noaResults[0]?.MDP_psf || 0)} psf`} />
+    <div className="flex justify-end mt-2">
+      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
+        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} {copied ? 'Copied' : 'Copy Pattern'}
+      </Button>
     </div>
   );
 }
 
-function MetricCard({ label, value, className }: { label: string; value: string; className?: string }) {
-  return (
-    <div className="border rounded-lg p-2 text-center">
-      <p className="text-[10px] text-muted-foreground">{label}</p>
-      <p className={cn("text-sm font-bold font-mono", className)}>{value}</p>
-    </div>
-  );
-}
-
-// ─── Interactive Zone Diagram ───────────────────────────────
-function ZoneDiagram({ inputs, outputs }: { inputs: any; outputs: any }) {
+// ─── Zone Diagram (C&C) ────────────────────────────────────
+function ZoneDiagram({ inputs, ccResults: r }: { inputs: any; ccResults: FastenerCalcResults }) {
   const [hovered, setHovered] = useState<string | null>(null);
   const W = inputs.buildingWidth;
   const L = inputs.buildingLength;
-  const a = outputs.zonePressures.zoneWidth_ft;
+  const zw = r.zoneWidths;
   const maxDim = Math.max(W, L);
   const svgW = 400, svgH = 300;
   const padding = 40;
   const scale = (svgW - padding * 2) / maxDim;
   const sw = W * scale, sl = L * scale;
-  const sa = a * scale;
+  const sa = zw.zone2 * scale;
   const ox = (svgW - sw) / 2, oy = (svgH - sl - 30) / 2 + 10;
 
-  const has1prime = L > 2 * a && W > 2 * a;
-  const zp = outputs.zonePressures;
-  const fr = outputs.fastenerResults;
+  const has1p = zw.hasZone1Prime && L > 2 * zw.zone2 && W > 2 * zw.zone2;
 
-  const getFR = (zone: string) => fr.find((f: any) => f.zone === zone);
+  const allRects: { zone: string; x: number; y: number; w: number; h: number; fill: string; stroke: string; dash?: boolean }[] = [];
 
-  const zoneRects = [
-    // Zone 1' (field) — draw first, underneath
-    ...(has1prime ? [{
-      zone: "1'", x: ox + sa, y: oy + sa, w: sw - 2 * sa, h: sl - 2 * sa,
-      fill: ZONE_COLORS['1prime'].fill, stroke: ZONE_COLORS['1prime'].stroke, dash: true,
-    }] : []),
-    // Zone 1 (inner ring strips)
-    { zone: '1', x: ox + sa, y: oy, w: sw - 2 * sa, h: sa, fill: ZONE_COLORS['1'].fill, stroke: ZONE_COLORS['1'].stroke },
-    { zone: '1', x: ox + sa, y: oy + sl - sa, w: sw - 2 * sa, h: sa, fill: ZONE_COLORS['1'].fill, stroke: ZONE_COLORS['1'].stroke },
-    { zone: '1', x: ox, y: oy + sa, w: sa, h: sl - 2 * sa, fill: ZONE_COLORS['1'].fill, stroke: ZONE_COLORS['1'].stroke },
-    { zone: '1', x: ox + sw - sa, y: oy + sa, w: sa, h: sl - 2 * sa, fill: ZONE_COLORS['1'].fill, stroke: ZONE_COLORS['1'].stroke },
-    // Zone 2 perimeter strips (same as zone 1 here for simplified rendering — overlaid)
-    // Zone 3 corners
-    { zone: '3', x: ox, y: oy, w: sa, h: sa, fill: ZONE_COLORS['3'].fill, stroke: ZONE_COLORS['3'].stroke },
-    { zone: '3', x: ox + sw - sa, y: oy, w: sa, h: sa, fill: ZONE_COLORS['3'].fill, stroke: ZONE_COLORS['3'].stroke },
-    { zone: '3', x: ox, y: oy + sl - sa, w: sa, h: sa, fill: ZONE_COLORS['3'].fill, stroke: ZONE_COLORS['3'].stroke },
-    { zone: '3', x: ox + sw - sa, y: oy + sl - sa, w: sa, h: sa, fill: ZONE_COLORS['3'].fill, stroke: ZONE_COLORS['3'].stroke },
-  ];
-
-  // Also add Zone 2 strips between corners
-  const z2Rects = [
+  // Zone 1' (interior)
+  if (has1p) {
+    allRects.push({ zone: "1'", x: ox + sa, y: oy + sa, w: sw - 2 * sa, h: sl - 2 * sa,
+      fill: ZONE_COLORS["1'"].fill, stroke: ZONE_COLORS["1'"].stroke, dash: true });
+  }
+  // Zone 2 (perimeter strips)
+  allRects.push(
     { zone: '2', x: ox + sa, y: oy, w: sw - 2 * sa, h: sa, fill: ZONE_COLORS['2'].fill, stroke: ZONE_COLORS['2'].stroke },
     { zone: '2', x: ox + sa, y: oy + sl - sa, w: sw - 2 * sa, h: sa, fill: ZONE_COLORS['2'].fill, stroke: ZONE_COLORS['2'].stroke },
     { zone: '2', x: ox, y: oy + sa, w: sa, h: sl - 2 * sa, fill: ZONE_COLORS['2'].fill, stroke: ZONE_COLORS['2'].stroke },
     { zone: '2', x: ox + sw - sa, y: oy + sa, w: sa, h: sl - 2 * sa, fill: ZONE_COLORS['2'].fill, stroke: ZONE_COLORS['2'].stroke },
-  ];
+  );
+  // Zone 3 (corners)
+  allRects.push(
+    { zone: '3', x: ox, y: oy, w: sa, h: sa, fill: ZONE_COLORS['3'].fill, stroke: ZONE_COLORS['3'].stroke },
+    { zone: '3', x: ox + sw - sa, y: oy, w: sa, h: sa, fill: ZONE_COLORS['3'].fill, stroke: ZONE_COLORS['3'].stroke },
+    { zone: '3', x: ox, y: oy + sl - sa, w: sa, h: sa, fill: ZONE_COLORS['3'].fill, stroke: ZONE_COLORS['3'].stroke },
+    { zone: '3', x: ox + sw - sa, y: oy + sl - sa, w: sa, h: sa, fill: ZONE_COLORS['3'].fill, stroke: ZONE_COLORS['3'].stroke },
+  );
 
-  // Correct layering: field → zone2 → zone3
-  const allRects = [
-    ...(has1prime ? [zoneRects[0]] : []), // 1' field
-    ...z2Rects, // Zone 2
-    ...zoneRects.filter(r => r.zone === '3'), // Zone 3 corners
-  ];
+  const getSpacing = (zone: string) => r.computedSpacings.find(s => s.zone === zone);
+  const getZonePressure = (zone: string) => r.zones.find(z => z.zone === zone);
 
-  const hoveredFR = hovered ? getFR(hovered) : null;
-  const hoveredP = hovered === '3' ? zp.zone3 : hovered === '2' ? zp.zone2 : hovered === '1' ? zp.zone1 : hovered === "1'" ? zp.zone1prime : null;
+  const hoveredSpacing = hovered ? getSpacing(hovered) : null;
+  const hoveredPressure = hovered ? getZonePressure(hovered) : null;
 
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-xs">Zone Diagram</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle className="text-xs">Zone Diagram — C&C</CardTitle></CardHeader>
       <CardContent>
         <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full">
-          {/* Building outline */}
           <rect x={ox} y={oy} width={sw} height={sl} fill="hsl(var(--muted) / 0.3)" stroke="hsl(var(--border))" strokeWidth={1} />
-
-          {allRects.map((r, i) => (
-            <rect key={i} x={r.x} y={r.y} width={r.w} height={r.h}
-              fill={hovered && hovered !== r.zone ? r.fill.replace(/[\d.]+\)$/, '0.05)') : r.fill}
-              stroke={r.stroke} strokeWidth={hovered === r.zone ? 2 : 0.5}
-              strokeDasharray={(r as any).dash ? '4 2' : undefined}
+          {allRects.map((rect, i) => (
+            <rect key={i} x={rect.x} y={rect.y} width={rect.w} height={rect.h}
+              fill={hovered && hovered !== rect.zone ? rect.fill.replace(/[\d.]+\)$/, '0.05)') : rect.fill}
+              stroke={rect.stroke} strokeWidth={hovered === rect.zone ? 2 : 0.5}
+              strokeDasharray={rect.dash ? '4 2' : undefined}
               className="cursor-pointer transition-opacity"
-              onMouseEnter={() => setHovered(r.zone)}
+              onMouseEnter={() => setHovered(rect.zone)}
               onMouseLeave={() => setHovered(null)} />
           ))}
-
           {/* Dimension labels */}
           <text x={ox + sw / 2} y={oy + sl + 18} textAnchor="middle" fontSize={10} fill="hsl(var(--muted-foreground))">{W} ft</text>
           <text x={ox - 14} y={oy + sl / 2} textAnchor="middle" fontSize={10} fill="hsl(var(--muted-foreground))"
             transform={`rotate(-90, ${ox - 14}, ${oy + sl / 2})`}>{L} ft</text>
-          {/* Zone width bracket */}
-          <text x={ox + sa / 2} y={oy - 6} textAnchor="middle" fontSize={8} fill="hsl(var(--muted-foreground))">a={a} ft</text>
-
-          {/* Pressure legend */}
-          <rect x={svgW - 130} y={6} width={124} height={80} rx={4} fill="hsl(var(--card))" stroke="hsl(var(--border))" />
-          {[
-            { z: "1'", p: zp.zone1prime, c: ZONE_COLORS['1prime'].label },
-            { z: '1', p: zp.zone1, c: ZONE_COLORS['1'].label },
-            { z: '2', p: zp.zone2, c: ZONE_COLORS['2'].label },
-            { z: '3', p: zp.zone3, c: ZONE_COLORS['3'].label },
-          ].map((item, i) => (
-            <g key={i}>
-              <rect x={svgW - 124} y={12 + i * 18} width={8} height={8} fill={item.c} rx={1} />
-              <text x={svgW - 112} y={19 + i * 18} fontSize={9} fill="hsl(var(--foreground))">
-                Z{item.z}: {Math.abs(item.p).toFixed(1)} psf
-              </text>
-            </g>
-          ))}
-
+          <text x={ox + sa / 2} y={oy - 6} textAnchor="middle" fontSize={8} fill="hsl(var(--muted-foreground))">
+            {zw.hasZone1Prime ? `0.6h=${zw.zone2} ft` : `a=${zw.zone2} ft`}
+          </text>
+          {/* Legend */}
+          <rect x={svgW - 130} y={6} width={124} height={has1p ? 80 : 64} rx={4} fill="hsl(var(--card))" stroke="hsl(var(--border))" />
+          {r.zones.map((z, i) => {
+            const clr = ZONE_COLORS[z.zone] ?? ZONE_COLORS['1'];
+            return (
+              <g key={z.zone}>
+                <rect x={svgW - 124} y={12 + i * 16} width={8} height={8} fill={clr.label} rx={1} />
+                <text x={svgW - 112} y={19 + i * 16} fontSize={9} fill="hsl(var(--foreground))">
+                  Z{z.zone}: {Math.abs(z.pressure).toFixed(1)} psf
+                </text>
+              </g>
+            );
+          })}
           {/* Hover tooltip */}
-          {hovered && hoveredP != null && (
+          {hovered && hoveredPressure && (
             <g>
-              <rect x={ox + sw / 2 - 80} y={oy + sl + 24} width={160} height={hovered && hoveredFR ? 36 : 22} rx={4}
+              <rect x={ox + sw / 2 - 90} y={oy + sl + 24} width={180} height={hoveredSpacing ? 36 : 22} rx={4}
                 fill="hsl(var(--popover))" stroke="hsl(var(--border))" />
               <text x={ox + sw / 2} y={oy + sl + 38} textAnchor="middle" fontSize={10} fontWeight="600" fill="hsl(var(--foreground))">
-                Zone {hovered}: P = {Math.abs(hoveredP).toFixed(1)} psf
+                Zone {hovered}: P = {Math.abs(hoveredPressure.pressure).toFixed(1)} psf
               </text>
-              {hoveredFR && (
+              {hoveredSpacing && (
                 <text x={ox + sw / 2} y={oy + sl + 52} textAnchor="middle" fontSize={9} fill="hsl(var(--muted-foreground))">
-                  FS: {hoveredFR.FS_used_in}" o.c. × {hoveredFR.n_rows} rows
+                  {hoveredSpacing.fieldRows} rows @ {hoveredSpacing.final}" O.C.
                 </text>
               )}
             </g>
@@ -971,17 +827,4 @@ function ZoneDiagram({ inputs, outputs }: { inputs: any; outputs: any }) {
       </CardContent>
     </Card>
   );
-}
-
-// ─── Helpers ────────────────────────────────────────────────
-function extrapColor(f: number) {
-  if (f < 2) return 'bg-green-500';
-  if (f <= 2.7) return 'bg-amber-500';
-  if (f <= 3) return 'bg-orange-500';
-  return 'bg-red-500';
-}
-function drColor(dr: number) {
-  if (dr < 0.75) return 'bg-green-500';
-  if (dr <= 0.95) return 'bg-amber-500';
-  return 'bg-red-500';
 }
