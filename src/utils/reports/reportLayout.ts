@@ -536,9 +536,8 @@ export class HVHZReportBuilder {
     this.doc.line(lDimX, oy, lDimX, oy + drawL);
     this.doc.line(lDimX - 1.5, oy, lDimX + 1.5, oy);
     this.doc.line(lDimX - 1.5, oy + drawL, lDimX + 1.5, oy + drawL);
-    this.doc.save();
+    // Rotated length label — jsPDF text with angle param handles rotation
     this.doc.text(`${L}'`, lDimX - 3, oy + drawL / 2, { align: 'center', angle: 90 });
-    this.doc.restore();
 
     // Legend
     const legY = bDimY + 12;
