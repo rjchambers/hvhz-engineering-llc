@@ -2,6 +2,7 @@ import { HVHZReportBuilder, type ReportConfig, type PhotoData } from './reportLa
 import { format } from 'date-fns';
 import { runDrainageCalc, DESIGN_RAINFALL, type DrainageCalcInputs } from '@/lib/drainage-calc';
 import { calculateFastener, type FastenerInputs } from '@/lib/fastener-engine';
+import { computeFastenerCalc, type FastenerCalcInputs, type FastenerCalcResults } from '@/lib/wind-calc';
 
 interface EngineerProfile {
   full_name: string;
