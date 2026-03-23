@@ -85,7 +85,7 @@ export function generateReport(
 
 function getDisclaimerSectionNum(serviceType: string): string {
   const nums: Record<string, string> = {
-    'fastener-calculation': '10.0',
+    'fastener-calculation': '11.0',
     'drainage-analysis': '11.0',
     'wind-mitigation-permit': '9.0',
     'roof-inspection': '7.0',
@@ -189,11 +189,19 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
   // 5.0 Pressure Coefficients
   rb.addSection('5.0', 'PRESSURE COEFFICIENTS');
   rb.addSubSection('5.1', 'Velocity Pressure');
+  const exposureParams = { B: { a: 7.0, Zg: 1200 }, C: { a: 9.5, Zg: 900 }, D: { a: 11.5, Zg: 700 } };
+  const ep = exposureParams[(fd.exposure_category ?? 'C') as keyof typeof exposureParams];
   rb.addDerivationBlock([
-    `qh = 0.00256 × ${ccResults.Kz} × ${fd.Kzt ?? 1} × 0.85 × ${fd.Ke ?? 1} × ${fd.wind_speed ?? 185}² = ${ccResults.qh} psf (ultimate)`,
-    `Dqz = 0.6 × ${ccResults.qh} = ${ccResults.Dqz} psf (ASD)`,
-    `GCpi = ±${ccResults.GCpi} (${fd.enclosure_type ?? 'Enclosed'})`,
-    ccResults.gcpTableName,
+    `Kz = 2.01 x (h/Zg)^(2/a)  [ASCE 7-22 Eq. 26.10-1]`,
+    `   a = ${ep.a}, Zg = ${ep.Zg} (Exposure ${fd.exposure_category ?? 'C'})`,
+    `   Kz = 2.01 x (${fd.mean_roof_height_ft ?? 25}/${ep.Zg})^(2/${ep.a}) = ${ccResults.Kz}`,
+    ``,
+    `qh = 0.00256 x Kz x Kzt x Kd x Ke x V^2`,
+    `   = 0.00256 x ${ccResults.Kz} x ${fd.Kzt ?? 1} x 0.85 x ${fd.Ke ?? 1} x ${fd.wind_speed ?? 185}^2 = ${ccResults.qh} psf`,
+    `Dqz = 0.6 x ${ccResults.qh} = ${ccResults.Dqz} psf (ASD)`,
+    ``,
+    `GCpi = +/-${ccResults.GCpi} (${fd.enclosure_type ?? 'Enclosed'})`,
+    `GCp source: ${ccResults.gcpTableName}`,
   ]);
 
   // 5.2 Uplift Pressures
@@ -282,8 +290,17 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
     });
   }
 
-  // 9.0 Warnings
-  rb.addSection('9.0', 'WARNINGS & ENGINEERING NOTES');
+  // 9.0 Zone Plan Diagram
+  rb.addZonePlanDiagram(
+    '9.0',
+    fd.building_width_ft ?? 0,
+    fd.building_length_ft ?? 0,
+    ccResults.zoneWidths,
+    ccResults.computedSpacings
+  );
+
+  // 10.0 Warnings
+  rb.addSection('10.0', 'WARNINGS & ENGINEERING NOTES');
   const nonInfoWarnings = legacyOutputs.warnings.filter(w => w.level !== 'info');
   if (nonInfoWarnings.length > 0) {
     nonInfoWarnings.forEach(w => {
@@ -292,6 +309,12 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
   } else {
     rb.addCalloutBox('No engineering warnings. System meets all HVHZ requirements.', 'success');
   }
+
+  // Fastener-specific disclaimer
+  rb.addTextBlock(
+    'Calculations based on information provided by client and ASCE. Standard code requirements apply with this design. No warranties or guaranties implied. Other code issues should be documented but are not included in this calculation. All work shall be inspected by this office or the authority having jurisdiction to verify compliance.',
+    { color: 'slate' }
+  );
 }
 
 

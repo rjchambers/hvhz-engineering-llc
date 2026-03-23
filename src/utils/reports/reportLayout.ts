@@ -404,6 +404,165 @@ export class HVHZReportBuilder {
     this.yPos += boxH + 4;
   }
 
+  // ─── ZONE PLAN DIAGRAM ──────────────────────────────────────
+  addZonePlanDiagram(
+    sectionNum: string,
+    W: number,
+    L: number,
+    zoneWidths: { zone1: number; zone2: number; zone3outer: number; zone3inner: number; hasZone1Prime: boolean },
+    spacings: Array<{ zone: string; label: string; final: number; fieldRows: number }>
+  ) {
+    this.doc.addPage();
+    this.drawContinuationHeader();
+    this.yPos = 20;
+    this.addSection(sectionNum, 'ZONE PLAN DIAGRAM');
+
+    const maxDimFt = Math.max(W, L);
+    if (maxDimFt <= 0) return;
+    const scale = 120 / maxDimFt;
+    const drawW = W * scale;
+    const drawL = L * scale;
+    const ox = this.ml + (this.cw - drawW) / 2;
+    const oy = this.yPos + 8;
+
+    const ZONE1_BG: [number, number, number] = [230, 240, 250];
+    const ZONE2_BG: [number, number, number] = [255, 243, 224];
+    const ZONE3_BG: [number, number, number] = [254, 226, 226];
+
+    // Full building outline (Zone 1 field)
+    this.doc.setFillColor(...ZONE1_BG);
+    this.doc.setDrawColor(...NAVY);
+    this.doc.setLineWidth(0.5);
+    this.doc.rect(ox, oy, drawW, drawL, 'FD');
+
+    const z2w = zoneWidths.zone2 * scale;
+    const z3o = zoneWidths.zone3outer * scale;
+
+    // Perimeter strips (Zone 2) — top, bottom, left, right
+    this.doc.setFillColor(...ZONE2_BG);
+    this.doc.setDrawColor(200, 180, 140);
+    this.doc.setLineWidth(0.2);
+    // Top strip
+    this.doc.rect(ox, oy, drawW, z2w, 'FD');
+    // Bottom strip
+    this.doc.rect(ox, oy + drawL - z2w, drawW, z2w, 'FD');
+    // Left strip
+    this.doc.rect(ox, oy + z2w, z2w, drawL - 2 * z2w, 'FD');
+    // Right strip
+    this.doc.rect(ox + drawW - z2w, oy + z2w, z2w, drawL - 2 * z2w, 'FD');
+
+    // Corner squares (Zone 3)
+    this.doc.setFillColor(...ZONE3_BG);
+    this.doc.setDrawColor(200, 140, 140);
+    this.doc.setLineWidth(0.2);
+    // Top-left
+    this.doc.rect(ox, oy, z3o, z3o, 'FD');
+    // Top-right
+    this.doc.rect(ox + drawW - z3o, oy, z3o, z3o, 'FD');
+    // Bottom-left
+    this.doc.rect(ox, oy + drawL - z3o, z3o, z3o, 'FD');
+    // Bottom-right
+    this.doc.rect(ox + drawW - z3o, oy + drawL - z3o, z3o, z3o, 'FD');
+
+    // Re-draw building outline
+    this.doc.setDrawColor(...NAVY);
+    this.doc.setLineWidth(0.5);
+    this.doc.rect(ox, oy, drawW, drawL, 'S');
+
+    // Zone labels
+    this.doc.setFontSize(8);
+    this.doc.setFont('helvetica', 'bold');
+
+    // Field label (center)
+    this.doc.setTextColor(30, 64, 175);
+    const fieldLabel = zoneWidths.hasZone1Prime ? "ZONE 1'" : 'ZONE 1';
+    this.doc.text(fieldLabel, ox + drawW / 2, oy + drawL / 2, { align: 'center' });
+
+    // Perimeter label (top center, inside perimeter strip)
+    this.doc.setTextColor(180, 100, 20);
+    if (z2w > 6) {
+      this.doc.text('ZONE 2', ox + drawW / 2, oy + z2w / 2 + 1, { align: 'center' });
+    }
+
+    // Corner label (top-left corner)
+    this.doc.setTextColor(190, 50, 50);
+    if (z3o > 8) {
+      this.doc.text('ZONE 3', ox + z3o / 2, oy + z3o / 2 + 1, { align: 'center' });
+    }
+
+    // Spacing annotations below zone labels
+    this.doc.setFontSize(6);
+    this.doc.setFont('helvetica', 'normal');
+    for (const s of spacings) {
+      if (s.label === 'Field' || s.label === 'Interior') {
+        this.doc.setTextColor(30, 64, 175);
+        this.doc.text(`${s.final}" O.C., ${s.fieldRows} rows`, ox + drawW / 2, oy + drawL / 2 + 5, { align: 'center' });
+      }
+    }
+
+    // Dimension lines
+    this.doc.setDrawColor(...MID_SLATE);
+    this.doc.setLineWidth(0.2);
+    this.doc.setFontSize(7);
+    this.doc.setTextColor(...DARK_SLATE);
+    this.doc.setFont('helvetica', 'normal');
+
+    // Zone 2 width dimension (above building)
+    const dimY = oy - 5;
+    this.doc.line(ox, dimY, ox + z2w, dimY);
+    this.doc.line(ox, dimY - 1.5, ox, dimY + 1.5);
+    this.doc.line(ox + z2w, dimY - 1.5, ox + z2w, dimY + 1.5);
+    this.doc.text(`${zoneWidths.zone2}'`, ox + z2w / 2, dimY - 1.5, { align: 'center' });
+
+    // Zone 3 inner dimension (if flat)
+    if (zoneWidths.hasZone1Prime) {
+      const z3i = zoneWidths.zone3inner * scale;
+      const innerDimY = oy - 12;
+      this.doc.line(ox, innerDimY, ox + z3i, innerDimY);
+      this.doc.line(ox, innerDimY - 1.5, ox, innerDimY + 1.5);
+      this.doc.line(ox + z3i, innerDimY - 1.5, ox + z3i, innerDimY + 1.5);
+      this.doc.text(`${zoneWidths.zone3inner}'`, ox + z3i / 2, innerDimY - 1.5, { align: 'center' });
+    }
+
+    // Building width dimension (below)
+    const bDimY = oy + drawL + 8;
+    this.doc.line(ox, bDimY, ox + drawW, bDimY);
+    this.doc.line(ox, bDimY - 1.5, ox, bDimY + 1.5);
+    this.doc.line(ox + drawW, bDimY - 1.5, ox + drawW, bDimY + 1.5);
+    this.doc.text(`${W}'`, ox + drawW / 2, bDimY + 4, { align: 'center' });
+
+    // Building length dimension (left)
+    const lDimX = ox - 8;
+    this.doc.line(lDimX, oy, lDimX, oy + drawL);
+    this.doc.line(lDimX - 1.5, oy, lDimX + 1.5, oy);
+    this.doc.line(lDimX - 1.5, oy + drawL, lDimX + 1.5, oy + drawL);
+    // Rotated length label — jsPDF text with angle param handles rotation
+    this.doc.text(`${L}'`, lDimX - 3, oy + drawL / 2, { align: 'center', angle: 90 });
+
+    // Legend
+    const legY = bDimY + 12;
+    this.doc.setFontSize(7);
+    this.doc.setFont('helvetica', 'normal');
+    this.doc.setTextColor(...DARK_SLATE);
+
+    const legItems: { color: [number, number, number]; text: string }[] = [
+      { color: ZONE1_BG, text: `Field (Zone ${zoneWidths.hasZone1Prime ? "1'/1" : '1'})` },
+      { color: ZONE2_BG, text: 'Perimeter (Zone 2)' },
+      { color: ZONE3_BG, text: 'Corner (Zone 3)' },
+    ];
+    let legX = ox;
+    for (const item of legItems) {
+      this.doc.setFillColor(...item.color);
+      this.doc.setDrawColor(180, 180, 180);
+      this.doc.setLineWidth(0.2);
+      this.doc.rect(legX, legY - 2.5, 4, 4, 'FD');
+      this.doc.text(item.text, legX + 5.5, legY + 0.5);
+      legX += 50;
+    }
+
+    this.yPos = legY + 10;
+  }
+
   // ─── SCOPE SECTION ──────────────────────────────────────────
   addScopeSection(serviceType: string) {
     this.addSection('1.0', 'SCOPE OF ENGINEERING SERVICES');
@@ -678,10 +837,16 @@ export class HVHZReportBuilder {
     this.doc.setFontSize(7.5);
     this.doc.setFont('helvetica', 'italic');
     this.doc.setTextColor(...MID_SLATE);
-    const facText = `This item has been digitally signed and sealed by ${peProfile.full_name} on ${signedDate}. Printed copies of this document are not considered signed and sealed and the signature must be verified on any electronic copies. FAC 61G15-23.004`;
+    const facText = `This item has been digitally signed and sealed by ${peProfile.full_name} on ${signedDate}. Printed copies of this document are not considered signed and sealed and the signature must be verified on any electronic copies.`;
     const facLines = this.doc.splitTextToSize(facText, this.cw);
     this.doc.text(facLines, this.ml, this.yPos);
-    this.yPos += facLines.length * 4 + 15;
+    this.yPos += facLines.length * 4 + 4;
+
+    // FL Statute & FAC compliance
+    const complianceText = `The method and software that have been utilized to sign and seal this report comply with the intent of the Board Rules. Specifically, with reference to Florida Statutes 471 and the Florida Administrative Code Rule 61G15-23.003 for Engineers.`;
+    const compLines = this.doc.splitTextToSize(complianceText, this.cw);
+    this.doc.text(compLines, this.ml, this.yPos);
+    this.yPos += compLines.length * 4 + 15;
 
     // END OF REPORT
     this.doc.setDrawColor(...TEAL);
