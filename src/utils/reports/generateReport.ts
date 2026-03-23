@@ -2,6 +2,7 @@ import { HVHZReportBuilder, type ReportConfig, type PhotoData } from './reportLa
 import { format } from 'date-fns';
 import { runDrainageCalc, DESIGN_RAINFALL, type DrainageCalcInputs } from '@/lib/drainage-calc';
 import { calculateFastener, type FastenerInputs } from '@/lib/fastener-engine';
+import { computeFastenerCalc, type FastenerCalcInputs, type FastenerCalcResults } from '@/lib/wind-calc';
 
 interface EngineerProfile {
   full_name: string;
@@ -103,10 +104,44 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
   const normCon = (v: string) => ({ 'New Construction': 'new', Reroof: 'reroof', Recover: 'recover' }[v] ?? v);
   const normEnc = (v: string) => ({ Enclosed: 'enclosed', 'Partially Enclosed': 'partially_enclosed', Open: 'open' }[v] ?? v);
 
-  const fyValue = fd.tas105_mean_lbf ?? fd.fy_lbf ?? 29.48;
+  // Build C&C calc inputs from field data
+  const encMap: Record<string, "ENCLOSED" | "PARTIALLY_ENCLOSED" | "PARTIALLY_OPEN"> = {
+    enclosed: 'ENCLOSED', partially_enclosed: 'PARTIALLY_ENCLOSED', open: 'PARTIALLY_OPEN',
+  };
+  const enclosure = normEnc(fd.enclosure_type ?? 'Enclosed');
 
-  const inputs: FastenerInputs = {
-    V: 185, exposureCategory: (fd.exposure_category ?? 'C') as any, h: fd.mean_roof_height_ft ?? 20,
+  const ccInputs: FastenerCalcInputs = {
+    V: fd.wind_speed ?? 185,
+    h: fd.mean_roof_height_ft ?? 20,
+    W: fd.building_width_ft ?? 0,
+    L: fd.building_length_ft ?? 0,
+    roofType: fd.cc_roof_type ?? 'Flat',
+    slopeDeg: fd.cc_slope_deg ?? 0,
+    hasParapet: fd.cc_has_parapet ?? false,
+    exposure: (fd.exposure_category ?? 'C') as any,
+    enclosure: encMap[enclosure] ?? 'ENCLOSED',
+    riskCategory: (fd.risk_category ?? 'II') as any,
+    Kzt: fd.Kzt ?? 1, Kd: 0.85, Ke: fd.Ke ?? 1,
+    manufacturer: fd.noa_manufacturer ?? '',
+    noaNumber: fd.noa_number ?? '',
+    noaPageRef: fd.cc_noa_page_ref ?? '',
+    deckMaterial: normDeck(fd.deck_type ?? 'plywood'),
+    insulationDesc: fd.cc_insulation_desc ?? 'N/A',
+    membraneDesc: fd.cc_membrane_desc ?? '',
+    designPressure: fd.cc_design_pressure ?? -75,
+    rollWidth: fd.cc_roll_width ?? 39.37,
+    sideLap: fd.cc_side_lap ?? 3.0,
+    lapFastenerSpacing: fd.cc_lap_fastener_spacing ?? 7,
+    fieldFastenerSpacing: fd.cc_field_fastener_spacing ?? 7,
+    lapRows: fd.cc_lap_rows ?? 1,
+    fieldRows: fd.cc_field_rows ?? 2,
+  };
+  const ccResults = computeFastenerCalc(ccInputs);
+
+  // Also run legacy calc for backward compat
+  const fyValue = fd.tas105_mean_lbf ?? fd.fy_lbf ?? 29.48;
+  const legacyInputs: FastenerInputs = {
+    V: fd.wind_speed ?? 185, exposureCategory: (fd.exposure_category ?? 'C') as any, h: fd.mean_roof_height_ft ?? 20,
     Kzt: fd.Kzt ?? 1, Kd: 0.85, Ke: fd.Ke ?? 1,
     enclosure: normEnc(fd.enclosure_type ?? 'Enclosed') as any, riskCategory: (fd.risk_category ?? 'II') as any,
     buildingLength: fd.building_length_ft ?? 0, buildingWidth: fd.building_width_ft ?? 0,
@@ -120,141 +155,145 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
     insulation_Fy_lbf: fd.insulation_fy_lbf ?? fyValue, county: fd.county === 'Miami-Dade' ? 'miami_dade' : 'broward',
     isHVHZ: true, ewa_membrane_ft2: fd.ewa_membrane_ft2 ?? 10,
   };
-  const outputs = calculateFastener(inputs);
+  const legacyOutputs = calculateFastener(legacyInputs);
 
-  // 3.0 Design Parameters
-  rb.addSection('3.0', 'DESIGN PARAMETERS');
-  rb.addSubSection('3.1', 'Wind Load Parameters');
+  // 3.0 Project Data
+  rb.addSection('3.0', 'PROJECT DATA');
+  rb.addInfoGrid({
+    'Building Width': `${fd.building_width_ft ?? ''} ft`,
+    'Building Length': `${fd.building_length_ft ?? ''} ft`,
+    'Mean Roof Height': `${fd.mean_roof_height_ft ?? ''} ft`,
+    'Parapet Height': `${fd.parapet_height_ft ?? 0} ft`,
+    'Roof Type': fd.cc_roof_type ?? 'Flat',
+    'Roof Slope': `${fd.cc_slope_deg ?? 0}°`,
+    'Continuous Parapet ≥ 3\'': fd.cc_has_parapet ? 'Yes' : 'No',
+  });
+
+  // 4.0 Design Criteria
+  rb.addSection('4.0', 'DESIGN CRITERIA');
   rb.addTable(
     ['Parameter', 'Value', 'Reference'],
     [
-      ['Basic Wind Speed (V)', '185 mph', 'FBC §1620.1 (HVHZ)'],
+      ['Design Wind Speed (V)', `${fd.wind_speed ?? 185} mph`, 'FBC §1620.1'],
       ['Exposure Category', fd.exposure_category ?? 'C', 'ASCE 7-22 §26.7'],
-      ['Velocity Pressure Coeff (Kh)', String(outputs.Kh), 'ASCE 7-22 Table 26.10-1'],
-      ['Topographic Factor (Kzt)', String(fd.Kzt ?? 1.0), 'ASCE 7-22 §26.8'],
-      ['Directionality Factor (Kd)', '0.85', 'ASCE 7-22 Table 26.6-1'],
-      ['Ground Elevation Factor (Ke)', String(fd.Ke ?? 1.0), 'ASCE 7-22 Table 26.9-1'],
+      ['Enclosure Category', fd.enclosure_type ?? 'Enclosed', 'ASCE 7-22 §26.12'],
       ['Risk Category', fd.risk_category ?? 'II', 'ASCE 7-22 Table 1.5-1'],
+      ['Kz', String(ccResults.Kz), 'ASCE 7-22 Eq. 26.10-1'],
+      ['Kzt', String(fd.Kzt ?? 1.0), 'ASCE 7-22 §26.8'],
+      ['Kd', '0.85', 'ASCE 7-22 Table 26.6-1'],
+      ['Ke', String(fd.Ke ?? 1.0), 'ASCE 7-22 Table 26.9-1'],
     ],
     { headerColor: 'teal', compactMode: true }
   );
 
-  rb.addSubSection('3.2', 'Building Geometry');
-  rb.addInfoGrid({
-    'Width': `${fd.building_width_ft ?? ''} ft`,
-    'Length': `${fd.building_length_ft ?? ''} ft`,
-    'Mean Roof Height': `${fd.mean_roof_height_ft ?? ''} ft`,
-    'Parapet Height': `${fd.parapet_height_ft ?? 0} ft`,
-  });
-
-  // 4.0 Roof System & Product Approval
-  rb.addSection('4.0', 'ROOF SYSTEM & PRODUCT APPROVAL');
-  rb.addSubSection('4.1', 'Roof Assembly');
-  rb.addInfoGrid({
-    'Roof System': SYSTEM_LABELS[fd.system_type] ?? fd.system_type ?? '',
-    'Deck Type': DECK_LABELS[normDeck(fd.deck_type ?? '')] ?? fd.deck_type ?? '',
-    'Construction Type': fd.construction_type ?? '',
-    'Sheet Width': fd.sheet_width_in ? `${fd.sheet_width_in}"` : 'N/A (adhered)',
-    'Lap Width': fd.lap_width_in ? `${fd.lap_width_in}"` : 'N/A (adhered)',
-  });
-
-  rb.addSubSection('4.2', 'NOA / Product Approval');
-  rb.addInfoGrid({
-    'Approval Type': fd.noa_approval_type ?? '',
-    'Approval Number': fd.noa_number ?? '',
-    'Manufacturer': fd.noa_manufacturer ?? '',
-    'Product': fd.noa_product ?? '',
-    'System No.': fd.noa_system_number ?? '',
-    'NOA MDP (ASD)': `${Math.abs(fd.noa_mdp_psf ?? 0)} psf`,
-    'Asterisked Assembly': fd.noa_asterisked ? 'Yes — extrapolation prohibited' : 'No',
-  });
-
-  // 5.0 Wind Pressure Calculation
-  rb.addSection('5.0', 'WIND PRESSURE CALCULATION');
+  // 5.0 Pressure Coefficients
+  rb.addSection('5.0', 'PRESSURE COEFFICIENTS');
   rb.addSubSection('5.1', 'Velocity Pressure');
   rb.addDerivationBlock([
-    outputs.derivation.eq_26_10_1,
-    outputs.derivation.qh_asd,
+    `qh = 0.00256 × ${ccResults.Kz} × ${fd.Kzt ?? 1} × 0.85 × ${fd.Ke ?? 1} × ${fd.wind_speed ?? 185}² = ${ccResults.qh} psf (ultimate)`,
+    `Dqz = 0.6 × ${ccResults.qh} = ${ccResults.Dqz} psf (ASD)`,
+    `GCpi = ±${ccResults.GCpi} (${fd.enclosure_type ?? 'Enclosed'})`,
+    ccResults.gcpTableName,
   ]);
 
-  rb.addSubSection('5.2', 'Zone Pressures');
+  // 5.2 Uplift Pressures
+  rb.addSubSection('5.2', 'Uplift Pressures');
   rb.addTable(
-    ['Zone', 'Net Pressure (psf)', 'MDP (psf)'],
-    outputs.noaResults.map(nr => [
-      `Zone ${nr.zone}`,
-      `${Math.abs(nr.P_psf).toFixed(1)}`,
-      `${Math.abs(nr.MDP_psf)}`,
+    ['Zone', 'GCp', 'P = Dqz[(GCp)-(GCpi)]', 'psf'],
+    ccResults.zones.map(z => [
+      `${z.zone} (${z.label})`,
+      String(z.GCp),
+      `${ccResults.Dqz} × (${z.GCp} − ${ccResults.GCpi})`,
+      `${z.pressure.toFixed(2)}`,
     ]),
   );
 
-  rb.addSubSection('5.3', 'NOA Compliance Check');
+  // 5.3 Zone Widths
+  rb.addSubSection('5.3', 'Zone Widths');
+  const zwLines: string[] = [];
+  if (ccResults.zoneWidths.hasZone1Prime) zwLines.push(`Zone 1' (interior): inside zone boundaries`);
+  zwLines.push(`Zone 1 (field): ${ccResults.zoneWidths.zone1} ft`);
+  zwLines.push(`Zone 2 (perimeter): ${ccResults.zoneWidths.zone2} ft`);
+  zwLines.push(`Zone 3 (corner): ${ccResults.zoneWidths.zone3outer} ft${ccResults.zoneWidths.hasZone1Prime ? `, inner ${ccResults.zoneWidths.zone3inner} ft` : ''}`);
+  rb.addDerivationBlock(zwLines);
+
+  // 6.0 System Data
+  rb.addSection('6.0', 'SYSTEM DATA');
+  rb.addInfoGrid({
+    'Manufacturer': fd.noa_manufacturer ?? '',
+    'NOA / Approval #': fd.noa_number ?? '',
+    'Page / Option Ref': fd.cc_noa_page_ref ?? '',
+    'Deck Material': DECK_LABELS[normDeck(fd.deck_type ?? '')] ?? fd.deck_type ?? '',
+    'Insulation': fd.cc_insulation_desc ?? 'N/A',
+    'Membrane': fd.cc_membrane_desc ?? 'per NOA',
+    'Design Pressure (DP)': `${fd.cc_design_pressure ?? -75} psf`,
+    'Roll Width': `${fd.cc_roll_width ?? 39.37}"`,
+    'Side Lap': `${fd.cc_side_lap ?? 3.0}"`,
+    'Net Width': `${ccResults.netWidth}"`,
+  });
+
+  // 7.0 Fastener Calculation
+  rb.addSection('7.0', 'FASTENER CALCULATION');
+  rb.addDerivationBlock([
+    `Net Width: ${ccResults.netWidth}" (${fd.cc_roll_width ?? 39.37}" − ${fd.cc_side_lap ?? 3.0}")`,
+    `Net Length per Square: ${ccResults.netLengthPerSquare} ft`,
+    `Fastener Spacing in Lap (NOA): ${fd.cc_lap_fastener_spacing ?? 7}"`,
+    `Fastener Spacing in Field (NOA): ${fd.cc_field_fastener_spacing ?? 7}"`,
+    `Rows in Lap: ${fd.cc_lap_rows ?? 1}`,
+    `Rows in Field (base): ${fd.cc_field_rows ?? 2}`,
+    `Row Spacing (Zone 1): ${ccResults.baseRowSpacing}"`,
+    `Fasteners Per Square (FPS): ${ccResults.fastenersPerSquare}`,
+    `Sq Ft Per Fastener: ${ccResults.sqftPerFastener}`,
+    `Fastener Value (Fv): ${ccResults.fastenerValue} LBF`,
+  ]);
+
+  // 7.1 Computed Spacings
+  rb.addSubSection('7.1', 'Computed Spacings');
   rb.addTable(
-    ['Zone', 'Pressure (psf)', 'MDP (psf)', 'Factor', 'Status'],
-    outputs.noaResults.map(nr => [
-      `Zone ${nr.zone}`,
-      `${Math.abs(nr.P_psf).toFixed(1)}`,
-      `${Math.abs(nr.MDP_psf)}`,
-      `${nr.extrapFactor.toFixed(2)}×`,
-      nr.basis,
+    ['Zone', 'Row Spacing', 'Computed Spacing', 'Final (NOA min)'],
+    ccResults.computedSpacings.map(s => [
+      `${s.zone} (${s.label})`,
+      `${s.rowSpacing}"`,
+      `${s.computed}"`,
+      `${s.final}" O.C.`,
     ]),
-    { statusColumn: 4 }
   );
 
-  // 6.0 Fastener Attachment Schedule
-  rb.addSection('6.0', 'FASTENER ATTACHMENT SCHEDULE');
-  if (fd.system_type === 'adhered') {
-    rb.addCalloutBox('Adhered membrane system — no mechanical row spacing. Verify adhesive bond strength per TAS 124.', 'info');
-  } else {
-    rb.addTable(
-      ['Zone', 'Pressure (psf)', 'Rows', 'Row Spacing', 'Field Spacing', 'Half-Sheet', 'Basis'],
-      outputs.fastenerResults.map(fr => [
-        `Zone ${fr.zone}`,
-        `${fr.P_psf}`,
-        String(fr.n_rows),
-        `${fr.RS_in}"`,
-        `${fr.FS_used_in}"`,
-        fr.halfSheetRequired ? 'Required' : 'No',
-        fr.noaCheck.basis,
-      ]),
-      { statusColumn: 6 }
-    );
-  }
-
-  // 7.0 Insulation Board Fasteners
-  rb.addSection('7.0', 'INSULATION BOARD FASTENERS');
+  // 8.0 Fastener Requirements
+  rb.addSection('8.0', 'FASTENER REQUIREMENTS');
   rb.addTable(
-    ['Zone', 'Pressure (psf)', 'Fasteners', 'Layout'],
-    outputs.insulationResults.map(ir => [
-      `Zone ${ir.zone}`,
-      `${ir.P_psf}`,
-      String(ir.N_used),
-      ir.layout,
+    ['Zone', 'Lap Spacing', '# Rows', 'Field Spacing'],
+    ccResults.computedSpacings.map(s => [
+      `Zone ${s.zone} (${s.label})`,
+      `${s.lapSpacing}" O.C.`,
+      `${s.fieldRows} rows`,
+      `${s.final}" O.C.`,
     ]),
+    { headerColor: 'teal' }
   );
 
-  // 8.0 TAS 105 (conditional)
+  // 8.5 TAS 105 (conditional)
   if (fd.tas105_mean_lbf) {
-    rb.addSection('8.0', 'TAS 105 LABORATORY RESULTS');
+    rb.addSection('8.5', 'TAS 105 LABORATORY RESULTS');
     rb.addInfoGrid({
       'Mean Pullout Value': `${fd.tas105_mean_lbf} lbf`,
       'Testing Agency': fd.tas105_agency ?? '(see attached lab report)',
       'Test Date': fd.tas105_date ?? '',
-      'Source': 'Third-party laboratory report',
     });
   }
 
-  // 9.0 Warnings & Engineering Notes
+  // 9.0 Warnings
   rb.addSection('9.0', 'WARNINGS & ENGINEERING NOTES');
-  const nonInfoWarnings = outputs.warnings.filter(w => w.level !== 'info');
+  const nonInfoWarnings = legacyOutputs.warnings.filter(w => w.level !== 'info');
   if (nonInfoWarnings.length > 0) {
     nonInfoWarnings.forEach(w => {
-      const type = w.level === 'warning' ? 'warning' : 'error';
-      rb.addCalloutBox(`${w.message}${w.reference ? ` (${w.reference})` : ''}`, type);
+      rb.addCalloutBox(`${w.message}${w.reference ? ` (${w.reference})` : ''}`, w.level === 'warning' ? 'warning' : 'error');
     });
   } else {
     rb.addCalloutBox('No engineering warnings. System meets all HVHZ requirements.', 'success');
   }
 }
+
 
 // ─── DRAINAGE ANALYSIS ────────────────────────────────────────
 function buildDrainageReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo: any) {
