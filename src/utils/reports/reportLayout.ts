@@ -564,6 +564,22 @@ export class HVHZReportBuilder {
     this.yPos = legY + 10;
   }
 
+  // ─── DRAINAGE PLAN PAGE (landscape) ─────────────────────────
+  addDrainagePlanPage(inputs: Omit<PlanSheetInputs, 'engineerName' | 'peLicenseNumber' | 'date' | 'jobNumber' | 'projectAddress'>) {
+    this.doc.addPage([279.4, 215.9]); // landscape letter
+
+    const fullInputs: PlanSheetInputs = {
+      ...inputs,
+      engineerName: this.config.engineerName,
+      peLicenseNumber: this.config.peLicense.replace('FL #', ''),
+      date: this.config.reportDate,
+      jobNumber: this.config.jobNumber,
+      projectAddress: this.config.address,
+    };
+
+    drawDrainagePlanPage(this.doc, fullInputs);
+  }
+
   // ─── SCOPE SECTION ──────────────────────────────────────────
   addScopeSection(serviceType: string) {
     this.addSection('1.0', 'SCOPE OF ENGINEERING SERVICES');
