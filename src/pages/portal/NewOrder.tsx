@@ -135,6 +135,8 @@ export default function NewOrder() {
             roofReportName: data.roof_report_name,
             roofReportType: data.roof_report_type,
             otherServiceDetails: data.other_service_details,
+            jobLat: data.job_lat,
+            jobLng: data.job_lng,
           },
         }
       );
