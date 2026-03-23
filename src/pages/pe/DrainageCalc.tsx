@@ -15,8 +15,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
-  Loader2, Droplets, Map, CircleDot, Shield, Eye, ChevronDown, AlertTriangle, CheckCircle, Plus
+  Loader2, Droplets, Map, CircleDot, Shield, Eye, ChevronDown, AlertTriangle, CheckCircle, Plus, FileImage
 } from "lucide-react";
+import { RoofPlanCanvas } from "@/components/drainage/RoofPlanCanvas";
 import { CalcHeader } from "@/components/pe/CalcHeader";
 import { CalcSummaryCard } from "@/components/pe/CalcSummaryCard";
 import { CalcDerivation } from "@/components/pe/CalcDerivation";
@@ -128,12 +129,16 @@ export default function DrainageCalc() {
           <TabsList className="w-full rounded-none border-b">
             <TabsTrigger value="inputs" className="flex-1">Inputs</TabsTrigger>
             <TabsTrigger value="results" className="flex-1">Results</TabsTrigger>
+            <TabsTrigger value="plan" className="flex-1">Plan</TabsTrigger>
           </TabsList>
           <TabsContent value="inputs" className="p-4 overflow-y-auto" style={{ height: 'calc(100vh - 112px)' }}>
             <FormPanel store={store} />
           </TabsContent>
           <TabsContent value="results" className="p-4 overflow-y-auto" style={{ height: 'calc(100vh - 112px)' }}>
             <ResultsPanel output={output} county={county} rainfallOverride={rainfallOverride} rainfallRate={rainfallRate} />
+          </TabsContent>
+          <TabsContent value="plan" className="p-4 overflow-y-auto" style={{ height: 'calc(100vh - 112px)' }}>
+            <PlanPanel store={store} />
           </TabsContent>
         </Tabs>
       </PELayout>
@@ -524,6 +529,106 @@ function ResultsPanel({ output, county, rainfallOverride, rainfallRate }: {
       <p className="text-[10px] text-muted-foreground text-center pb-4">
         Drainage analysis per FBC Plumbing 2023 §1101–1106, FBC Building 2023 §1502, NOAA Atlas 14. All results must be reviewed by a licensed PE.
       </p>
+    </div>
+  );
+}
+
+// ─── Plan Panel ─────────────────────────────────────────────
+function PlanPanel({ store }: { store: any }) {
+  const { primaryDrains, secondaryDrains, buildingWidthFt, buildingLengthFt, openings, parapetWalls, flowArrows } = store;
+  const [selectedDrainId, setSelectedDrainId] = useState<string | null>(null);
+
+  const hasPositions = primaryDrains.some((d: any) => d.pos_x != null);
+  const hasDimensions = buildingWidthFt > 0 && buildingLengthFt > 0;
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <FileImage className="h-4 w-4 text-primary" />
+            Roof Drain Plan Sheet
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Set building dimensions, place drains on the plan, and configure parapets. This data generates the CAD-style landscape plan sheet in the PDF report.
+          </p>
+
+          {/* Building dimensions */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Building Width (ft)</Label>
+              <Input type="number" className="h-8 text-sm" value={buildingWidthFt || ''} 
+                onChange={e => store.setBuildingDimensions(parseFloat(e.target.value) || 0, buildingLengthFt)} />
+            </div>
+            <div>
+              <Label className="text-xs">Building Length (ft)</Label>
+              <Input type="number" className="h-8 text-sm" value={buildingLengthFt || ''} 
+                onChange={e => store.setBuildingDimensions(buildingWidthFt, parseFloat(e.target.value) || 0)} />
+            </div>
+          </div>
+
+          {/* Parapet walls */}
+          <div>
+            <Label className="text-xs text-muted-foreground">Parapet Walls</Label>
+            <div className="flex gap-3 mt-1">
+              {(['north', 'south', 'east', 'west'] as const).map(wall => (
+                <label key={wall} className="flex items-center gap-1.5 text-xs">
+                  <input type="checkbox" checked={parapetWalls.includes(wall)}
+                    onChange={e => {
+                      const newWalls = e.target.checked 
+                        ? [...parapetWalls, wall] 
+                        : parapetWalls.filter((w: string) => w !== wall);
+                      store.setParapetWalls(newWalls);
+                    }} className="rounded" />
+                  {wall.charAt(0).toUpperCase() + wall.slice(1)}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Canvas */}
+          {hasDimensions ? (
+            <RoofPlanCanvas
+              widthFt={buildingWidthFt}
+              lengthFt={buildingLengthFt}
+              primaryDrains={primaryDrains}
+              secondaryDrains={secondaryDrains}
+              openings={openings}
+              parapetWalls={parapetWalls}
+              flowArrows={flowArrows}
+              selectedDrainId={selectedDrainId}
+              onSelectDrain={setSelectedDrainId}
+              onDrainMove={(type, index, pos) => store.moveDrain(type, index, pos)}
+              onCanvasClick={(pos) => {
+                // Auto-place next unpositioned primary drain
+                const unpositioned = primaryDrains.findIndex((d: any) => d.pos_x == null);
+                if (unpositioned >= 0) {
+                  store.moveDrain('primary', unpositioned, { pos_x: pos.x, pos_y: pos.y });
+                }
+              }}
+            />
+          ) : (
+            <div className="border-2 border-dashed rounded-lg p-8 text-center text-muted-foreground text-sm">
+              Enter building width and length above to enable the plan canvas.
+            </div>
+          )}
+
+          {!hasPositions && hasDimensions && primaryDrains.length > 0 && (
+            <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200">
+              Click on the building outline above to place drains. Drains without positions won't appear on the plan sheet.
+            </p>
+          )}
+
+          {hasPositions && (
+            <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded p-2">
+              <CheckCircle className="h-3.5 w-3.5" />
+              Plan data ready — the landscape plan sheet will be included in the PDF report.
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

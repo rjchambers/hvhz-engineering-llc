@@ -1,6 +1,6 @@
 import { HVHZReportBuilder, type ReportConfig, type PhotoData } from './reportLayout';
 import { format } from 'date-fns';
-import { runDrainageCalc, DESIGN_RAINFALL, type DrainageCalcInputs } from '@/lib/drainage-calc';
+import { runDrainageCalc, DESIGN_RAINFALL, getDrainCapacity, type DrainageCalcInputs } from '@/lib/drainage-calc';
 import { calculateFastener, type FastenerInputs } from '@/lib/fastener-engine';
 import { computeFastenerCalc, type FastenerCalcInputs, type FastenerCalcResults } from '@/lib/wind-calc';
 
@@ -467,6 +467,34 @@ function buildDrainageReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
   }
   if (fd.deficiencies_observed) rb.addTextBlock(`Field Deficiencies: ${fd.deficiencies_observed}`);
   if (fd.recommendations) rb.addTextBlock(`Recommendations: ${fd.recommendations}`);
+
+  // Plan sheet (landscape page) — only if drain positions exist
+  const hasPlanData = (fd.primary_drains ?? []).some((d: any) => d.pos_x != null);
+  if (hasPlanData) {
+    const planDrains = (fd.primary_drains ?? []).filter((d: any) => d.pos_x != null).map((d: any) => {
+      const { capacity } = getDrainCapacity(d.pipe_diameter_in, d.leader_type || 'Vertical', fd.pe_pipe_slope_assumption ?? '1/8');
+      return { drain_id: d.drain_id, pos_x: d.pos_x, pos_y: d.pos_y, pipe_diameter_in: d.pipe_diameter_in, leader_type: d.leader_type || 'Vertical', rated_capacity_gpm: capacity };
+    });
+    const planSecondary = (fd.secondary_drains ?? []).filter((d: any) => d.pos_x != null).map((d: any) => ({
+      drain_id: d.drain_id, pos_x: d.pos_x, pos_y: d.pos_y, secondary_type: d.secondary_type,
+      scupper_width_in: d.scupper_width_in, scupper_depth_in: d.scupper_depth_in,
+      rated_capacity_gpm: 0, height_above_primary_in: d.height_above_primary_in,
+    }));
+
+    rb.addDrainagePlanPage({
+      buildingWidthFt: fd.building_width_ft ?? 100,
+      buildingLengthFt: fd.building_length_ft ?? 100,
+      primaryDrains: planDrains,
+      secondaryDrains: planSecondary,
+      openings: fd.building_openings ?? [],
+      parapetWalls: fd.parapet_walls ?? [],
+      flowArrows: fd.flow_arrows ?? [],
+      zones: results.zone_results.map(zr => ({ zone_id: zr.zone_id, area_sqft: zr.area_sqft, q_required_gpm: zr.q_required_gpm })),
+      designRainfallRate: rainfallRate,
+      county,
+      clientName: fd.client_name ?? '',
+    });
+  }
 }
 
 // ─── WIND MITIGATION ──────────────────────────────────────────

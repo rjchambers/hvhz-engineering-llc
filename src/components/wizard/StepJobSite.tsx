@@ -70,6 +70,8 @@ export function StepJobSite({ data, onChange, onNext, onBack, showEditCompanyLin
                 job_city: parsed.city,
                 job_zip: parsed.zip,
                 job_county: parsed.county,
+                job_lat: parsed.lat,
+                job_lng: parsed.lng,
               });
             }}
             placeholder="Start typing the job site address…"

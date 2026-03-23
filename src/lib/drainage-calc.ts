@@ -42,6 +42,9 @@ export interface DrainEntry {
   strainer_present: boolean;
   strainer_condition: string;
   photo_tag: string;
+  // Position on roof plan (0-1 normalized coordinates, origin top-left)
+  pos_x?: number;  // 0 = west wall, 1 = east wall
+  pos_y?: number;  // 0 = north wall, 1 = south wall
 }
 
 export interface SecondaryEntry {
@@ -55,6 +58,26 @@ export interface SecondaryEntry {
   height_above_primary_in: number;
   condition: 'Good' | 'Fair' | 'Obstructed' | 'Damaged';
   photo_tag: string;
+  // Position on roof plan (0-1 normalized coordinates, origin top-left)
+  pos_x?: number;
+  pos_y?: number;
+  // For scuppers: which wall they're on
+  wall?: 'north' | 'south' | 'east' | 'west';
+}
+
+export interface BuildingOpening {
+  id: string;
+  label: string;
+  pos_x: number;
+  pos_y: number;
+  width_pct: number;
+  height_pct: number;
+}
+
+export interface FlowArrow {
+  from_x: number;
+  from_y: number;
+  to_drain_id: string;
 }
 
 export interface DrainageZone {

@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { drawDrainagePlanPage, type PlanSheetInputs } from './drainagePlanSheet';
 
 // Brand colors (RGB)
 const NAVY: [number, number, number] = [27, 42, 74];
@@ -561,6 +562,22 @@ export class HVHZReportBuilder {
     }
 
     this.yPos = legY + 10;
+  }
+
+  // ─── DRAINAGE PLAN PAGE (landscape) ─────────────────────────
+  addDrainagePlanPage(inputs: Omit<PlanSheetInputs, 'engineerName' | 'peLicenseNumber' | 'date' | 'jobNumber' | 'projectAddress'>) {
+    this.doc.addPage([279.4, 215.9]); // landscape letter
+
+    const fullInputs: PlanSheetInputs = {
+      ...inputs,
+      engineerName: this.config.engineerName,
+      peLicenseNumber: this.config.peLicense.replace('FL #', ''),
+      date: this.config.reportDate,
+      jobNumber: this.config.jobNumber,
+      projectAddress: this.config.address,
+    };
+
+    drawDrainagePlanPage(this.doc, fullInputs);
   }
 
   // ─── SCOPE SECTION ──────────────────────────────────────────

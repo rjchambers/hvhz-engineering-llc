@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
       metadata,
       isGuestOrder,
     } = body;
+    const { jobLat, jobLng } = body;
 
     if (!services?.length || !customerEmail) {
       return new Response(
@@ -83,6 +84,8 @@ Deno.serve(async (req) => {
       const rainfallRate = DESIGN_RAINFALL[county] || 8.39;
       const siteContext = {
         county,
+        lat: jobLat || null,
+        lng: jobLng || null,
         design_rainfall_rate: rainfallRate,
         rainfall_source: `NOAA Atlas 14, ${county || "Broward"} County, 1-hr 100-yr`,
         hvhz_constants: { V: 185, exposure_category: "C", Kd: 0.85, Ke: 1.0, Kzt: 1.0, is_hvhz: true },

@@ -13,6 +13,8 @@ export interface WizardData {
   job_city: string;
   job_zip: string;
   job_county: string;
+  job_lat?: number;
+  job_lng?: number;
   gated_community: boolean;
   gate_code: string;
   selected_services: string[];
