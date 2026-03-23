@@ -85,7 +85,7 @@ export function generateReport(
 
 function getDisclaimerSectionNum(serviceType: string): string {
   const nums: Record<string, string> = {
-    'fastener-calculation': '10.0',
+    'fastener-calculation': '11.0',
     'drainage-analysis': '11.0',
     'wind-mitigation-permit': '9.0',
     'roof-inspection': '7.0',
