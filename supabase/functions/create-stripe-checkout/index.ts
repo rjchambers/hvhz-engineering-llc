@@ -55,6 +55,7 @@ serve(async (req) => {
       noaDocumentPath, noaDocumentName,
       roofReportPath, roofReportName, roofReportType,
       otherServiceDetails, roofAreaSqft,
+      jobLat, jobLng,
     } = await req.json();
 
     if (!services?.length || !clientId) {
