@@ -129,12 +129,16 @@ export default function DrainageCalc() {
           <TabsList className="w-full rounded-none border-b">
             <TabsTrigger value="inputs" className="flex-1">Inputs</TabsTrigger>
             <TabsTrigger value="results" className="flex-1">Results</TabsTrigger>
+            <TabsTrigger value="plan" className="flex-1">Plan</TabsTrigger>
           </TabsList>
           <TabsContent value="inputs" className="p-4 overflow-y-auto" style={{ height: 'calc(100vh - 112px)' }}>
             <FormPanel store={store} />
           </TabsContent>
           <TabsContent value="results" className="p-4 overflow-y-auto" style={{ height: 'calc(100vh - 112px)' }}>
             <ResultsPanel output={output} county={county} rainfallOverride={rainfallOverride} rainfallRate={rainfallRate} />
+          </TabsContent>
+          <TabsContent value="plan" className="p-4 overflow-y-auto" style={{ height: 'calc(100vh - 112px)' }}>
+            <PlanPanel store={store} />
           </TabsContent>
         </Tabs>
       </PELayout>
