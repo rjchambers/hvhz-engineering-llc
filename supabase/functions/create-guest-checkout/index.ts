@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
       metadata,
       isGuestOrder,
     } = body;
+    const { jobLat, jobLng } = body;
 
     if (!services?.length || !customerEmail) {
       return new Response(
