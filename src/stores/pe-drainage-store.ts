@@ -5,6 +5,7 @@ import {
   runDrainageCalc, DESIGN_RAINFALL,
   type DrainageCalcInputs, type DrainageCalcOutput,
   type DrainageZone, type DrainEntry, type SecondaryEntry,
+  type BuildingOpening, type FlowArrow,
 } from '@/lib/drainage-calc';
 
 interface PEDrainageState {
@@ -19,6 +20,13 @@ interface PEDrainageState {
   dirty: boolean;
   workOrderId: string | null;
 
+  // Plan sheet fields
+  buildingWidthFt: number;
+  buildingLengthFt: number;
+  openings: BuildingOpening[];
+  parapetWalls: string[];
+  flowArrows: FlowArrow[];
+
   setCounty: (county: string) => void;
   setRainfallOverride: (on: boolean) => void;
   setRainfallRate: (rate: number | null) => void;
@@ -31,6 +39,13 @@ interface PEDrainageState {
   loadFromFieldData: (fd: Record<string, any>, siteCtx: Record<string, any>, woId: string) => void;
   saveToFieldData: (workOrderId: string) => Promise<void>;
   recalculate: () => void;
+
+  // Plan setters
+  setBuildingDimensions: (w: number, l: number) => void;
+  setParapetWalls: (walls: string[]) => void;
+  setOpenings: (openings: BuildingOpening[]) => void;
+  setFlowArrows: (arrows: FlowArrow[]) => void;
+  moveDrain: (type: 'primary' | 'secondary', index: number, pos: { pos_x: number; pos_y: number }) => void;
 }
 
 function buildInputs(state: Pick<PEDrainageState, 'county' | 'rainfallOverride' | 'rainfallRate' | 'pipeSlope' | 'zones' | 'primaryDrains' | 'secondaryDrains'>): DrainageCalcInputs {
@@ -62,6 +77,11 @@ export const usePEDrainageStore = create<PEDrainageState>()(
       output: null,
       dirty: false,
       workOrderId: null,
+      buildingWidthFt: 0,
+      buildingLengthFt: 0,
+      openings: [],
+      parapetWalls: [],
+      flowArrows: [],
 
       setCounty: (county) => {
         const s = { ...get(), county };
@@ -116,10 +136,20 @@ export const usePEDrainageStore = create<PEDrainageState>()(
         const zones: DrainageZone[] = fd.drainage_zones ?? [];
         const primaryDrains: DrainEntry[] = fd.primary_drains ?? [];
         const secondaryDrains: SecondaryEntry[] = fd.secondary_drains ?? [];
+        const buildingWidthFt = fd.building_width_ft ?? 0;
+        const buildingLengthFt = fd.building_length_ft ?? 0;
+        const openings: BuildingOpening[] = fd.building_openings ?? [];
+        const parapetWalls: string[] = fd.parapet_walls ?? [];
+        const flowArrows: FlowArrow[] = fd.flow_arrows ?? [];
 
         const state = { county, rainfallOverride, rainfallRate, pipeSlope, zones, primaryDrains, secondaryDrains };
         set({
           ...state,
+          buildingWidthFt,
+          buildingLengthFt,
+          openings,
+          parapetWalls,
+          flowArrows,
           output: calc(state),
           dirty: false,
           workOrderId: woId,
@@ -138,6 +168,11 @@ export const usePEDrainageStore = create<PEDrainageState>()(
           drainage_zones: s.zones,
           primary_drains: s.primaryDrains,
           secondary_drains: s.secondaryDrains,
+          building_width_ft: s.buildingWidthFt,
+          building_length_ft: s.buildingLengthFt,
+          building_openings: s.openings,
+          parapet_walls: s.parapetWalls,
+          flow_arrows: s.flowArrows,
         };
 
         const { data: existing } = await supabase
@@ -156,6 +191,23 @@ export const usePEDrainageStore = create<PEDrainageState>()(
         const s = get();
         set({ output: calc(s) });
       },
+
+      // Plan setters
+      setBuildingDimensions: (w, l) => set({ buildingWidthFt: w, buildingLengthFt: l, dirty: true }),
+      setParapetWalls: (walls) => set({ parapetWalls: walls, dirty: true }),
+      setOpenings: (openings) => set({ openings, dirty: true }),
+      setFlowArrows: (arrows) => set({ flowArrows: arrows, dirty: true }),
+      moveDrain: (type, index, pos) => {
+        if (type === 'primary') {
+          const primaryDrains = [...get().primaryDrains];
+          primaryDrains[index] = { ...primaryDrains[index], ...pos };
+          set({ primaryDrains, dirty: true });
+        } else {
+          const secondaryDrains = [...get().secondaryDrains];
+          secondaryDrains[index] = { ...secondaryDrains[index], ...pos };
+          set({ secondaryDrains, dirty: true });
+        }
+      },
     }),
     {
       name: 'pe-drainage-draft',
@@ -168,6 +220,11 @@ export const usePEDrainageStore = create<PEDrainageState>()(
         primaryDrains: state.primaryDrains,
         secondaryDrains: state.secondaryDrains,
         workOrderId: state.workOrderId,
+        buildingWidthFt: state.buildingWidthFt,
+        buildingLengthFt: state.buildingLengthFt,
+        openings: state.openings,
+        parapetWalls: state.parapetWalls,
+        flowArrows: state.flowArrows,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
