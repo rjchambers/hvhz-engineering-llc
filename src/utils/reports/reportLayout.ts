@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { drawDrainagePlanPage, type PlanSheetInputs } from './drainagePlanSheet';
 
 // Brand colors (RGB)
 const NAVY: [number, number, number] = [27, 42, 74];
