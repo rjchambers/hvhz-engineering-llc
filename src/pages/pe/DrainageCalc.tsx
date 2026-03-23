@@ -15,8 +15,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
-  Loader2, Droplets, Map, CircleDot, Shield, Eye, ChevronDown, AlertTriangle, CheckCircle, Plus
+  Loader2, Droplets, Map, CircleDot, Shield, Eye, ChevronDown, AlertTriangle, CheckCircle, Plus, FileImage
 } from "lucide-react";
+import { RoofPlanCanvas } from "@/components/drainage/RoofPlanCanvas";
 import { CalcHeader } from "@/components/pe/CalcHeader";
 import { CalcSummaryCard } from "@/components/pe/CalcSummaryCard";
 import { CalcDerivation } from "@/components/pe/CalcDerivation";
