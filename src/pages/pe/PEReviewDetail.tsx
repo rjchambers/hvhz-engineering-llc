@@ -730,12 +730,12 @@ export default function PEReviewDetail() {
       <section className="border-t pt-4">
         <h3 className="text-sm font-semibold text-primary mb-3">Sign & Seal</h3>
         {wo.service_type === "wind-mitigation-permit" && (
-          <Button variant="outline" className="w-full mb-3 gap-2" onClick={() => navigate(`/pe/calculations/wind-mitigation/${id}`)}>
+          <Button variant="outline" className="w-full mb-3 gap-2" onClick={() => navigate(`/pe/calculations/wind-mitigation-permit/${id}`)}>
             <Calculator className="h-4 w-4" /> Open Wind Mitigation Calculation Tool
           </Button>
         )}
         {wo.service_type === "fastener-calculation" && (
-          <Button variant="outline" className="w-full mb-3 gap-2" onClick={() => navigate(`/pe/calculations/fastener/${id}`)}>
+          <Button variant="outline" className="w-full mb-3 gap-2" onClick={() => navigate(`/pe/calculations/fastener-calculation/${id}`)}>
             <Eye className="h-4 w-4" /> Review Calculation →
           </Button>
         )}

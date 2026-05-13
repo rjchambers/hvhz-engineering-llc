@@ -12,7 +12,7 @@ export const SERVICE_BUNDLES: ServiceBundle[] = [
     id: "reroof-package",
     name: "Reroof Engineering Package",
     description: "Everything needed for a roofing permit in HVHZ. Most popular for reroofing contractors.",
-    services: ["enhanced-fastener", "wind-mitigation"],
+    services: ["fastener-calculation", "wind-mitigation-permit"],
     savings: 0,
     popular: true,
   },
@@ -20,14 +20,14 @@ export const SERVICE_BUNDLES: ServiceBundle[] = [
     id: "full-inspection",
     name: "Full Roof Assessment",
     description: "Comprehensive moisture survey with fastener and drainage analysis.",
-    services: ["tas-126", "enhanced-fastener", "drainage"],
+    services: ["tas-126", "fastener-calculation", "drainage-analysis"],
     savings: 0,
   },
   {
     id: "drainage-permit",
     name: "Drainage & Wind Permit Package",
     description: "Complete drainage analysis plus wind mitigation for new construction or reroof.",
-    services: ["drainage", "wind-mitigation", "enhanced-fastener"],
+    services: ["drainage-analysis", "wind-mitigation-permit", "fastener-calculation"],
     savings: 0,
   },
 ];
@@ -35,20 +35,20 @@ export const SERVICE_BUNDLES: ServiceBundle[] = [
 export function getRecommendedServices(selectedServices: string[]): string[] {
   const recommendations: string[] = [];
 
-  if (selectedServices.includes("enhanced-fastener") && !selectedServices.includes("wind-mitigation")) {
-    recommendations.push("wind-mitigation");
+  if (selectedServices.includes("fastener-calculation") && !selectedServices.includes("wind-mitigation-permit")) {
+    recommendations.push("wind-mitigation-permit");
   }
 
-  if (selectedServices.includes("drainage") && !selectedServices.includes("enhanced-fastener")) {
-    recommendations.push("enhanced-fastener");
+  if (selectedServices.includes("drainage-analysis") && !selectedServices.includes("fastener-calculation")) {
+    recommendations.push("fastener-calculation");
   }
 
-  if (selectedServices.includes("tas-126") && !selectedServices.includes("drainage")) {
-    recommendations.push("drainage");
+  if (selectedServices.includes("tas-126") && !selectedServices.includes("drainage-analysis")) {
+    recommendations.push("drainage-analysis");
   }
 
-  if (selectedServices.includes("wind-mitigation") && !selectedServices.includes("enhanced-fastener")) {
-    recommendations.push("enhanced-fastener");
+  if (selectedServices.includes("wind-mitigation-permit") && !selectedServices.includes("fastener-calculation")) {
+    recommendations.push("fastener-calculation");
   }
 
   return recommendations.filter((r) => !selectedServices.includes(r));
