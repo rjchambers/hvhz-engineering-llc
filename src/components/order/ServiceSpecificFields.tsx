@@ -209,7 +209,7 @@ export function ServiceSpecificFields({ selectedServices, data, onChange, roofAr
         </Card>
       )}
 
-      {selectedServices.includes("drainage") && (
+      {selectedServices.includes("drainage-analysis") && (
         <Card title="Roof Drainage Data Collection">
           <div>
             <Label>Additional Drainage Information</Label>

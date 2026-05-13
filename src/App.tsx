@@ -62,8 +62,8 @@ const App = () => (
           <Route path="/tech/work-order/:id" element={<ProtectedRoute requiredRole="technician"><TechWorkOrderDetail /></ProtectedRoute>} />
           <Route path="/pe" element={<ProtectedRoute requiredRole="engineer"><PEReviewQueue /></ProtectedRoute>} />
           <Route path="/pe/review/:id" element={<ProtectedRoute requiredRole="engineer"><PEReviewDetail /></ProtectedRoute>} />
-          <Route path="/pe/calculations/wind-mitigation/:id" element={<ProtectedRoute requiredRole="engineer"><WindMitigationCalc /></ProtectedRoute>} />
-          <Route path="/pe/calculations/fastener/:id" element={<ProtectedRoute requiredRole="engineer"><FastenerCalc /></ProtectedRoute>} />
+          <Route path="/pe/calculations/wind-mitigation-permit/:id" element={<ProtectedRoute requiredRole="engineer"><WindMitigationCalc /></ProtectedRoute>} />
+          <Route path="/pe/calculations/fastener-calculation/:id" element={<ProtectedRoute requiredRole="engineer"><FastenerCalc /></ProtectedRoute>} />
           <Route path="/pe/calculations/drainage-analysis/:id" element={<ProtectedRoute requiredRole="engineer"><DrainageCalc /></ProtectedRoute>} />
           <Route path="/pe/profile" element={<ProtectedRoute requiredRole="engineer"><PEProfile /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
