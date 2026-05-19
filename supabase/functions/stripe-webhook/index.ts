@@ -66,7 +66,16 @@ serve(async (req) => {
     }
 
     const session = event.data.object;
-    const clientId = session.metadata?.clientId;
+    // Fall back to legacy `userId` metadata key for in-flight checkouts created
+    // before guest checkout was switched to `clientId`.
+    const clientId = session.metadata?.clientId || session.metadata?.userId;
+    if (!clientId) {
+      console.error("stripe-webhook: missing client_id in session metadata", {
+        session_id: session.id,
+        metadata_keys: Object.keys(session.metadata || {}),
+      });
+      return new Response("Missing client_id in metadata", { status: 400 });
+    }
     const services: string[] = JSON.parse(session.metadata?.services || "[]");
     const jobAddress = session.metadata?.jobAddress || "";
     const totalAmount = (session.amount_total || 0) / 100;
@@ -132,7 +141,11 @@ serve(async (req) => {
       .single();
 
     if (orderErr) {
-      console.error("Order insert error:", orderErr);
+      console.error("Order insert error:", {
+        error: orderErr,
+        session_id: session.id,
+        client_id: clientId,
+      });
       return new Response("Failed to create order", { status: 500 });
     }
 

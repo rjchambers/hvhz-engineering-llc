@@ -164,6 +164,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    // The orders table requires a non-null client_id (auth.users FK), so we
+    // must know the client before charging. Prefer the userId validated from
+    // the auth header; fall back to the clientId in the body for safety.
+    const effectiveClientId = userId || clientId;
+    if (!effectiveClientId) {
+      return new Response(
+        JSON.stringify({ error: "An account is required to place an order. Please sign in or create an account before checking out." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const appUrl = Deno.env.get("APP_URL") || "https://hvhzengineering.com";
 
     const params = new URLSearchParams();
@@ -172,6 +183,7 @@ Deno.serve(async (req) => {
     params.append("success_url", `${appUrl}/order?status=success&session_id={CHECKOUT_SESSION_ID}`);
     params.append("cancel_url", `${appUrl}/order`);
 
+    params.append("metadata[clientId]", effectiveClientId);
     params.append("metadata[services]", JSON.stringify(services));
     params.append("metadata[serviceNames]", JSON.stringify(serviceNames || []));
     params.append("metadata[customerEmail]", customerEmail);
@@ -183,7 +195,6 @@ Deno.serve(async (req) => {
     params.append("metadata[gatedCommunity]", String(gatedCommunity || false));
     params.append("metadata[gateCode]", gateCode || "");
     params.append("metadata[isGuestOrder]", String(!!isGuestOrder));
-    params.append("metadata[userId]", userId || "");
     if (metadata) {
       params.append("metadata[orderMetadata]", typeof metadata === "string" ? metadata : JSON.stringify(metadata));
     }
