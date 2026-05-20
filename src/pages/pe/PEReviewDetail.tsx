@@ -709,6 +709,34 @@ export default function PEReviewDetail() {
         </section>
       )}
 
+      {/* Tech-Uploaded Completed Report (manual upload bypass) */}
+      {(fieldData.manual_upload_path || wo.result_pdf_url) && (
+        <section>
+          <h3 className="text-sm font-semibold text-primary mb-3">Technician-Uploaded Report</h3>
+          <a
+            href="#"
+            onClick={async (e) => {
+              e.preventDefault();
+              const path = fieldData.manual_upload_path;
+              if (path) {
+                const { data } = await supabase.storage.from("reports").createSignedUrl(path, 3600);
+                if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+              } else if (wo.result_pdf_url) {
+                window.open(wo.result_pdf_url, "_blank");
+              }
+            }}
+            className="flex items-center gap-2 text-xs p-2 border border-hvhz-teal/40 bg-hvhz-teal/5 rounded hover:bg-hvhz-teal/10 transition-colors"
+          >
+            <FileText className="h-4 w-4 text-hvhz-teal shrink-0" />
+            <div className="min-w-0">
+              <p className="font-medium text-foreground truncate">📑 Completed deliverable from technician</p>
+              <p className="text-muted-foreground truncate">{fieldData.manual_upload_name ?? "Uploaded report"}</p>
+            </div>
+            <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0 ml-auto" />
+          </a>
+        </section>
+      )}
+
       {/* Photos */}
       <section>
         <h3 className="text-sm font-semibold text-primary mb-3">Photos ({photos.length})</h3>
