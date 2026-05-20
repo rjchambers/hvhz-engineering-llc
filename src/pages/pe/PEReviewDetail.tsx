@@ -270,11 +270,17 @@ export default function PEReviewDetail() {
         if (inputs.W && inputs.L && inputs.h) newResults = computeWindPressures(inputs);
       }
 
+      // Persist PE overrides into form_data so they flow into the signed report
+      const mergedForm = buildMergedFieldData(fieldData, peOverrides);
+      const updatePayload: Record<string, any> = { form_data: mergedForm as unknown as Json };
       if (Object.keys(newResults).length > 0) {
-        await supabase.from("field_data").update({ calculation_results: newResults as unknown as Json }).eq("work_order_id", id);
+        updatePayload.calculation_results = newResults as unknown as Json;
         setCalcResults(newResults);
-        toast.success("Recalculated with overrides applied");
       }
+      const { error: upErr } = await supabase.from("field_data").update(updatePayload).eq("work_order_id", id);
+      if (upErr) throw upErr;
+      setFieldData(mergedForm);
+      toast.success(Object.keys(newResults).length > 0 ? "Recalculated with overrides applied" : "Overrides saved");
     } catch (err: any) {
       toast.error("Recalculation failed: " + (err.message || "Unknown error"));
     }
