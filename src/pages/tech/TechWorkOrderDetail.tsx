@@ -20,7 +20,7 @@ import { getDrainCapacity, DESIGN_RAINFALL } from "@/lib/drainage-calc";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CalendarIcon, Camera, Trash2, Plus, ArrowLeft, AlertCircle, Lock, FileText, ExternalLink, Info } from "lucide-react";
+import { CalendarIcon, Camera, Trash2, Plus, ArrowLeft, AlertCircle, Lock, FileText, ExternalLink, Info, Upload } from "lucide-react";
 import type { Json } from "@/integrations/supabase/types";
 import { useAutosave } from "@/hooks/useAutosave";
 import { AutosaveIndicator } from "@/components/AutosaveIndicator";
@@ -70,6 +70,9 @@ export default function TechWorkOrderDetail() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [siblingPrefilled, setSiblingPrefilled] = useState(false);
+  const [manualUploadFile, setManualUploadFile] = useState<File | null>(null);
+  const [manualUploading, setManualUploading] = useState(false);
+  const manualUploadRef = useRef<HTMLInputElement>(null);
 
   const isLocked = wo?.status === "submitted" || wo?.status === "pe_review" || wo?.status === "signed";
 
@@ -283,6 +286,59 @@ export default function TechWorkOrderDetail() {
     if (error) toast.error("Draft save failed");
     else toast.success("Draft saved");
     setSaving(false);
+  };
+
+  const handleManualUploadComplete = async () => {
+    if (!wo || !user || !id || !manualUploadFile) return;
+    setManualUploading(true);
+    try {
+      const path = `work_orders/${id}/tech_upload_${Date.now()}_${manualUploadFile.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error: upErr } = await supabase.storage
+        .from("reports")
+        .upload(path, manualUploadFile, { contentType: manualUploadFile.type || "application/pdf", upsert: false });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("reports").getPublicUrl(path);
+
+      // Save a marker into field_data so PE sees the manual upload note
+      await supabase.from("field_data").upsert(
+        {
+          work_order_id: id,
+          service_type: wo.service_type,
+          form_data: { ...formData, manual_upload_path: path, manual_upload_name: manualUploadFile.name } as unknown as Json,
+          submitted_by: user.id,
+          submitted_at: new Date().toISOString(),
+        },
+        { onConflict: "work_order_id" }
+      );
+
+      await supabase
+        .from("work_orders")
+        .update({
+          status: "submitted",
+          submitted_at: new Date().toISOString(),
+          unsigned_report_url: urlData.publicUrl,
+          result_pdf_url: urlData.publicUrl,
+        })
+        .eq("id", id);
+
+      // Auto-assign default PE if needed
+      const { data: currentWo } = await supabase
+        .from("work_orders").select("assigned_engineer_id").eq("id", id).single();
+      if (!currentWo?.assigned_engineer_id) {
+        const { data: engConfig } = await supabase
+          .from("app_config").select("value").eq("key", "default_engineer_id").maybeSingle();
+        if (engConfig?.value) {
+          await supabase.from("work_orders").update({ assigned_engineer_id: engConfig.value }).eq("id", id);
+        }
+      }
+
+      toast.success("Completed report uploaded. Work order submitted for PE review.");
+      clearDraft();
+      navigate("/tech");
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    }
+    setManualUploading(false);
   };
 
   const openSignedUrl = async (storagePath: string) => {
@@ -693,6 +749,60 @@ export default function TechWorkOrderDetail() {
             ))}
           </div>
         </section>
+
+        {/* MANUAL UPLOAD — complete work order with an externally prepared document */}
+        {!isLocked && (
+          <section className="bg-card border rounded-lg p-5 mb-6">
+            <h2 className="text-sm font-semibold text-primary mb-1">Upload Completed Report</h2>
+            <p className="text-xs text-muted-foreground mb-3">
+              Already have a finished deliverable? Upload it here to complete this work order and send it directly to the PE for review. This bypasses the field-data form.
+            </p>
+            <input
+              ref={manualUploadRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              className="hidden"
+              onChange={(e) => setManualUploadFile(e.target.files?.[0] ?? null)}
+            />
+            {!manualUploadFile ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2 min-h-[44px]"
+                onClick={() => manualUploadRef.current?.click()}
+              >
+                <Upload className="h-4 w-4" /> Choose File (PDF, DOC, JPG, PNG)
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
+                  <FileText className="h-5 w-5 text-hvhz-teal shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{manualUploadFile.name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {(manualUploadFile.size / 1024).toFixed(0)} KB
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setManualUploadFile(null)}
+                    disabled={manualUploading}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Button
+                  onClick={handleManualUploadComplete}
+                  disabled={manualUploading}
+                  className="w-full bg-hvhz-teal hover:bg-hvhz-teal/90 min-h-[44px]"
+                >
+                  {manualUploading ? "Uploading…" : "Upload & Complete Work Order"}
+                </Button>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* SUBMIT */}
         <div className="flex items-center justify-between gap-3 pb-6">

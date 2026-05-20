@@ -19,7 +19,7 @@ import type { PhotoData } from "@/utils/reports/reportLayout";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CheckCircle, XCircle, ArrowLeft, ExternalLink, Loader2, X, Calculator, Eye, ChevronLeft, ChevronRight, ChevronDown, FileText, Settings2 } from "lucide-react";
+import { CheckCircle, XCircle, ArrowLeft, ExternalLink, Loader2, X, Calculator, Eye, ChevronLeft, ChevronRight, ChevronDown, FileText, Settings2, Download } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Json } from "@/integrations/supabase/types";
 import { useAutosave } from "@/hooks/useAutosave";
@@ -356,6 +356,42 @@ export default function PEReviewDetail() {
     setSigning(false);
   };
 
+  const handleDownloadDraft = async () => {
+    if (!wo || !engineerProfile) return;
+    try {
+      let photoDataForPdf: PhotoData[] = [];
+      if (wo.service_type === "wind-mitigation-permit" && photos.length > 0) {
+        const results = await Promise.allSettled(
+          photos.map(async (p) => {
+            if (!p.url) return null;
+            const base64DataUrl = await fetchPhotoAsBase64(p.url);
+            return { base64DataUrl, section_tag: p.section_tag, caption: p.caption };
+          })
+        );
+        photoDataForPdf = results
+          .filter((r): r is PromiseFulfilledResult<PhotoData | null> => r.status === "fulfilled" && r.value !== null)
+          .map((r) => r.value!);
+      }
+      const effectiveFieldData = buildMergedFieldData(fieldData, peOverrides);
+      const { blob } = generateReport(
+        wo.service_type,
+        { id: wo.id, scheduled_date: wo.scheduled_date, orders: wo.orders as any },
+        effectiveFieldData, engineerProfile, peNotes || null, photoDataForPdf
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `DRAFT-${wo.service_type}-${wo.id.slice(0, 8).toUpperCase()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Draft report downloaded (unsigned preview)");
+    } catch (err: any) {
+      toast.error(err.message || "Could not generate draft");
+    }
+  };
+
   const handleReject = async () => {
     if (!wo || !id) return;
     setRejecting(true);
@@ -673,6 +709,34 @@ export default function PEReviewDetail() {
         </section>
       )}
 
+      {/* Tech-Uploaded Completed Report (manual upload bypass) */}
+      {(fieldData.manual_upload_path || wo.result_pdf_url) && (
+        <section>
+          <h3 className="text-sm font-semibold text-primary mb-3">Technician-Uploaded Report</h3>
+          <a
+            href="#"
+            onClick={async (e) => {
+              e.preventDefault();
+              const path = fieldData.manual_upload_path;
+              if (path) {
+                const { data } = await supabase.storage.from("reports").createSignedUrl(path, 3600);
+                if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+              } else if (wo.result_pdf_url) {
+                window.open(wo.result_pdf_url, "_blank");
+              }
+            }}
+            className="flex items-center gap-2 text-xs p-2 border border-hvhz-teal/40 bg-hvhz-teal/5 rounded hover:bg-hvhz-teal/10 transition-colors"
+          >
+            <FileText className="h-4 w-4 text-hvhz-teal shrink-0" />
+            <div className="min-w-0">
+              <p className="font-medium text-foreground truncate">📑 Completed deliverable from technician</p>
+              <p className="text-muted-foreground truncate">{fieldData.manual_upload_name ?? "Uploaded report"}</p>
+            </div>
+            <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0 ml-auto" />
+          </a>
+        </section>
+      )}
+
       {/* Photos */}
       <section>
         <h3 className="text-sm font-semibold text-primary mb-3">Photos ({photos.length})</h3>
@@ -792,6 +856,10 @@ export default function PEReviewDetail() {
         {!stampUploaded && (
           <div className="bg-amber-50 text-amber-800 text-xs p-2 rounded mb-3">⚠ Upload PE stamp in Profile before signing.</div>
         )}
+        <Button variant="outline" className="w-full mb-3 gap-2" onClick={handleDownloadDraft}>
+          <Download className="h-4 w-4" /> Download Draft Report (Preview)
+        </Button>
+        <p className="text-[10px] text-muted-foreground mb-3 -mt-2">Preview the full unsigned PDF before sealing.</p>
         <div className="flex items-start gap-2 mb-3">
           <Checkbox id="certify" checked={certify} onCheckedChange={(c) => setCertify(!!c)} />
           <Label htmlFor="certify" className="text-xs leading-tight">I certify I have reviewed this report and it is accurate.</Label>
