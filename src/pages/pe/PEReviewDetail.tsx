@@ -312,10 +312,16 @@ export default function PEReviewDetail() {
           .map((r) => r.value!);
       }
 
+      // Apply any pending PE overrides and persist them before generating the PDF
+      const effectiveFieldData = buildMergedFieldData(fieldData, peOverrides);
+      if (Object.keys(peOverrides).length > 0) {
+        await supabase.from("field_data").update({ form_data: effectiveFieldData as unknown as Json }).eq("work_order_id", id);
+      }
+
       const { blob: pdfBlob, stampBoxMm } = generateReport(
         wo.service_type,
         { id: wo.id, scheduled_date: wo.scheduled_date, orders: wo.orders as any },
-        fieldData, engineerProfile, peNotes || null, photoDataForPdf
+        effectiveFieldData, engineerProfile, peNotes || null, photoDataForPdf
       );
 
       let signedBlob = pdfBlob;
