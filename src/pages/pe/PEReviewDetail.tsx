@@ -141,7 +141,19 @@ export default function PEReviewDetail() {
 
     // Field data + calculation_results
     const { data: fd } = await supabase.from("field_data").select("form_data, calculation_results").eq("work_order_id", id).maybeSingle();
-    if (fd?.form_data && typeof fd.form_data === "object") setFieldData(fd.form_data as Record<string, any>);
+    if (fd?.form_data && typeof fd.form_data === "object") {
+      const form = fd.form_data as Record<string, any>;
+      setFieldData(form);
+      // Hydrate previously-saved PE overrides so the inputs show their current values
+      const restoredOv: Record<string, any> = {};
+      if (form.Kzt != null) restoredOv.Kzt = form.Kzt;
+      if (form.Ke != null) restoredOv.Ke = form.Ke;
+      if (form.risk_category != null && form._pe_override_risk_category) restoredOv.risk_category = form.risk_category;
+      if (form.ewa_membrane_ft2 != null) restoredOv.ewa_membrane_ft2 = form.ewa_membrane_ft2;
+      if (form.pe_rainfall_override && form.pe_rainfall_rate != null) restoredOv.rainfall_rate = String(form.pe_rainfall_rate);
+      if (form.pe_pipe_slope_assumption != null) restoredOv.pipe_slope = form.pe_pipe_slope_assumption;
+      if (Object.keys(restoredOv).length > 0) setPeOverrides(restoredOv);
+    }
     if (fd?.calculation_results && typeof fd.calculation_results === "object" && Object.keys(fd.calculation_results as object).length > 0) {
       setCalcResults(fd.calculation_results as Record<string, any>);
     }
