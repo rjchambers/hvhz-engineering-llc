@@ -288,6 +288,59 @@ export default function TechWorkOrderDetail() {
     setSaving(false);
   };
 
+  const handleManualUploadComplete = async () => {
+    if (!wo || !user || !id || !manualUploadFile) return;
+    setManualUploading(true);
+    try {
+      const path = `work_orders/${id}/tech_upload_${Date.now()}_${manualUploadFile.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error: upErr } = await supabase.storage
+        .from("reports")
+        .upload(path, manualUploadFile, { contentType: manualUploadFile.type || "application/pdf", upsert: false });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("reports").getPublicUrl(path);
+
+      // Save a marker into field_data so PE sees the manual upload note
+      await supabase.from("field_data").upsert(
+        {
+          work_order_id: id,
+          service_type: wo.service_type,
+          form_data: { ...formData, manual_upload_path: path, manual_upload_name: manualUploadFile.name } as unknown as Json,
+          submitted_by: user.id,
+          submitted_at: new Date().toISOString(),
+        },
+        { onConflict: "work_order_id" }
+      );
+
+      await supabase
+        .from("work_orders")
+        .update({
+          status: "submitted",
+          submitted_at: new Date().toISOString(),
+          unsigned_report_url: urlData.publicUrl,
+          result_pdf_url: urlData.publicUrl,
+        })
+        .eq("id", id);
+
+      // Auto-assign default PE if needed
+      const { data: currentWo } = await supabase
+        .from("work_orders").select("assigned_engineer_id").eq("id", id).single();
+      if (!currentWo?.assigned_engineer_id) {
+        const { data: engConfig } = await supabase
+          .from("app_config").select("value").eq("key", "default_engineer_id").maybeSingle();
+        if (engConfig?.value) {
+          await supabase.from("work_orders").update({ assigned_engineer_id: engConfig.value }).eq("id", id);
+        }
+      }
+
+      toast.success("Completed report uploaded. Work order submitted for PE review.");
+      clearDraft();
+      navigate("/tech");
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    }
+    setManualUploading(false);
+  };
+
   const openSignedUrl = async (storagePath: string) => {
     const { data } = await supabase.storage.from("reports").createSignedUrl(storagePath, 3600);
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
