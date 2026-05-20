@@ -828,6 +828,10 @@ export default function PEReviewDetail() {
         {!stampUploaded && (
           <div className="bg-amber-50 text-amber-800 text-xs p-2 rounded mb-3">⚠ Upload PE stamp in Profile before signing.</div>
         )}
+        <Button variant="outline" className="w-full mb-3 gap-2" onClick={handleDownloadDraft}>
+          <Download className="h-4 w-4" /> Download Draft Report (Preview)
+        </Button>
+        <p className="text-[10px] text-muted-foreground mb-3 -mt-2">Preview the full unsigned PDF before sealing.</p>
         <div className="flex items-start gap-2 mb-3">
           <Checkbox id="certify" checked={certify} onCheckedChange={(c) => setCertify(!!c)} />
           <Label htmlFor="certify" className="text-xs leading-tight">I certify I have reviewed this report and it is accurate.</Label>
