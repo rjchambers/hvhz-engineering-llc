@@ -150,7 +150,7 @@ export default function PEProfile() {
   const handleStampUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-    uploadFile(file, `pe-stamps/${user.id}/stamp.png`, setStampUrl, "stamp_image_url", setUploadingStamp);
+    uploadFile(file, `${user.id}/stamp.png`, setStampUrl, "stamp_image_url", setUploadingStamp);
   };
 
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
