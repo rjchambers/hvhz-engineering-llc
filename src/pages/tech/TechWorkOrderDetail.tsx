@@ -70,6 +70,9 @@ export default function TechWorkOrderDetail() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [siblingPrefilled, setSiblingPrefilled] = useState(false);
+  const [manualUploadFile, setManualUploadFile] = useState<File | null>(null);
+  const [manualUploading, setManualUploading] = useState(false);
+  const manualUploadRef = useRef<HTMLInputElement>(null);
 
   const isLocked = wo?.status === "submitted" || wo?.status === "pe_review" || wo?.status === "signed";
 
