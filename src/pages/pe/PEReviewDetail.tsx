@@ -141,7 +141,19 @@ export default function PEReviewDetail() {
 
     // Field data + calculation_results
     const { data: fd } = await supabase.from("field_data").select("form_data, calculation_results").eq("work_order_id", id).maybeSingle();
-    if (fd?.form_data && typeof fd.form_data === "object") setFieldData(fd.form_data as Record<string, any>);
+    if (fd?.form_data && typeof fd.form_data === "object") {
+      const form = fd.form_data as Record<string, any>;
+      setFieldData(form);
+      // Hydrate previously-saved PE overrides so the inputs show their current values
+      const restoredOv: Record<string, any> = {};
+      if (form.Kzt != null) restoredOv.Kzt = form.Kzt;
+      if (form.Ke != null) restoredOv.Ke = form.Ke;
+      if (form.risk_category != null && form._pe_override_risk_category) restoredOv.risk_category = form.risk_category;
+      if (form.ewa_membrane_ft2 != null) restoredOv.ewa_membrane_ft2 = form.ewa_membrane_ft2;
+      if (form.pe_rainfall_override && form.pe_rainfall_rate != null) restoredOv.rainfall_rate = String(form.pe_rainfall_rate);
+      if (form.pe_pipe_slope_assumption != null) restoredOv.pipe_slope = form.pe_pipe_slope_assumption;
+      if (Object.keys(restoredOv).length > 0) setPeOverrides(restoredOv);
+    }
     if (fd?.calculation_results && typeof fd.calculation_results === "object" && Object.keys(fd.calculation_results as object).length > 0) {
       setCalcResults(fd.calculation_results as Record<string, any>);
     }
@@ -175,6 +187,21 @@ export default function PEReviewDetail() {
   }, [id, user]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Map PE override UI keys → field_data keys consumed by the PDF report builders
+  const buildMergedFieldData = useCallback((fd: Record<string, any>, ov: Record<string, any>) => {
+    const merged: Record<string, any> = { ...fd };
+    if (ov.Kzt != null && ov.Kzt !== "") merged.Kzt = Number(ov.Kzt);
+    if (ov.Ke != null && ov.Ke !== "") merged.Ke = Number(ov.Ke);
+    if (ov.risk_category) { merged.risk_category = ov.risk_category; merged._pe_override_risk_category = true; }
+    if (ov.ewa_membrane_ft2 != null && ov.ewa_membrane_ft2 !== "") merged.ewa_membrane_ft2 = Number(ov.ewa_membrane_ft2);
+    if (ov.rainfall_rate != null && ov.rainfall_rate !== "") {
+      merged.pe_rainfall_rate = parseFloat(ov.rainfall_rate);
+      merged.pe_rainfall_override = true;
+    }
+    if (ov.pipe_slope) merged.pe_pipe_slope_assumption = ov.pipe_slope;
+    return merged;
+  }, []);
 
   // PE Override recalculation
   const handleRecalculate = async () => {
@@ -243,11 +270,17 @@ export default function PEReviewDetail() {
         if (inputs.W && inputs.L && inputs.h) newResults = computeWindPressures(inputs);
       }
 
+      // Persist PE overrides into form_data so they flow into the signed report
+      const mergedForm = buildMergedFieldData(fieldData, peOverrides);
+      const updatePayload: Record<string, any> = { form_data: mergedForm as unknown as Json };
       if (Object.keys(newResults).length > 0) {
-        await supabase.from("field_data").update({ calculation_results: newResults as unknown as Json }).eq("work_order_id", id);
+        updatePayload.calculation_results = newResults as unknown as Json;
         setCalcResults(newResults);
-        toast.success("Recalculated with overrides applied");
       }
+      const { error: upErr } = await supabase.from("field_data").update(updatePayload).eq("work_order_id", id);
+      if (upErr) throw upErr;
+      setFieldData(mergedForm);
+      toast.success(Object.keys(newResults).length > 0 ? "Recalculated with overrides applied" : "Overrides saved");
     } catch (err: any) {
       toast.error("Recalculation failed: " + (err.message || "Unknown error"));
     }
@@ -279,10 +312,16 @@ export default function PEReviewDetail() {
           .map((r) => r.value!);
       }
 
+      // Apply any pending PE overrides and persist them before generating the PDF
+      const effectiveFieldData = buildMergedFieldData(fieldData, peOverrides);
+      if (Object.keys(peOverrides).length > 0) {
+        await supabase.from("field_data").update({ form_data: effectiveFieldData as unknown as Json }).eq("work_order_id", id);
+      }
+
       const { blob: pdfBlob, stampBoxMm } = generateReport(
         wo.service_type,
         { id: wo.id, scheduled_date: wo.scheduled_date, orders: wo.orders as any },
-        fieldData, engineerProfile, peNotes || null, photoDataForPdf
+        effectiveFieldData, engineerProfile, peNotes || null, photoDataForPdf
       );
 
       let signedBlob = pdfBlob;
