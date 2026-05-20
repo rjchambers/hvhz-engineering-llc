@@ -356,6 +356,42 @@ export default function PEReviewDetail() {
     setSigning(false);
   };
 
+  const handleDownloadDraft = async () => {
+    if (!wo || !engineerProfile) return;
+    try {
+      let photoDataForPdf: PhotoData[] = [];
+      if (wo.service_type === "wind-mitigation-permit" && photos.length > 0) {
+        const results = await Promise.allSettled(
+          photos.map(async (p) => {
+            if (!p.url) return null;
+            const base64DataUrl = await fetchPhotoAsBase64(p.url);
+            return { base64DataUrl, section_tag: p.section_tag, caption: p.caption };
+          })
+        );
+        photoDataForPdf = results
+          .filter((r): r is PromiseFulfilledResult<PhotoData | null> => r.status === "fulfilled" && r.value !== null)
+          .map((r) => r.value!);
+      }
+      const effectiveFieldData = buildMergedFieldData(fieldData, peOverrides);
+      const { blob } = generateReport(
+        wo.service_type,
+        { id: wo.id, scheduled_date: wo.scheduled_date, orders: wo.orders as any },
+        effectiveFieldData, engineerProfile, peNotes || null, photoDataForPdf
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `DRAFT-${wo.service_type}-${wo.id.slice(0, 8).toUpperCase()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Draft report downloaded (unsigned preview)");
+    } catch (err: any) {
+      toast.error(err.message || "Could not generate draft");
+    }
+  };
+
   const handleReject = async () => {
     if (!wo || !id) return;
     setRejecting(true);
