@@ -188,6 +188,21 @@ export default function PEReviewDetail() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Map PE override UI keys → field_data keys consumed by the PDF report builders
+  const buildMergedFieldData = useCallback((fd: Record<string, any>, ov: Record<string, any>) => {
+    const merged: Record<string, any> = { ...fd };
+    if (ov.Kzt != null && ov.Kzt !== "") merged.Kzt = Number(ov.Kzt);
+    if (ov.Ke != null && ov.Ke !== "") merged.Ke = Number(ov.Ke);
+    if (ov.risk_category) { merged.risk_category = ov.risk_category; merged._pe_override_risk_category = true; }
+    if (ov.ewa_membrane_ft2 != null && ov.ewa_membrane_ft2 !== "") merged.ewa_membrane_ft2 = Number(ov.ewa_membrane_ft2);
+    if (ov.rainfall_rate != null && ov.rainfall_rate !== "") {
+      merged.pe_rainfall_rate = parseFloat(ov.rainfall_rate);
+      merged.pe_rainfall_override = true;
+    }
+    if (ov.pipe_slope) merged.pe_pipe_slope_assumption = ov.pipe_slope;
+    return merged;
+  }, []);
+
   // PE Override recalculation
   const handleRecalculate = async () => {
     if (!wo || !id) return;
