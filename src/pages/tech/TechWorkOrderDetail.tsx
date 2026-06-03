@@ -103,16 +103,16 @@ export default function TechWorkOrderDetail() {
     if (!id) return;
     const { data: woData } = await supabase
       .from("work_orders")
-      .select("id, service_type, status, scheduled_date, client_id, order_id, rejection_notes, orders(job_address, job_city, job_zip, job_county, roof_data, site_context, noa_document_path, noa_document_name, roof_report_path, roof_report_name, roof_report_type)")
+      .select("id, service_type, status, scheduled_date, client_id, order_id, rejection_notes, orders(job_address, job_city, job_zip, job_county, services, notes, gated_community, gate_code, roof_area_sqft, roof_data, site_context, noa_document_path, noa_document_name, roof_report_path, roof_report_name, roof_report_type, total_amount, created_at)")
       .eq("id", id)
       .single();
     if (!woData) return;
     setWo(woData as unknown as WOData);
 
-    // Client profile
+    // Client profile (full contact + company info)
     const { data: cp } = await supabase
       .from("client_profiles")
-      .select("company_name, contact_name, contact_phone")
+      .select("company_name, contact_name, contact_email, contact_phone, company_address, company_city, company_state, company_zip, contractor_license, preferred_contact, tech_instructions")
       .eq("user_id", woData.client_id)
       .maybeSingle();
     setClientProfile(cp);
