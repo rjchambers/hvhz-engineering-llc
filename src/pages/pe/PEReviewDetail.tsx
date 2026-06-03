@@ -127,7 +127,7 @@ export default function PEReviewDetail() {
 
     const { data: woData } = await supabase
       .from("work_orders")
-      .select("id, service_type, status, scheduled_date, client_id, order_id, result_pdf_url, assigned_engineer_id, orders(job_address, job_city, job_zip, job_county, roof_data, services, notes, noa_document_path, noa_document_name, roof_report_path, roof_report_name, roof_report_type, site_context)")
+      .select("id, service_type, status, scheduled_date, client_id, order_id, result_pdf_url, assigned_engineer_id, orders(job_address, job_city, job_zip, job_county, roof_data, services, notes, gated_community, gate_code, roof_area_sqft, noa_document_path, noa_document_name, roof_report_path, roof_report_name, roof_report_type, site_context, total_amount, created_at)")
       .eq("id", id)
       .single();
     if (!woData) return;
@@ -137,7 +137,7 @@ export default function PEReviewDetail() {
       await supabase.from("work_orders").update({ status: "pe_review", pe_reviewed_at: new Date().toISOString() }).eq("id", id);
     }
 
-    const { data: cp } = await supabase.from("client_profiles").select("company_name, contact_name").eq("user_id", woData.client_id).maybeSingle();
+    const { data: cp } = await supabase.from("client_profiles").select("company_name, contact_name, contact_email, contact_phone, company_address, company_city, company_state, company_zip, contractor_license, preferred_contact, tech_instructions").eq("user_id", woData.client_id).maybeSingle();
     setClientProfile(cp);
 
     // Field data + calculation_results
