@@ -69,7 +69,7 @@ export default function TechWorkOrderDetail() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [wo, setWo] = useState<WOData | null>(null);
-  const [clientProfile, setClientProfile] = useState<{ company_name: string | null; contact_name: string | null; contact_phone: string | null } | null>(null);
+  const [clientProfile, setClientProfile] = useState<any>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [photos, setPhotos] = useState<PhotoRow[]>([]);
   const [uploading, setUploading] = useState(false);
