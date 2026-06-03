@@ -24,6 +24,7 @@ import { CalendarIcon, Camera, Trash2, Plus, ArrowLeft, AlertCircle, Lock, FileT
 import type { Json } from "@/integrations/supabase/types";
 import { useAutosave } from "@/hooks/useAutosave";
 import { AutosaveIndicator } from "@/components/AutosaveIndicator";
+import { OrderInfoPanel } from "@/components/order/OrderInfoPanel";
 
 interface WOData {
   id: string;
@@ -38,6 +39,11 @@ interface WOData {
     job_city: string | null;
     job_zip: string | null;
     job_county: string | null;
+    services: string[] | null;
+    notes: string | null;
+    gated_community: boolean | null;
+    gate_code: string | null;
+    roof_area_sqft: number | null;
     roof_data: Json | null;
     site_context: Json | null;
     noa_document_path: string | null;
@@ -45,6 +51,8 @@ interface WOData {
     roof_report_path: string | null;
     roof_report_name: string | null;
     roof_report_type: string | null;
+    total_amount: number | null;
+    created_at: string | null;
   } | null;
 }
 
