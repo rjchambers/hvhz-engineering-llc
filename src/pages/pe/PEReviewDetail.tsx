@@ -37,9 +37,10 @@ interface WOData {
   orders?: {
     job_address: string | null; job_city: string | null; job_zip: string | null; job_county: string | null;
     roof_data: Json | null; services: string[]; notes: string | null;
+    gated_community: boolean | null; gate_code: string | null; roof_area_sqft: number | null;
     noa_document_path: string | null; noa_document_name: string | null;
     roof_report_path: string | null; roof_report_name: string | null; roof_report_type: string | null;
-    site_context: Json | null;
+    site_context: Json | null; total_amount: number | null; created_at: string | null;
   } | null;
 }
 
