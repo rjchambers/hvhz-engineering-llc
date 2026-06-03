@@ -888,6 +888,16 @@ export default function PEReviewDetail() {
             <Badge className="text-[10px] bg-amber-100 text-amber-800">PE Overrides Applied</Badge>
           )}
         </div>
+
+        {/* Full client order details — visible to PE */}
+        <div className="mb-6">
+          <OrderInfoPanel
+            order={wo.orders as any}
+            client={clientProfile as any}
+            workOrderServiceType={wo.service_type}
+          />
+        </div>
+
         {/* Desktop: split layout */}
         <div className="hidden lg:grid lg:grid-cols-[55%_45%] gap-6">
           <div className="bg-card border rounded-lg p-5 overflow-y-auto max-h-[calc(100vh-160px)]"><ReportPreview /></div>
