@@ -37,8 +37,21 @@ interface WO {
   result_pdf_url: string | null;
   rejection_notes: string | null;
   pe_notes: string | null;
-  orders?: { job_address: string | null; job_city: string | null; notes: string | null; services: string[] } | null;
-  client_profiles?: { company_name: string | null; tech_instructions?: string | null } | null;
+  orders?: {
+    job_address: string | null; job_city: string | null; job_zip: string | null; job_county: string | null;
+    notes: string | null; services: string[];
+    gated_community: boolean | null; gate_code: string | null;
+    roof_area_sqft: number | null; roof_data: any; site_context: any;
+    noa_document_path: string | null; noa_document_name: string | null;
+    roof_report_path: string | null; roof_report_name: string | null; roof_report_type: string | null;
+    total_amount: number | null; created_at: string | null;
+  } | null;
+  client_profiles?: {
+    company_name: string | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null;
+    company_address: string | null; company_city: string | null; company_state: string | null; company_zip: string | null;
+    contractor_license: string | null; preferred_contact: string | null;
+    tech_instructions?: string | null;
+  } | null;
 }
 
 interface RoleUser { id: string; displayName: string; user_id: string; role: string; }
