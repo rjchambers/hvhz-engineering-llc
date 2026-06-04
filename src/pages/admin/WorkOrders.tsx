@@ -105,7 +105,7 @@ export default function WorkOrders() {
     const clientIds = [...new Set(data.map((w) => w.client_id))];
     const { data: profiles } = await supabase
       .from("client_profiles")
-      .select("user_id, company_name, tech_instructions")
+      .select("user_id, company_name, contact_name, contact_email, contact_phone, company_address, company_city, company_state, company_zip, contractor_license, preferred_contact, tech_instructions")
       .in("user_id", clientIds);
     const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) ?? []);
 
