@@ -18,6 +18,7 @@ import { CalendarIcon, ChevronLeft, ChevronRight, Upload, ChevronDown, AlertTria
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { OrderInfoPanel } from "@/components/order/OrderInfoPanel";
 import { Link, useSearchParams } from "react-router-dom";
 
 const PAGE_SIZE = 25;
