@@ -92,7 +92,7 @@ export default function WorkOrders() {
   const fetchWOs = useCallback(async () => {
     let query = supabase
       .from("work_orders")
-      .select("*, orders(job_address, job_city, notes, services)", { count: "exact" })
+      .select("*, orders(job_address, job_city, job_zip, job_county, notes, services, gated_community, gate_code, roof_area_sqft, roof_data, site_context, noa_document_path, noa_document_name, roof_report_path, roof_report_name, roof_report_type, total_amount, created_at)", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
