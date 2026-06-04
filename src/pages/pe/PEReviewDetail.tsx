@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Json } from "@/integrations/supabase/types";
 import { useAutosave } from "@/hooks/useAutosave";
 import { AutosaveIndicator } from "@/components/AutosaveIndicator";
+import { OrderInfoPanel } from "@/components/order/OrderInfoPanel";
 
 interface WOData {
   id: string;
