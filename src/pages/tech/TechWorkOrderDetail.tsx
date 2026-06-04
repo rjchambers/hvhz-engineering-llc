@@ -24,6 +24,7 @@ import { CalendarIcon, Camera, Trash2, Plus, ArrowLeft, AlertCircle, Lock, FileT
 import type { Json } from "@/integrations/supabase/types";
 import { useAutosave } from "@/hooks/useAutosave";
 import { AutosaveIndicator } from "@/components/AutosaveIndicator";
+import { OrderInfoPanel } from "@/components/order/OrderInfoPanel";
 
 interface WOData {
   id: string;
@@ -38,6 +39,11 @@ interface WOData {
     job_city: string | null;
     job_zip: string | null;
     job_county: string | null;
+    services: string[] | null;
+    notes: string | null;
+    gated_community: boolean | null;
+    gate_code: string | null;
+    roof_area_sqft: number | null;
     roof_data: Json | null;
     site_context: Json | null;
     noa_document_path: string | null;
@@ -45,6 +51,8 @@ interface WOData {
     roof_report_path: string | null;
     roof_report_name: string | null;
     roof_report_type: string | null;
+    total_amount: number | null;
+    created_at: string | null;
   } | null;
 }
 
@@ -61,7 +69,7 @@ export default function TechWorkOrderDetail() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [wo, setWo] = useState<WOData | null>(null);
-  const [clientProfile, setClientProfile] = useState<{ company_name: string | null; contact_name: string | null; contact_phone: string | null } | null>(null);
+  const [clientProfile, setClientProfile] = useState<any>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [photos, setPhotos] = useState<PhotoRow[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -95,16 +103,16 @@ export default function TechWorkOrderDetail() {
     if (!id) return;
     const { data: woData } = await supabase
       .from("work_orders")
-      .select("id, service_type, status, scheduled_date, client_id, order_id, rejection_notes, orders(job_address, job_city, job_zip, job_county, roof_data, site_context, noa_document_path, noa_document_name, roof_report_path, roof_report_name, roof_report_type)")
+      .select("id, service_type, status, scheduled_date, client_id, order_id, rejection_notes, orders(job_address, job_city, job_zip, job_county, services, notes, gated_community, gate_code, roof_area_sqft, roof_data, site_context, noa_document_path, noa_document_name, roof_report_path, roof_report_name, roof_report_type, total_amount, created_at)")
       .eq("id", id)
       .single();
     if (!woData) return;
     setWo(woData as unknown as WOData);
 
-    // Client profile
+    // Client profile (full contact + company info)
     const { data: cp } = await supabase
       .from("client_profiles")
-      .select("company_name, contact_name, contact_phone")
+      .select("company_name, contact_name, contact_email, contact_phone, company_address, company_city, company_state, company_zip, contractor_license, preferred_contact, tech_instructions")
       .eq("user_id", woData.client_id)
       .maybeSingle();
     setClientProfile(cp);
@@ -569,85 +577,24 @@ export default function TechWorkOrderDetail() {
           <ArrowLeft className="h-4 w-4" /> Back
         </Button>
 
-        {/* Rejection banner */}
-        {wo.status === "rejected" && wo.rejection_notes && (
-          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 mb-4">
-            <p className="text-sm font-semibold text-destructive mb-1">Sent Back for Revision</p>
-            <p className="text-xs text-foreground/80">{wo.rejection_notes}</p>
-          </div>
-        )}
-
-        {/* TOP SECTION */}
-        <div className="bg-card border rounded-lg p-5 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <Badge className={cn("text-xs", STATUS_BADGE_CLASSES[wo.status])}>
-              {STATUS_LABELS[wo.status] ?? wo.status}
-            </Badge>
-            {wo.scheduled_date && <span className="text-xs text-muted-foreground">Scheduled: {wo.scheduled_date}</span>}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-muted-foreground text-xs">Client</p>
-              <p className="font-medium">{clientProfile?.company_name ?? "—"}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Contact</p>
-              <p>{clientProfile?.contact_name ?? "—"} · {clientProfile?.contact_phone ?? "—"}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Address</p>
-              <p>{wo.orders?.job_address ?? "—"}, {wo.orders?.job_city ?? ""} {wo.orders?.job_zip ?? ""}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">County</p>
-              <p>{orderCounty || "—"}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Service</p>
-              <Badge variant="outline">{wo.service_type}</Badge>
-            </div>
-          </div>
+        {/* Status + schedule row */}
+        <div className="flex items-center justify-between mb-4">
+          <Badge className={cn("text-xs", STATUS_BADGE_CLASSES[wo.status])}>
+            {STATUS_LABELS[wo.status] ?? wo.status}
+          </Badge>
+          {wo.scheduled_date && <span className="text-xs text-muted-foreground">Scheduled: {wo.scheduled_date}</span>}
         </div>
 
-        {/* CLIENT-PROVIDED DOCUMENTS */}
-        {(wo.orders?.noa_document_path || wo.orders?.roof_report_path) && (
-          <section className="bg-card border rounded-lg p-5 mb-6">
-            <h2 className="text-sm font-semibold text-primary mb-3">Client-Provided Documents</h2>
-            <div className="space-y-2">
-              {wo.orders?.noa_document_path && (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <FileText className="h-5 w-5 text-hvhz-teal" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-primary">NOA Document</p>
-                    <p className="text-xs text-muted-foreground truncate">{wo.orders.noa_document_name}</p>
-                  </div>
-                  <Button variant="outline" size="sm" className="gap-1" onClick={() => openSignedUrl(wo.orders!.noa_document_path!)}>
-                    <ExternalLink className="h-3 w-3" /> View
-                  </Button>
-                </div>
-              )}
-              {wo.orders?.roof_report_path && (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <FileText className="h-5 w-5 text-hvhz-teal" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-primary">
-                      Measurement Report
-                      {wo.orders.roof_report_type && (
-                        <Badge variant="outline" className="ml-2 text-[10px]">
-                          {wo.orders.roof_report_type.charAt(0).toUpperCase() + wo.orders.roof_report_type.slice(1)}
-                        </Badge>
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">{wo.orders.roof_report_name}</p>
-                  </div>
-                  <Button variant="outline" size="sm" className="gap-1" onClick={() => openSignedUrl(wo.orders!.roof_report_path!)}>
-                    <ExternalLink className="h-3 w-3" /> View
-                  </Button>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
+        {/* Full order details — visible to technician */}
+        <div className="mb-6">
+          <OrderInfoPanel
+            order={wo.orders as any}
+            client={clientProfile}
+            workOrderServiceType={wo.service_type}
+            workOrderRejectionNotes={wo.status === "rejected" ? wo.rejection_notes : null}
+          />
+        </div>
+
 
         {/* Sibling data pre-fill banner */}
         {siblingPrefilled && (

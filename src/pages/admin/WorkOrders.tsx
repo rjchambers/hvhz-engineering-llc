@@ -18,6 +18,7 @@ import { CalendarIcon, ChevronLeft, ChevronRight, Upload, ChevronDown, AlertTria
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { OrderInfoPanel } from "@/components/order/OrderInfoPanel";
 import { Link, useSearchParams } from "react-router-dom";
 
 const PAGE_SIZE = 25;
@@ -37,8 +38,21 @@ interface WO {
   result_pdf_url: string | null;
   rejection_notes: string | null;
   pe_notes: string | null;
-  orders?: { job_address: string | null; job_city: string | null; notes: string | null; services: string[] } | null;
-  client_profiles?: { company_name: string | null; tech_instructions?: string | null } | null;
+  orders?: {
+    job_address: string | null; job_city: string | null; job_zip: string | null; job_county: string | null;
+    notes: string | null; services: string[];
+    gated_community: boolean | null; gate_code: string | null;
+    roof_area_sqft: number | null; roof_data: any; site_context: any;
+    noa_document_path: string | null; noa_document_name: string | null;
+    roof_report_path: string | null; roof_report_name: string | null; roof_report_type: string | null;
+    total_amount: number | null; created_at: string | null;
+  } | null;
+  client_profiles?: {
+    company_name: string | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null;
+    company_address: string | null; company_city: string | null; company_state: string | null; company_zip: string | null;
+    contractor_license: string | null; preferred_contact: string | null;
+    tech_instructions?: string | null;
+  } | null;
 }
 
 interface RoleUser { id: string; displayName: string; user_id: string; role: string; }
@@ -79,7 +93,7 @@ export default function WorkOrders() {
   const fetchWOs = useCallback(async () => {
     let query = supabase
       .from("work_orders")
-      .select("*, orders(job_address, job_city, notes, services)", { count: "exact" })
+      .select("*, orders(job_address, job_city, job_zip, job_county, notes, services, gated_community, gate_code, roof_area_sqft, roof_data, site_context, noa_document_path, noa_document_name, roof_report_path, roof_report_name, roof_report_type, total_amount, created_at)", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
@@ -92,7 +106,7 @@ export default function WorkOrders() {
     const clientIds = [...new Set(data.map((w) => w.client_id))];
     const { data: profiles } = await supabase
       .from("client_profiles")
-      .select("user_id, company_name, tech_instructions")
+      .select("user_id, company_name, contact_name, contact_email, contact_phone, company_address, company_city, company_state, company_zip, contractor_license, preferred_contact, tech_instructions")
       .in("user_id", clientIds);
     const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) ?? []);
 
@@ -495,24 +509,14 @@ export default function WorkOrders() {
               </SheetHeader>
 
               <div className="mt-6 space-y-6">
-                {/* Info */}
-                <section className="space-y-2">
-                  <h3 className="text-sm font-semibold text-primary">Info</h3>
-                  <div className="text-sm space-y-1">
-                    <p><span className="text-muted-foreground">Client:</span> {selected.client_profiles?.company_name ?? "—"}</p>
-                    <p><span className="text-muted-foreground">Address:</span> {selected.orders?.job_address ?? "—"}, {selected.orders?.job_city ?? ""}</p>
-                    <p><span className="text-muted-foreground">Services:</span> {selected.orders?.services?.join(", ") ?? "—"}</p>
-                    {selected.orders?.notes && <p><span className="text-muted-foreground">Notes:</span> {selected.orders.notes}</p>}
-                  </div>
-                </section>
+                {/* Full order details */}
+                <OrderInfoPanel
+                  order={selected.orders as any}
+                  client={selected.client_profiles as any}
+                  workOrderServiceType={selected.service_type}
+                  workOrderRejectionNotes={selected.status === "rejected" ? selected.rejection_notes : null}
+                />
 
-                {/* Client tech instructions */}
-                {(selected.client_profiles as any)?.tech_instructions && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800/40 p-3">
-                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1">Client Instructions for Technician</p>
-                    <p className="text-xs text-foreground/80">{(selected.client_profiles as any).tech_instructions}</p>
-                  </div>
-                )}
 
                 <section className="space-y-2">
                   <div className="text-sm space-y-1">
