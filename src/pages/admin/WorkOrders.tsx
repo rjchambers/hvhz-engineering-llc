@@ -743,6 +743,16 @@ export default function WorkOrders() {
                       </Button>
                     )}
                   </div>
+                  <div className="pt-3 mt-2 border-t border-dashed">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-hvhz-red border-hvhz-red/30 hover:bg-hvhz-red/5"
+                      onClick={handleDelete}
+                    >
+                      Delete Work Order Permanently
+                    </Button>
+                  </div>
                 </section>
               </div>
 
