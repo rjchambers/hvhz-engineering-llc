@@ -365,6 +365,27 @@ export default function WorkOrders() {
     fetchWOs();
   };
 
+  const handleDelete = async () => {
+    if (!selected) return;
+    const confirmText = `DELETE ${selected.id.slice(0, 8).toUpperCase()}`;
+    const entered = prompt(
+      `This will PERMANENTLY delete this work order and its field data, photos, and signed documents.\n\nType "${confirmText}" to confirm:`
+    );
+    if (entered !== confirmText) { toast.info("Delete cancelled"); return; }
+
+    // Best-effort cleanup of child rows (RLS allows admin)
+    await supabase.from("field_data").delete().eq("work_order_id", selected.id);
+    await supabase.from("work_order_photos").delete().eq("work_order_id", selected.id);
+    await supabase.from("signed_documents").delete().eq("work_order_id", selected.id);
+
+    const { error } = await supabase.from("work_orders").delete().eq("id", selected.id);
+    if (error) { toast.error("Delete failed: " + error.message); return; }
+    toast.success("Work order deleted");
+    setSelected(null);
+    fetchWOs();
+  };
+
+
 
   // Fix 2: Use signed URL instead of public URL for private bucket
   const handleUploadResult = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -721,6 +742,16 @@ export default function WorkOrders() {
                         Reopen → Pending Dispatch
                       </Button>
                     )}
+                  </div>
+                  <div className="pt-3 mt-2 border-t border-dashed">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-hvhz-red border-hvhz-red/30 hover:bg-hvhz-red/5"
+                      onClick={handleDelete}
+                    >
+                      Delete Work Order Permanently
+                    </Button>
                   </div>
                 </section>
               </div>
