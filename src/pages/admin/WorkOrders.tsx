@@ -352,6 +352,20 @@ export default function WorkOrders() {
     fetchWOs();
   };
 
+  const handleSetStatus = async (newStatus: "complete" | "archived" | "pending_dispatch") => {
+    if (!selected) return;
+    const verb = newStatus === "complete" ? "mark complete" : newStatus === "archived" ? "archive" : "reopen";
+    if (!confirm(`Are you sure you want to ${verb} this work order? This bypasses the normal workflow.`)) return;
+    const { error } = await supabase.from("work_orders").update({ status: newStatus }).eq("id", selected.id);
+    if (error) { toast.error("Failed: " + error.message); return; }
+    toast.success(
+      newStatus === "complete" ? "Marked complete" : newStatus === "archived" ? "Archived" : "Reopened"
+    );
+    setSelected(null);
+    fetchWOs();
+  };
+
+
   // Fix 2: Use signed URL instead of public URL for private bucket
   const handleUploadResult = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selected || !e.target.files?.[0]) return;
