@@ -367,11 +367,10 @@ export default function WorkOrders() {
 
   const handleDelete = async () => {
     if (!selected) return;
-    const confirmText = `DELETE ${selected.id.slice(0, 8).toUpperCase()}`;
-    const entered = prompt(
-      `This will PERMANENTLY delete this work order and its field data, photos, and signed documents.\n\nType "${confirmText}" to confirm:`
-    );
-    if (entered !== confirmText) { toast.info("Delete cancelled"); return; }
+    if (!confirm("Permanently delete this work order along with its field data, photos, and signed documents? This cannot be undone.")) {
+      return;
+    }
+
 
     // Best-effort cleanup of child rows (RLS allows admin)
     await supabase.from("field_data").delete().eq("work_order_id", selected.id);
