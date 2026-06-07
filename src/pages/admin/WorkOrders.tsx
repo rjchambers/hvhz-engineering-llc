@@ -352,6 +352,20 @@ export default function WorkOrders() {
     fetchWOs();
   };
 
+  const handleSetStatus = async (newStatus: "complete" | "archived" | "pending_dispatch") => {
+    if (!selected) return;
+    const verb = newStatus === "complete" ? "mark complete" : newStatus === "archived" ? "archive" : "reopen";
+    if (!confirm(`Are you sure you want to ${verb} this work order? This bypasses the normal workflow.`)) return;
+    const { error } = await supabase.from("work_orders").update({ status: newStatus }).eq("id", selected.id);
+    if (error) { toast.error("Failed: " + error.message); return; }
+    toast.success(
+      newStatus === "complete" ? "Marked complete" : newStatus === "archived" ? "Archived" : "Reopened"
+    );
+    setSelected(null);
+    fetchWOs();
+  };
+
+
   // Fix 2: Use signed URL instead of public URL for private bucket
   const handleUploadResult = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selected || !e.target.files?.[0]) return;
@@ -669,7 +683,48 @@ export default function WorkOrders() {
                     </Button>
                   </section>
                 )}
+
+                {/* Admin Override Actions — available at any stage */}
+                <section className="space-y-2 border-t pt-4">
+                  <h3 className="text-sm font-semibold text-primary">Admin Actions</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Force-close or archive this work order regardless of pipeline stage.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selected.status !== "complete" && selected.status !== "signed" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-hvhz-green border-hvhz-green/30 hover:bg-hvhz-green/5"
+                        onClick={() => handleSetStatus("complete")}
+                      >
+                        Mark Complete
+                      </Button>
+                    )}
+                    {selected.status !== "archived" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-muted-foreground"
+                        onClick={() => handleSetStatus("archived")}
+                      >
+                        Archive
+                      </Button>
+                    )}
+                    {(selected.status === "archived" || selected.status === "complete") && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="col-span-2"
+                        onClick={() => handleSetStatus("pending_dispatch")}
+                      >
+                        Reopen → Pending Dispatch
+                      </Button>
+                    )}
+                  </div>
+                </section>
               </div>
+
             </>
           )}
         </SheetContent>

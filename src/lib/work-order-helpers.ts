@@ -18,6 +18,7 @@ export const STATUS_LABELS: Record<string, string> = {
   signed: "Signed & Complete",
   complete: "Complete",
   rejected: "Rejected",
+  archived: "Archived",
 };
 
 export const STATUS_BADGE_CLASSES: Record<string, string> = {
@@ -30,7 +31,9 @@ export const STATUS_BADGE_CLASSES: Record<string, string> = {
   signed: "bg-hvhz-green-light text-hvhz-green border border-hvhz-green/20",
   complete: "bg-hvhz-green-light text-hvhz-green border border-hvhz-green/20",
   rejected: "bg-hvhz-red-light text-hvhz-red border border-hvhz-red/20",
+  archived: "bg-slate-100 text-slate-600 border border-slate-200",
 };
+
 
 export const TAS_SERVICES = ["tas-105", "tas-106", "tas-124", "tas-126"];
 
