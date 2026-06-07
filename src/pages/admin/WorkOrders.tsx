@@ -683,7 +683,48 @@ export default function WorkOrders() {
                     </Button>
                   </section>
                 )}
+
+                {/* Admin Override Actions — available at any stage */}
+                <section className="space-y-2 border-t pt-4">
+                  <h3 className="text-sm font-semibold text-primary">Admin Actions</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Force-close or archive this work order regardless of pipeline stage.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selected.status !== "complete" && selected.status !== "signed" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-hvhz-green border-hvhz-green/30 hover:bg-hvhz-green/5"
+                        onClick={() => handleSetStatus("complete")}
+                      >
+                        Mark Complete
+                      </Button>
+                    )}
+                    {selected.status !== "archived" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-muted-foreground"
+                        onClick={() => handleSetStatus("archived")}
+                      >
+                        Archive
+                      </Button>
+                    )}
+                    {(selected.status === "archived" || selected.status === "complete") && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="col-span-2"
+                        onClick={() => handleSetStatus("pending_dispatch")}
+                      >
+                        Reopen → Pending Dispatch
+                      </Button>
+                    )}
+                  </div>
+                </section>
               </div>
+
             </>
           )}
         </SheetContent>
