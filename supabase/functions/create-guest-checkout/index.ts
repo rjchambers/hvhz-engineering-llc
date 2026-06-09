@@ -198,6 +198,8 @@ Deno.serve(async (req) => {
     params.append("metadata[jobCounty]", jobCounty || "");
     params.append("metadata[gatedCommunity]", String(gatedCommunity || false));
     params.append("metadata[gateCode]", gateCode || "");
+    params.append("metadata[insideAccessName]", insideAccessName || "");
+    params.append("metadata[insideAccessPhone]", insideAccessPhone || "");
     params.append("metadata[isGuestOrder]", String(!!isGuestOrder));
     if (metadata) {
       params.append("metadata[orderMetadata]", typeof metadata === "string" ? metadata : JSON.stringify(metadata));
