@@ -251,6 +251,8 @@ export default function PublicOrder() {
           jobCounty: "",
           gatedCommunity: clientInfo.gatedCommunity === "yes",
           gateCode: clientInfo.gateCode,
+          insideAccessName: jobInfo.insideAccessName,
+          insideAccessPhone: jobInfo.insideAccessPhone,
           metadata: JSON.stringify(metadata),
           isGuestOrder: !user,
         },
