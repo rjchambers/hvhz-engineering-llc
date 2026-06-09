@@ -40,6 +40,11 @@ export function StepReview({ data, onChange, onSubmit, onBack, submitting }: Ste
           {data.job_city}{data.job_zip ? `, ${data.job_zip}` : ""}{data.job_county ? ` (${data.job_county})` : ""}
         </p>
         {data.gated_community && <p className="text-xs text-muted-foreground">Gated · Code: {data.gate_code || "N/A"}</p>}
+        {(data.inside_access_name || data.inside_access_phone) && (
+          <p className="text-xs text-muted-foreground">
+            Inside Access: {data.inside_access_name || "—"}{data.inside_access_phone ? ` · ${data.inside_access_phone}` : ""}
+          </p>
+        )}
       </div>
 
       {/* Uploaded Documents */}
