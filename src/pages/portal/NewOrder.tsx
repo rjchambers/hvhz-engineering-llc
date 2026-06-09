@@ -129,6 +129,8 @@ export default function NewOrder() {
             jobCounty: data.job_county,
             gatedCommunity: data.gated_community,
             gateCode: data.gate_code,
+            insideAccessName: data.inside_access_name,
+            insideAccessPhone: data.inside_access_phone,
             noaDocumentPath: data.noa_document_path,
             noaDocumentName: data.noa_document_name,
             roofReportPath: data.roof_report_path,
