@@ -31,6 +31,8 @@ Deno.serve(async (req) => {
       jobCounty,
       gatedCommunity,
       gateCode,
+      insideAccessName,
+      insideAccessPhone,
       metadata,
       isGuestOrder,
     } = body;
@@ -91,6 +93,8 @@ Deno.serve(async (req) => {
         hvhz_constants: { V: 185, exposure_category: "C", Kd: 0.85, Ke: 1.0, Kzt: 1.0, is_hvhz: true },
         gated_community: gatedCommunity || false,
         gate_code: gateCode || "",
+        inside_access_name: insideAccessName || "",
+        inside_access_phone: insideAccessPhone || "",
       };
 
       const totalAmount = (amount || 0) / 100;
@@ -194,6 +198,8 @@ Deno.serve(async (req) => {
     params.append("metadata[jobCounty]", jobCounty || "");
     params.append("metadata[gatedCommunity]", String(gatedCommunity || false));
     params.append("metadata[gateCode]", gateCode || "");
+    params.append("metadata[insideAccessName]", insideAccessName || "");
+    params.append("metadata[insideAccessPhone]", insideAccessPhone || "");
     params.append("metadata[isGuestOrder]", String(!!isGuestOrder));
     if (metadata) {
       params.append("metadata[orderMetadata]", typeof metadata === "string" ? metadata : JSON.stringify(metadata));

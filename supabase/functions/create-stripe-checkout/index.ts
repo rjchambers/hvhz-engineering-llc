@@ -52,6 +52,7 @@ serve(async (req) => {
       services, clientId, jobAddress,
       jobCity, jobZip, jobCounty,
       gatedCommunity, gateCode,
+      insideAccessName, insideAccessPhone,
       noaDocumentPath, noaDocumentName,
       roofReportPath, roofReportName, roofReportType,
       otherServiceDetails, roofAreaSqft,
@@ -100,6 +101,8 @@ serve(async (req) => {
         hvhz_constants: { V: 185, exposure_category: "C", Kd: 0.85, Ke: 1.0, Kzt: 1.0, is_hvhz: true },
         gated_community: gatedCommunity || false,
         gate_code: gateCode || "",
+        inside_access_name: insideAccessName || "",
+        inside_access_phone: insideAccessPhone || "",
       };
 
       const area = Number(roofAreaSqft) || 0;
@@ -189,6 +192,8 @@ serve(async (req) => {
     params.append("metadata[jobCounty]", jobCounty || "");
     params.append("metadata[gatedCommunity]", String(gatedCommunity || false));
     params.append("metadata[gateCode]", gateCode || "");
+    params.append("metadata[insideAccessName]", insideAccessName || "");
+    params.append("metadata[insideAccessPhone]", insideAccessPhone || "");
     params.append("metadata[noaDocumentPath]", noaDocumentPath || "");
     params.append("metadata[noaDocumentName]", noaDocumentName || "");
     params.append("metadata[roofReportPath]", roofReportPath || "");

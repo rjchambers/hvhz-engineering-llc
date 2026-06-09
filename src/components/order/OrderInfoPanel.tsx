@@ -168,11 +168,14 @@ export function OrderInfoPanel({ order, client, workOrderServiceType, workOrderR
               value={order.gate_code ? `Yes · Gate Code: ${order.gate_code}` : "Yes"}
             />
           )}
+          <Row icon={User} label="Inside Access Contact" value={site.inside_access_name} />
+          <Row icon={Phone} label="Inside Access Phone" value={site.inside_access_phone} />
           <Row label="Wind Zone" value={site.wind_zone} />
           <Row label="Exposure Category" value={site.exposure_category} />
           <Row label="Distance from Office" value={site.distance_miles ? `${site.distance_miles} mi` : null} />
         </div>
       </Section>
+
 
       {/* ROOF */}
       {(roof.area || roof.pitch || roof.type || order.roof_area_sqft) && (

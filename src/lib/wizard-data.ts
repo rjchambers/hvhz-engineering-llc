@@ -17,6 +17,8 @@ export interface WizardData {
   job_lng?: number;
   gated_community: boolean;
   gate_code: string;
+  inside_access_name: string;
+  inside_access_phone: string;
   selected_services: string[];
   other_service_details: string;
   // Step 3 - Site Data Collection
@@ -47,6 +49,8 @@ export const defaultWizardData: WizardData = {
   job_county: "",
   gated_community: false,
   gate_code: "",
+  inside_access_name: "",
+  inside_access_phone: "",
   selected_services: [],
   other_service_details: "",
   noa_document_path: "",
