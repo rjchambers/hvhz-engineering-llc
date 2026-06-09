@@ -100,6 +100,8 @@ serve(async (req) => {
       },
       gated_community: session.metadata?.gatedCommunity === "true",
       gate_code: session.metadata?.gateCode || "",
+      inside_access_name: session.metadata?.insideAccessName || "",
+      inside_access_phone: session.metadata?.insideAccessPhone || "",
     };
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
