@@ -52,6 +52,7 @@ serve(async (req) => {
       services, clientId, jobAddress,
       jobCity, jobZip, jobCounty,
       gatedCommunity, gateCode,
+      insideAccessName, insideAccessPhone,
       noaDocumentPath, noaDocumentName,
       roofReportPath, roofReportName, roofReportType,
       otherServiceDetails, roofAreaSqft,
