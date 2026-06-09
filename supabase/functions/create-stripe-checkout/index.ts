@@ -192,6 +192,8 @@ serve(async (req) => {
     params.append("metadata[jobCounty]", jobCounty || "");
     params.append("metadata[gatedCommunity]", String(gatedCommunity || false));
     params.append("metadata[gateCode]", gateCode || "");
+    params.append("metadata[insideAccessName]", insideAccessName || "");
+    params.append("metadata[insideAccessPhone]", insideAccessPhone || "");
     params.append("metadata[noaDocumentPath]", noaDocumentPath || "");
     params.append("metadata[noaDocumentName]", noaDocumentName || "");
     params.append("metadata[roofReportPath]", roofReportPath || "");
