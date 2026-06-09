@@ -31,6 +31,8 @@ Deno.serve(async (req) => {
       jobCounty,
       gatedCommunity,
       gateCode,
+      insideAccessName,
+      insideAccessPhone,
       metadata,
       isGuestOrder,
     } = body;
