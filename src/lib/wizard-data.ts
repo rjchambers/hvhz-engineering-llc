@@ -49,6 +49,8 @@ export const defaultWizardData: WizardData = {
   job_county: "",
   gated_community: false,
   gate_code: "",
+  inside_access_name: "",
+  inside_access_phone: "",
   selected_services: [],
   other_service_details: "",
   noa_document_path: "",
