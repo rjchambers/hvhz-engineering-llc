@@ -106,6 +106,36 @@ export function StepJobSite({ data, onChange, onNext, onBack, showEditCompanyLin
         )}
       </div>
 
+      {/* Inside access contact */}
+      <div className="space-y-3 rounded-lg border bg-card p-4">
+        <div>
+          <p className="text-sm font-semibold text-primary">Inside Access Contact</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Who should our technician contact to gain interior access on-site? (Optional)</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Contact Name</Label>
+            <Input
+              value={data.inside_access_name}
+              onChange={(e) => onChange({ inside_access_name: e.target.value })}
+              placeholder="e.g. Site Superintendent"
+              className="h-9 text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Contact Phone</Label>
+            <Input
+              type="tel"
+              value={data.inside_access_phone}
+              onChange={(e) => onChange({ inside_access_phone: e.target.value })}
+              placeholder="(555) 555-5555"
+              className="h-9 text-sm"
+            />
+          </div>
+        </div>
+      </div>
+
+
       {/* Popular Packages */}
       <div className="space-y-3">
         <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Popular Packages</Label>
