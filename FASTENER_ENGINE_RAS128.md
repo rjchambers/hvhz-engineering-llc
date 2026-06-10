@@ -122,6 +122,32 @@ counts.
 
 ---
 
+## 3b. Irrefutable report — verbose math, input verification, RAS 128 chart
+
+The fastener-calculation report (`generateReport.ts`) is now fully traceable and
+makes no hidden assumptions:
+
+- **§3 Input Verification & Data Provenance** — `checkFastenerInputs()`
+  (`required-inputs.ts`, the single source of truth) lists every input the calc
+  depends on, grouped, with its value, source (Code-locked / Technician /
+  Engineer), and status. Missing required inputs are flagged `MISSING ✗ *` and a
+  red "REPORT INCOMPLETE" banner blocks permit use. Code-locked factors (V,
+  Exposure, Kzt, Kd, Ke) are shown with their code basis and never count as
+  missing.
+- **Verbose derivations** — velocity pressure (Kz → qh → Dqz → GCpi), per-zone
+  uplift `P = Dqz·(GCp − GCpi)` with full substitution, the RAS 117 §10 fastener
+  chain (NW → L → FPS → Fv → RS, step by step), per-zone `FS = (|Fv|·144)/(|P|·RS)`,
+  and the RAS 117 §9 insulation `N = ⌈P·A/Fv⌉` — all with numbers substituted.
+- **RAS 128 chart with auto-highlight** — the full published Table 1 (Exp C) or
+  Table 2 (Exp D) is rendered with the structure's eave-height band row
+  highlighted (`addTable({ highlightRow })`).
+
+The same `checkFastenerInputs` model gates the **technician work order**: required
+fields are asterisked, a live banner lists what's still needed, and submission to
+the PE is blocked until every technician-stage input is provided.
+
+---
+
 ## 4. Citation fixes
 
 - `reportLayout.ts`: **RAS 128 was mislabeled "Insulation Board Attachment"** —

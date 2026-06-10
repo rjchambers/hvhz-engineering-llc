@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { STATUS_BADGE_CLASSES, STATUS_LABELS } from "@/lib/work-order-helpers";
 import { PHOTO_SECTION_TAGS, MIN_PHOTO_COUNTS, SPECIAL_INSPECTION_CHECKLISTS, compressImage } from "@/lib/tech-form-helpers";
 import { getDrainCapacity, DESIGN_RAINFALL } from "@/lib/drainage-calc";
+import { checkFastenerInputs } from "@/lib/fastener-engine";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -375,12 +376,11 @@ export default function TechWorkOrderDetail() {
       if (!formData.drainage_zones?.length) newErrors.drainage_zones = "At least 1 drainage zone required";
     }
     if (wo.service_type === "fastener-calculation") {
-      if (!formData.building_width_ft) newErrors.building_width_ft = "Required";
-      if (!formData.building_length_ft) newErrors.building_length_ft = "Required";
-      if (!formData.mean_roof_height_ft) newErrors.mean_roof_height_ft = "Required";
-      if (!formData.noa_number) newErrors.noa_number = "NOA/approval number required";
+      // Gate on every technician-stage required input (single source of truth).
+      for (const item of checkFastenerInputs(formData).techMissing) {
+        newErrors[item.key] = "Required before PE review";
+      }
       if (!formData.noa_mdp_psf) newErrors.noa_mdp_psf = "NOA MDP required";
-      if (!formData.system_type) newErrors.system_type = "Roof system type required";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -1407,8 +1407,25 @@ function FastenerCalcForm({ formData, setField, errors, noaDocPath, openSignedUr
   const needsTas105 = formData.deck_type === "LW Insulating Concrete" ||
     (formData.construction_type === "Recover" && ["Plywood", "OSB", "Structural Concrete", "Steel Deck", "Wood Plank"].includes(formData.deck_type));
 
+  const techMissing = checkFastenerInputs(formData).techMissing;
+
   return (
     <div className="space-y-6">
+      {/* Required inputs gate — asterisked fields the PE needs */}
+      <div className={cn("rounded-lg p-3 border text-xs",
+        techMissing.length === 0 ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-300 text-amber-900")}>
+        {techMissing.length === 0 ? (
+          <p className="font-medium">✓ All required (*) inputs provided — ready to push to the PE.</p>
+        ) : (
+          <>
+            <p className="font-semibold mb-1">⚠ {techMissing.length} required input(s) (*) still needed before pushing to the PE:</p>
+            <ul className="list-disc pl-5 space-y-0.5">
+              {techMissing.map(m => <li key={m.key}>{m.label}</li>)}
+            </ul>
+          </>
+        )}
+      </div>
+
       {/* Locked Design Parameters */}
       <div className="bg-muted/50 rounded-lg p-4 space-y-2">
         <div className="flex items-center gap-2">
@@ -1457,11 +1474,11 @@ function FastenerCalcForm({ formData, setField, errors, noaDocPath, openSignedUr
               </div>
             )}
             <div className="space-y-1.5">
-              <FieldSelect label="Risk Category" field="risk_category" options={["I", "II", "III", "IV"]} formData={formData} setField={setField} />
+              <FieldSelect label="Risk Category *" field="risk_category" options={["I", "II", "III", "IV"]} formData={formData} setField={setField} />
               <p className="text-[10px] text-muted-foreground">From building permit — most residential = II</p>
             </div>
             <div className="space-y-1.5">
-              <FieldSelect label="Enclosure Classification" field="enclosure_type" options={["Enclosed", "Partially Enclosed", "Open"]} formData={formData} setField={setField} />
+              <FieldSelect label="Enclosure Classification *" field="enclosure_type" options={["Enclosed", "Partially Enclosed", "Open"]} formData={formData} setField={setField} />
               <p className="text-[10px] text-muted-foreground">Enclosed unless building has large unprotected openings</p>
             </div>
           </div>
@@ -1489,7 +1506,7 @@ function FastenerCalcForm({ formData, setField, errors, noaDocPath, openSignedUr
             </div>
             {errors?.system_type && <p className="text-xs text-destructive mt-1">{errors.system_type}</p>}
           </div>
-          <FieldSelect label="Deck Type" field="deck_type" options={["Plywood", "OSB", "Structural Concrete", "Steel Deck", "Wood Plank", "LW Insulating Concrete"]} formData={formData} setField={setField} />
+          <FieldSelect label="Deck Type *" field="deck_type" options={["Plywood", "OSB", "Structural Concrete", "Steel Deck", "Wood Plank", "LW Insulating Concrete"]} formData={formData} setField={setField} />
           {(formData.system_type === "modified_bitumen" || formData.system_type === "single_ply") && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <FieldInput label="Sheet Width (in)" field="sheet_width_in" type="number" formData={formData} setField={setField} help="Full roll width from NOA" />
@@ -1514,7 +1531,7 @@ function FastenerCalcForm({ formData, setField, errors, noaDocPath, openSignedUr
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FieldSelect label="Approval Type" field="noa_approval_type" options={["Miami-Dade NOA", "FL Product Approval"]} formData={formData} setField={setField} />
             <FieldInput label="Approval Number *" field="noa_number" formData={formData} setField={setField} />
-            <FieldInput label="Manufacturer" field="noa_manufacturer" formData={formData} setField={setField} />
+            <FieldInput label="Manufacturer *" field="noa_manufacturer" formData={formData} setField={setField} />
             <FieldInput label="Product / System Name" field="noa_product" formData={formData} setField={setField} />
             <FieldInput label="System Number" field="noa_system_number" formData={formData} setField={setField} />
             <FieldInput label="NOA MDP (psf) *" field="noa_mdp_psf" type="number" formData={formData} setField={setField} help="Enter as negative. ASD-level from NOA." />
