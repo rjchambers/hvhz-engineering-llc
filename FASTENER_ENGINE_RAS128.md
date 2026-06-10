@@ -121,8 +121,18 @@ counts.
 
 ## 5. Verification
 
-- `bun run test` — **56 passing** (was 26): adds the RAS 128 procedure, table,
+- `bun run test` — **60 passing** (was 26): adds the RAS 128 procedure, table,
   prescriptive, cross-engine reconciliation, and sealed-report back-test suites.
+
+### RAS 117 §9 insulation report
+
+The fastener report (`generateReport.ts`) now includes a **§9.0 Insulation
+Attachment (RAS 117 §9)** section mirroring the sealed reference report's page 2:
+derives `Fv = DP × A_board / FPB`, tributary area per fastener, and fasteners
+per board by zone (`computeInsulationAttachment` in `wind-calc.ts`, shared with
+the FastenerCalc UI card). Driven by four optional inputs (insulation MDP, NOA
+field pattern FPB, board L×W) on the FastenerCalc form; when absent the section
+notes that base-sheet/membrane fastening governs (§7–8).
 - `tsc -p tsconfig.app.json --noEmit` — clean.
 - `bun run build` — clean.
 

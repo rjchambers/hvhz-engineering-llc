@@ -42,6 +42,11 @@ export interface CCCalcFields {
   fieldFastenerSpacing: number;
   lapRows: number;
   fieldRows: number;
+  // RAS 117 §9 insulation attachment (optional; drives the insulation report)
+  insulationMDP: number;     // insulation assembly NOA MDP, psf (negative); 0 = N/A
+  insulationFPB: number;     // NOA field pattern fasteners per board; 0 = N/A
+  insulationBoardL: number;  // board length, ft
+  insulationBoardW: number;  // board width, ft
 }
 
 const defaultCCFields: CCCalcFields = {
@@ -58,6 +63,10 @@ const defaultCCFields: CCCalcFields = {
   fieldFastenerSpacing: 7,
   lapRows: 1,
   fieldRows: 2,
+  insulationMDP: 0,
+  insulationFPB: 0,
+  insulationBoardL: 4,
+  insulationBoardW: 4,
 };
 
 // ─── Legacy defaults (for backward compat) ──────────────────
@@ -250,6 +259,10 @@ export const usePEFastenerStore = create<PEFastenerState>()(
           fieldFastenerSpacing: parseFloat(fd.cc_field_fastener_spacing) || 7,
           lapRows: parseInt(fd.cc_lap_rows) || 1,
           fieldRows: parseInt(fd.cc_field_rows) || 2,
+          insulationMDP: parseFloat(fd.cc_insulation_mdp) || 0,
+          insulationFPB: parseInt(fd.cc_insulation_fpb) || 0,
+          insulationBoardL: parseFloat(fd.cc_insulation_board_l) || 4,
+          insulationBoardW: parseFloat(fd.cc_insulation_board_w) || 4,
         };
 
         const tas105Inputs: TAS105Inputs = {
@@ -312,6 +325,10 @@ export const usePEFastenerStore = create<PEFastenerState>()(
           cc_field_fastener_spacing: ccFields.fieldFastenerSpacing,
           cc_lap_rows: ccFields.lapRows,
           cc_field_rows: ccFields.fieldRows,
+          cc_insulation_mdp: ccFields.insulationMDP,
+          cc_insulation_fpb: ccFields.insulationFPB,
+          cc_insulation_board_l: ccFields.insulationBoardL,
+          cc_insulation_board_w: ccFields.insulationBoardW,
           // C&C results snapshot
           cc_results: ccResults,
           // TAS 105

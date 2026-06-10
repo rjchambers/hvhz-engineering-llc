@@ -23,6 +23,7 @@ import { describe, expect, it } from 'vitest';
 import { computeRAS128Pressures } from '@/lib/fasteners/ras128';
 import { calcQhASD, getZonePressures, getZoneWidth } from '@/lib/fasteners/zone-pressures';
 import { calcInsulationZone } from '@/lib/fasteners/insulation-engine';
+import { computeInsulationAttachment } from '@/lib/wind-calc';
 import type { FastenerInputs } from '@/lib/fasteners/types';
 
 const report = {
@@ -109,5 +110,42 @@ describe('Sealed report back-test — insulation (standard RAS 117 §9)', () => 
       const n = calcInsulationZone(k as never, report.P[k], report.boardArea, f_y, report.FPB).N_used;
       expect(n).toBeLessThanOrEqual(report.counts[k]);
     }
+  });
+});
+
+describe('Sealed report back-test — report insulation section (computeInsulationAttachment)', () => {
+  // The report generator / UI card consume this helper. Drive it with the same
+  // zone pressures and NOA inputs as the sealed report.
+  const zones = [
+    { zone: "1'", label: 'Field (interior)', pressure: report.P["1'"] },
+    { zone: '1', label: 'Field', pressure: report.P['1'] },
+    { zone: '2', label: 'Perimeter', pressure: report.P['2'] },
+    { zone: '3', label: 'Corner', pressure: report.P['3'] },
+  ];
+  const ins = computeInsulationAttachment(zones, report.DP, report.FPB, 4, 4);
+
+  it('derives Fv from the NOA field pattern (DP × A / FPB)', () => {
+    expect(ins.applicable).toBe(true);
+    expect(ins.boardArea).toBe(16);
+    expect(ins.fv).toBeCloseTo(93.33, 1);
+  });
+
+  it('reproduces tributary areas close to the sealed report', () => {
+    const trib = (k: string) => ins.zones.find(z => z.zone === k)!.tribArea;
+    expect(trib("1'")).toBeCloseTo(report.trib["1'"], 1);
+    expect(trib('3')).toBeCloseTo(report.trib['3'], 1);
+  });
+
+  it('produces standard §9 counts: 9 / 11 / 15 / 20', () => {
+    const n = (k: string) => ins.zones.find(z => z.zone === k)!.fasteners;
+    expect(n("1'")).toBe(9);
+    expect(n('1')).toBe(11);
+    expect(n('2')).toBe(15);
+    expect(n('3')).toBe(20);
+  });
+
+  it('is not applicable when MDP or FPB are missing', () => {
+    expect(computeInsulationAttachment(zones, 0, 9, 4, 4).applicable).toBe(false);
+    expect(computeInsulationAttachment(zones, -52.5, 0, 4, 4).applicable).toBe(false);
   });
 });

@@ -23,7 +23,7 @@ import { usePEFastenerStore, type CCCalcFields } from "@/stores/pe-fastener-stor
 import { isTAS105Required } from "@/lib/fastener-engine";
 import { lookupByCounty, FLORIDA_COUNTY_WIND } from "@/lib/county-wind-data";
 import { useIsMobile } from "@/hooks/use-mobile";
-import type { FastenerCalcResults } from "@/lib/wind-calc";
+import { computeInsulationAttachment, type FastenerCalcResults } from "@/lib/wind-calc";
 
 // ─── Constants ──────────────────────────────────────────────
 const SYSTEM_LABELS: Record<string, string> = {
@@ -404,6 +404,19 @@ function FormPanel({ inputs, ccFields, store, orderData, tas105Inputs, tas105Out
         {orderData?.noa_document_path && <NOADocLink path={orderData.noa_document_path} name={orderData.noa_document_name} />}
       </Section>
 
+      {/* 5b: Insulation Attachment (RAS 117 §9) */}
+      <Section title="Insulation Attachment (RAS 117 §9)" icon={Layers} defaultOpen={false}>
+        <p className="text-[10px] text-muted-foreground">Optional — enter the insulation assembly's NOA values to add the RAS 117 §9 insulation fastener calc to the report.</p>
+        <div className="grid grid-cols-2 gap-2">
+          <NumField label="Insulation MDP" value={Math.abs(ccFields.insulationMDP)} onChange={v => store.setCCField('insulationMDP', -Math.abs(v))} unit="psf" tooltip="Insulation assembly NOA Max Design Pressure" />
+          <NumField label="Field Pattern (FPB)" value={ccFields.insulationFPB} onChange={v => store.setCCField('insulationFPB', Math.max(0, Math.round(v)))} unit="/board" tooltip="NOA field-area fasteners per board" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <NumField label="Board Length" value={ccFields.insulationBoardL} onChange={v => store.setCCField('insulationBoardL', v)} unit="ft" step={0.5} />
+          <NumField label="Board Width" value={ccFields.insulationBoardW} onChange={v => store.setCCField('insulationBoardW', v)} unit="ft" step={0.5} />
+        </div>
+      </Section>
+
       {/* 6: Legacy Fastener / Assembly */}
       <Section title="Fastener / Assembly (Legacy)" icon={Wrench} defaultOpen={false}>
         <div className="grid grid-cols-2 gap-2">
@@ -504,6 +517,10 @@ function ResultsPanel({ inputs, ccFields, ccResults, outputs, tas105Outputs }: {
 }) {
   if (!ccResults) return <p className="text-sm text-muted-foreground p-4">Enter parameters to see results.</p>;
   const r = ccResults;
+  const ins = computeInsulationAttachment(
+    r.zones, ccFields.insulationMDP, ccFields.insulationFPB,
+    ccFields.insulationBoardL, ccFields.insulationBoardW,
+  );
 
   return (
     <div className="space-y-4">
@@ -667,6 +684,43 @@ function ResultsPanel({ inputs, ccFields, ccResults, outputs, tas105Outputs }: {
           <CopyPatternButton ccResults={r} ccFields={ccFields} inputs={inputs} />
         </CardContent>
       </Card>
+
+      {/* 6b: Insulation Attachment (RAS 117 §9) */}
+      {ins.applicable && (
+        <Card className="border-primary/30">
+          <CardHeader className="pb-2"><CardTitle className="text-xs">Insulation Attachment — RAS 117 §9</CardTitle></CardHeader>
+          <CardContent>
+            <div className="bg-muted/50 rounded p-3 font-mono text-[11px] space-y-1 mb-2">
+              <p>Insulation MDP (DP): <span className="font-bold">{ins.mdp} psf</span></p>
+              <p>Board: <span className="font-bold">{ins.boardL}'×{ins.boardW}' = {ins.boardArea} ft²</span> · Field pattern: <span className="font-bold">{ins.fpb}/board</span></p>
+              <p>Fv = DP × A / FPB = {Math.abs(ins.mdp)} × {ins.boardArea} / {ins.fpb} = <span className="font-bold">{ins.fv} lb</span></p>
+            </div>
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/60">
+                  <tr>
+                    <th className="p-2 text-left">Zone</th>
+                    <th className="p-2 text-right">Pressure</th>
+                    <th className="p-2 text-right">Trib (ft²/f)</th>
+                    <th className="p-2 text-right font-bold">Fasteners/Board</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ins.zones.map(z => (
+                    <tr key={z.zone} className="border-t">
+                      <td className="p-2 font-medium">{z.zone} ({z.label})</td>
+                      <td className="p-2 text-right font-mono">{Math.abs(z.pressure).toFixed(1)} psf</td>
+                      <td className="p-2 text-right font-mono">{z.tribArea.toFixed(2)}</td>
+                      <td className="p-2 text-right font-mono font-bold">{z.fasteners}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">N = ⌈P × A / Fv⌉, ≥ NOA field pattern · per 4'×4' board · RAS 117 §9</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 7: Zone Diagram */}
       <ZoneDiagram inputs={inputs} ccResults={r} />
