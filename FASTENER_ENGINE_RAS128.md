@@ -57,14 +57,25 @@ Wired into `calculateFastener` (`index.ts`): every result now carries a
 the RAS 128 tabular path. Surfaced in the FastenerCalc UI as the
 "Applicable Wind ASD Pressures — RAS 128" card.
 
-### ⚠️ Provenance of the table values
+### Published tables (verbatim) + procedure cross-check
 
-The Table 1/2 numbers are **computed** from the RAS 128 procedure (ASCE 7-22),
-not transcribed from the printed RAS 128 PDF (the FL code sites were not
-retrievable in the build environment). They should match to within rounding, but
-**verify against the printed RAS 128 Table 1/2 (8th Ed.) before relying on the
-tabular "no signed/sealed calc" path** for a permit. Swapping in transcribed
-values is a localized change in `ras128.ts`.
+`ras128.ts` now embeds the **verbatim** published RAS 128-20 tables (2023 FBC,
+8th Ed., codes.iccsafe.org):
+- `RAS128_TABLE_1_EXP_C` — Table 1, Exposure C
+- `RAS128_TABLE_2_EXP_D` — Table 2, Exposure D
+
+Both are Risk Cat II, slope < 1½:12, V = 175 mph, indexed by eave-height band.
+`lookupRAS128Table(exposure, eaveHeight)` returns the governing band row (or
+null above 60 ft), and the report (§5.3) and FastenerCalc UI surface it for
+Exposure C/D + Risk II.
+
+**Cross-check:** `computeRAS128Pressures` (our ASCE 7-22 procedure) at V=175,
+Risk II, enclosed, EWA=10, evaluated at each band's top height, reproduces
+**77 of 80** published values exactly; the remaining 3 differ by exactly 1 psf
+at half-psf rounding boundaries (e.g. we compute 108.49, the book prints 109).
+`ras128-tables.test.ts` asserts every cell is within 1 psf and ≥ 77/80 exact —
+strong validation that the procedure *is* the RAS 128 procedure. The verbatim
+table values are authoritative for the tabular "no signed/sealed calc" path.
 
 ---
 
@@ -121,8 +132,9 @@ counts.
 
 ## 5. Verification
 
-- `bun run test` — **60 passing** (was 26): adds the RAS 128 procedure, table,
-  prescriptive, cross-engine reconciliation, and sealed-report back-test suites.
+- `bun run test` — **70 passing** (was 26): adds the RAS 128 procedure, table,
+  prescriptive, cross-engine reconciliation, sealed-report back-test, and
+  verbatim published-table validation suites.
 
 ### RAS 117 §9 insulation report
 

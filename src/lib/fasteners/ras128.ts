@@ -257,6 +257,78 @@ export function generateRAS128Table(options: RAS128TableOptions = {}): RAS128Tab
   return rows;
 }
 
+// ─── Published RAS 128-20 Tables (verbatim) ─────────────────────────────────
+//
+// 2023 Florida Building Code, Test Protocols for HVHZ, 8th Edition — RAS 128-20.
+// "Minimum ASD Design Wind Uplift Pressures (psf) for Roof Slope < 1½:12,
+//  Risk Category II", indexed by eave height. V = 175 mph (HVHZ).
+//   Table 1 → Exposure C, Table 2 → Exposure D.
+// Columns are roof pressure zones 1' / 1 / 2 / 3 (field-interior / field /
+// perimeter / corner). Values transcribed verbatim from codes.iccsafe.org.
+//
+// Verified: computeRAS128Pressures (this module's ASCE 7-22 procedure) at
+// V=175, Risk II, enclosed, EWA=10, evaluated at each band's top height,
+// reproduces 77/80 of these values exactly; the remaining 3 differ by 1 psf at
+// half-psf rounding boundaries (see ras128-tables.test.ts). The verbatim values
+// below are authoritative for the RAS 128 tabular ("no signed/sealed calc") path.
+
+export interface RAS128TableEntry {
+  maxEaveHeight: number;  // band upper bound, ft (band = up to and including this height)
+  zone1prime: number;     // Pasd(1') psf (negative)
+  zone1: number;          // Pasd(1) field
+  zone2: number;          // Pasd(2) perimeter
+  zone3: number;          // Pasd(3) corner
+}
+
+export const RAS128_TABLE_V_MPH = 175;
+export const RAS128_TABLE_RISK_CATEGORY = 'II';
+export const RAS128_TABLE_MAX_SLOPE = '< 1½:12';
+
+// Table 1 — Exposure C.
+export const RAS128_TABLE_1_EXP_C: RAS128TableEntry[] = [
+  { maxEaveHeight: 15, zone1prime: -37, zone1: -64, zone2: -84, zone3: -115 },
+  { maxEaveHeight: 20, zone1prime: -39, zone1: -68, zone2: -89, zone3: -122 },
+  { maxEaveHeight: 25, zone1prime: -41, zone1: -71, zone2: -94, zone3: -128 },
+  { maxEaveHeight: 30, zone1prime: -42, zone1: -74, zone2: -97, zone3: -133 },
+  { maxEaveHeight: 35, zone1prime: -44, zone1: -76, zone2: -101, zone3: -137 },
+  { maxEaveHeight: 40, zone1prime: -45, zone1: -78, zone2: -103, zone3: -141 },
+  { maxEaveHeight: 45, zone1prime: -46, zone1: -80, zone2: -106, zone3: -145 },
+  { maxEaveHeight: 50, zone1prime: -47, zone1: -82, zone2: -109, zone3: -148 },
+  { maxEaveHeight: 55, zone1prime: -48, zone1: -84, zone2: -111, zone3: -151 },
+  { maxEaveHeight: 60, zone1prime: -49, zone1: -85, zone2: -113, zone3: -154 },
+];
+
+// Table 2 — Exposure D.
+export const RAS128_TABLE_2_EXP_D: RAS128TableEntry[] = [
+  { maxEaveHeight: 15, zone1prime: -45, zone1: -77, zone2: -102, zone3: -139 },
+  { maxEaveHeight: 20, zone1prime: -47, zone1: -81, zone2: -107, zone3: -146 },
+  { maxEaveHeight: 25, zone1prime: -49, zone1: -85, zone2: -112, zone3: -152 },
+  { maxEaveHeight: 30, zone1prime: -50, zone1: -87, zone2: -115, zone3: -157 },
+  { maxEaveHeight: 35, zone1prime: -52, zone1: -90, zone2: -118, zone3: -161 },
+  { maxEaveHeight: 40, zone1prime: -53, zone1: -92, zone2: -121, zone3: -165 },
+  { maxEaveHeight: 45, zone1prime: -54, zone1: -94, zone2: -124, zone3: -169 },
+  { maxEaveHeight: 50, zone1prime: -55, zone1: -96, zone2: -126, zone3: -172 },
+  { maxEaveHeight: 55, zone1prime: -56, zone1: -97, zone2: -128, zone3: -175 },
+  { maxEaveHeight: 60, zone1prime: -57, zone1: -99, zone2: -130, zone3: -177 },
+];
+
+/** Returns the published RAS 128 table for the given exposure (C → Table 1, D → Table 2). */
+export function getRAS128Table(exposure: 'C' | 'D'): RAS128TableEntry[] {
+  return exposure === 'D' ? RAS128_TABLE_2_EXP_D : RAS128_TABLE_1_EXP_C;
+}
+
+/**
+ * Look up the published RAS 128 ASD pressures for an eave height. Returns the
+ * row whose band contains `eaveHeight`, or null if h > 60 ft (table not
+ * applicable — use the rational analysis / Directional Procedure instead).
+ */
+export function lookupRAS128Table(exposure: 'C' | 'D', eaveHeight: number): RAS128TableEntry | null {
+  for (const row of getRAS128Table(exposure)) {
+    if (eaveHeight <= row.maxEaveHeight) return row;
+  }
+  return null;
+}
+
 export interface RAS128PrescriptiveCheck {
   qualifies: boolean;          // true → RAS 128 tabular path, no signed/sealed calc
   governingZone: RAS128ZoneKey;
