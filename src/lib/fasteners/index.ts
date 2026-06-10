@@ -30,10 +30,13 @@ export {
 export {
   computeRAS128Pressures, generateRAS128Table, checkRAS128Prescriptive,
   kzASCE, zoneDimA, gcpLowSlope,
+  getRAS128Table, lookupRAS128Table,
+  RAS128_TABLE_1_EXP_C, RAS128_TABLE_2_EXP_D,
+  RAS128_TABLE_V_MPH, RAS128_TABLE_RISK_CATEGORY, RAS128_TABLE_MAX_SLOPE,
 } from './ras128';
 export type {
   RAS128Inputs, RAS128Result, RAS128ZonePressure, RAS128TableRow,
-  RAS128TableOptions, RAS128PrescriptiveCheck,
+  RAS128TableOptions, RAS128PrescriptiveCheck, RAS128TableEntry,
 } from './ras128';
 export { checkNOACompatibility } from './noa-compatibility';
 export { calculateTAS105, isTAS105Required, getTFactor } from './tas-105';

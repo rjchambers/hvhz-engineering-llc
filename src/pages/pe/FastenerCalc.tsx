@@ -20,7 +20,7 @@ import {
   FileText, Layers, TestTube, ChevronDown, AlertCircle, AlertTriangle, Info, Copy, Check
 } from "lucide-react";
 import { usePEFastenerStore, type CCCalcFields } from "@/stores/pe-fastener-store";
-import { isTAS105Required } from "@/lib/fastener-engine";
+import { isTAS105Required, lookupRAS128Table } from "@/lib/fastener-engine";
 import { lookupByCounty, FLORIDA_COUNTY_WIND } from "@/lib/county-wind-data";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { computeInsulationAttachment, type FastenerCalcResults } from "@/lib/wind-calc";
@@ -592,6 +592,17 @@ function ResultsPanel({ inputs, ccFields, ccResults, outputs, tas105Outputs }: {
             </div>
             <p className="text-[10px] text-muted-foreground mt-2">{outputs.ras128.message}</p>
             <p className="text-[9px] text-muted-foreground mt-1">Pasd = 0.6 × Pult per RAS 128-20 · qh = {outputs.ras128.qh_ult.toFixed(1)} psf</p>
+            {(() => {
+              const t = (inputs.exposureCategory === 'C' || inputs.exposureCategory === 'D') && inputs.riskCategory === 'II'
+                ? lookupRAS128Table(inputs.exposureCategory, inputs.h) : null;
+              if (!t) return null;
+              return (
+                <div className="mt-2 rounded border border-border/60 bg-muted/40 p-2">
+                  <p className="text-[10px] font-medium mb-1">RAS 128 {inputs.exposureCategory === 'C' ? 'Table 1' : 'Table 2'} (Exp {inputs.exposureCategory}, Risk II, V=175, h≤{t.maxEaveHeight}ft)</p>
+                  <p className="text-[10px] font-mono">1′ {t.zone1prime} · 1 {t.zone1} · 2 {t.zone2} · 3 {t.zone3} psf</p>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       )}

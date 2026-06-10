@@ -1,7 +1,7 @@
 import { HVHZReportBuilder, type ReportConfig, type PhotoData } from './reportLayout';
 import { format } from 'date-fns';
 import { runDrainageCalc, DESIGN_RAINFALL, getDrainCapacity, type DrainageCalcInputs } from '@/lib/drainage-calc';
-import { calculateFastener, type FastenerInputs } from '@/lib/fastener-engine';
+import { calculateFastener, lookupRAS128Table, type FastenerInputs } from '@/lib/fastener-engine';
 import { computeFastenerCalc, computeInsulationAttachment, type FastenerCalcInputs, type FastenerCalcResults } from '@/lib/wind-calc';
 
 interface EngineerProfile {
@@ -216,8 +216,28 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
     ]),
   );
 
-  // 5.3 Zone Widths
-  rb.addSubSection('5.3', 'Zone Widths');
+  // 5.3 RAS 128 Published Table (when applicable: Risk II, Exposure C/D, h ≤ 60)
+  const expCat = (fd.exposure_category ?? 'C') as string;
+  const riskCat = (fd.risk_category ?? 'II') as string;
+  const eaveHt = fd.mean_roof_height_ft ?? 0;
+  if ((expCat === 'C' || expCat === 'D') && riskCat === 'II') {
+    const tableRow = lookupRAS128Table(expCat, eaveHt);
+    if (tableRow) {
+      rb.addSubSection('5.3', `RAS 128 ${expCat === 'C' ? 'Table 1' : 'Table 2'} — Published ASD Pressures (Exposure ${expCat})`);
+      rb.addTable(
+        ['Source', "Zone 1'", 'Zone 1', 'Zone 2', 'Zone 3'],
+        [['RAS 128 (psf)', String(tableRow.zone1prime), String(tableRow.zone1), String(tableRow.zone2), String(tableRow.zone3)]],
+        { compactMode: true }
+      );
+      rb.addTextBlock(
+        `Published RAS 128-20 minimum ASD uplift pressures — Risk Category II, Exposure ${expCat}, slope < 1½:12, V = 175 mph, eave height ${eaveHt} ft (band ≤ ${tableRow.maxEaveHeight} ft). Where the assembly's approved design pressures envelope these values, the RAS 128 tabular path applies and no additional signed/sealed engineering calculations are required.`,
+        { color: 'slate' }
+      );
+    }
+  }
+
+  // 5.4 Zone Widths
+  rb.addSubSection('5.4', 'Zone Widths');
   const zwLines: string[] = [];
   if (ccResults.zoneWidths.hasZone1Prime) zwLines.push(`Zone 1' (interior): inside zone boundaries`);
   zwLines.push(`Zone 1 (field): ${ccResults.zoneWidths.zone1} ft`);
