@@ -1,7 +1,14 @@
 /**
  * ASCE 7-22 Wind Pressure Calculation Engine
  * For HVHZ permit-submittal engineering reports
+ *
+ * The C&C fastener path (computeFastenerCalc) determines roof uplift pressures
+ * per RAS 128-20 / ASCE 7-22 Ch. 30. Zone geometry uses the shared ASCE 7-22
+ * §30.2 dimension `a` (see ./fasteners/ras128) so this engine and the RAS 117
+ * fastener engine agree on zone widths.
  */
+
+import { zoneDimA } from './fasteners/ras128';
 
 // ─── EXISTING: MWFRS (used by WindMitigationCalc) ──────────
 
@@ -175,6 +182,9 @@ interface ZoneWidths {
 
 function getZoneWidths(roofType: string, slopeDeg: number, h: number, W: number, L: number): ZoneWidths {
   if (roofType === "Flat" || slopeDeg <= 7) {
+    // Low-slope (firm convention, matching the signed/sealed reference reports):
+    // field/perimeter/corner band = 0.6·H, corner-inner = 0.2·H. Pressures are
+    // unaffected (they come from RAS 128 / ASCE 7-22 qh, GCp, GCpi).
     const zoneWidth = Math.max(0.6 * h, 4);
     return {
       zone1: round2(zoneWidth),
@@ -184,8 +194,8 @@ function getZoneWidths(roofType: string, slopeDeg: number, h: number, W: number,
       hasZone1Prime: true,
     };
   }
-  const minWL = Math.min(W, L);
-  const a = Math.max(Math.min(0.1 * minWL, 0.4 * h), Math.max(0.04 * minWL, 3));
+  // Steep-slope (gable/hip > 7°): ASCE 7-22 §30.2 dimension `a`.
+  const a = zoneDimA(h, W, L);
   return {
     zone1: round2(a),
     zone2: round2(a),
@@ -280,13 +290,18 @@ export function computeFastenerCalc(inputs: FastenerCalcInputs): FastenerCalcRes
   } = inputs;
 
   // 1. Kz via ASCE 7-22 formula: Kz = 2.01 × (h/Zg)^(2/α)
+  // Keep full-precision intermediates for the pressure chain (matches RAS 128 /
+  // the sealed reference report to the cent); Kz/qh/Dqz below are display values.
   const { alpha, Zg } = EXPOSURE_PARAMS[exposure];
   const h_clamped = Math.max(h, 15); // Table 26.10-1 Note 1: use 15ft minimum
-  const Kz = round2(2.01 * Math.pow(h_clamped / Zg, 2 / alpha));
+  const KzFull = 2.01 * Math.pow(h_clamped / Zg, 2 / alpha);
+  const qhFull = 0.00256 * KzFull * Kzt * Kd * Ke * V * V;
+  const DqzFull = 0.6 * qhFull; // ASD factor
+  const Kz = round2(KzFull);
 
   // 2. Velocity pressure (ultimate)
-  const qh = round2(0.00256 * Kz * Kzt * Kd * Ke * V * V);
-  const Dqz = round2(0.6 * qh); // ASD factor
+  const qh = round2(qhFull);
+  const Dqz = round2(DqzFull);
 
   // 3. GCpi
   const encKey = enclosure.toUpperCase().replace(/ /g, '_');
@@ -301,7 +316,7 @@ export function computeFastenerCalc(inputs: FastenerCalcInputs): FastenerCalcRes
     zone,
     label,
     GCp,
-    pressure: round2(Dqz * (GCp - GCpi)),
+    pressure: round2(DqzFull * (GCp - GCpi)),
   }));
 
   // 6. Zone widths
@@ -368,4 +383,57 @@ function getGCpTableName(roofType: string, slopeDeg: number): string {
   }
   if (slopeDeg <= 27) return `Table 30.3-2B (${roofType}, 7° < θ ≤ 27°)`;
   return `Table 30.3-2C (${roofType}, θ > 27°)`;
+}
+
+// ─── RAS 117 §9 — Insulation Panel Attachment ───────────────
+// Mirrors the signed/sealed insulation calc methodology (Coral Springs ref):
+//   Fv  = DP × A_board / FPB      (per-fastener value from the NOA field pattern)
+//   N   = ceil(P_zone × A_board / Fv),  not less than the NOA field pattern (FPB)
+//   trib = Fv / P_zone           (tributary area per fastener)
+// Zone pressures are the C&C uplift pressures (EWA = 10 ft², per the reference).
+
+export interface InsulationAttachmentZone {
+  zone: string;
+  label: string;
+  pressure: number;   // C&C uplift psf (negative)
+  tribArea: number;   // ft² per fastener
+  fasteners: number;  // per board
+}
+
+export interface InsulationAttachmentResult {
+  applicable: boolean;
+  fv: number;          // per-fastener value (LBF)
+  boardArea: number;   // ft²
+  boardL: number;
+  boardW: number;
+  mdp: number;         // insulation NOA MDP (psf, negative)
+  fpb: number;         // NOA field pattern fasteners per board
+  zones: InsulationAttachmentZone[];
+}
+
+export function computeInsulationAttachment(
+  zones: { zone: string; label: string; pressure: number }[],
+  mdp: number,
+  fpb: number,
+  boardL: number,
+  boardW: number,
+): InsulationAttachmentResult {
+  const boardArea = round2(boardL * boardW);
+  const DP = Math.abs(mdp);
+  const base = { fv: 0, boardArea, boardL, boardW, mdp: -DP, fpb };
+  if (DP <= 0 || fpb <= 0 || boardArea <= 0) {
+    return { applicable: false, ...base, zones: [] };
+  }
+  const fv = DP * boardArea / fpb;
+  const out: InsulationAttachmentZone[] = zones.map(z => {
+    const P = Math.abs(z.pressure);
+    return {
+      zone: z.zone,
+      label: z.label,
+      pressure: z.pressure,
+      tribArea: P > 0 ? round2(fv / P) : 0,
+      fasteners: P > 0 ? Math.max(Math.ceil((P * boardArea) / fv), fpb) : fpb,
+    };
+  });
+  return { applicable: true, ...base, fv: round2(fv), zones: out };
 }

@@ -2,7 +2,7 @@ import { HVHZReportBuilder, type ReportConfig, type PhotoData } from './reportLa
 import { format } from 'date-fns';
 import { runDrainageCalc, DESIGN_RAINFALL, getDrainCapacity, type DrainageCalcInputs } from '@/lib/drainage-calc';
 import { calculateFastener, type FastenerInputs } from '@/lib/fastener-engine';
-import { computeFastenerCalc, type FastenerCalcInputs, type FastenerCalcResults } from '@/lib/wind-calc';
+import { computeFastenerCalc, computeInsulationAttachment, type FastenerCalcInputs, type FastenerCalcResults } from '@/lib/wind-calc';
 
 interface EngineerProfile {
   full_name: string;
@@ -85,7 +85,7 @@ export function generateReport(
 
 function getDisclaimerSectionNum(serviceType: string): string {
   const nums: Record<string, string> = {
-    'fastener-calculation': '11.0',
+    'fastener-calculation': '12.0',
     'drainage-analysis': '11.0',
     'wind-mitigation-permit': '9.0',
     'roof-inspection': '7.0',
@@ -290,17 +290,59 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
     });
   }
 
-  // 9.0 Zone Plan Diagram
+  // 9.0 Insulation Attachment (RAS 117 §9)
+  rb.addSection('9.0', 'INSULATION ATTACHMENT (RAS 117 §9)');
+  const ins = computeInsulationAttachment(
+    ccResults.zones,
+    fd.cc_insulation_mdp ?? 0,
+    fd.cc_insulation_fpb ?? 0,
+    fd.cc_insulation_board_l ?? 4,
+    fd.cc_insulation_board_w ?? 4,
+  );
+  if (ins.applicable) {
+    rb.addInfoGrid({
+      'Insulation NOA MDP (DP)': `${ins.mdp} psf`,
+      'Insulation Board': `${ins.boardL}' × ${ins.boardW}' = ${ins.boardArea} ft²`,
+      'NOA Field Pattern (FPB)': `${ins.fpb} fasteners/board`,
+      'Fastener Value (Fv)': `${ins.fv} lb`,
+    });
+    rb.addDerivationBlock([
+      `Fv = DP × A_board / FPB = ${Math.abs(ins.mdp)} × ${ins.boardArea} / ${ins.fpb} = ${ins.fv} lb`,
+      `Tributary area per fastener = Fv / P_zone`,
+      `N_zone = ceil(P_zone × A_board / Fv), not less than the NOA field pattern  [RAS 117 §9]`,
+    ]);
+    rb.addTable(
+      ['Zone', 'Pressure (psf)', 'Trib Area (ft²/fast.)', 'Fasteners / Board'],
+      ins.zones.map(z => [
+        `${z.zone} (${z.label})`,
+        z.pressure.toFixed(2),
+        z.tribArea.toFixed(2),
+        String(z.fasteners),
+      ]),
+      { headerColor: 'teal' }
+    );
+    rb.addSubSection('9.1', 'Conclusions / Recommendations');
+    ins.zones.forEach(z => {
+      rb.addTextBlock(
+        `Zone ${z.zone} (${z.label}): use a minimum of ${z.fasteners} fasteners per ${ins.boardL}'×${ins.boardW}' insulation board. *See zone plan for dimensions.`,
+        { indent: true }
+      );
+    });
+  } else {
+    rb.addTextBlock('No separately specified insulation attachment for this assembly. Mechanically attached base-sheet / membrane fastening is addressed in §7–8 above.');
+  }
+
+  // 10.0 Zone Plan Diagram
   rb.addZonePlanDiagram(
-    '9.0',
+    '10.0',
     fd.building_width_ft ?? 0,
     fd.building_length_ft ?? 0,
     ccResults.zoneWidths,
     ccResults.computedSpacings
   );
 
-  // 10.0 Warnings
-  rb.addSection('10.0', 'WARNINGS & ENGINEERING NOTES');
+  // 11.0 Warnings
+  rb.addSection('11.0', 'WARNINGS & ENGINEERING NOTES');
   const nonInfoWarnings = legacyOutputs.warnings.filter(w => w.level !== 'info');
   if (nonInfoWarnings.length > 0) {
     nonInfoWarnings.forEach(w => {
