@@ -56,44 +56,67 @@ export class HVHZReportBuilder {
   constructor(config: ReportConfig) {
     this.config = config;
     this.doc = new jsPDF('p', 'mm', 'letter');
+    this.installGlyphSanitizer();
     this.drawFirstPageHeader();
     this.drawDocumentInfoTable();
   }
 
+  // jsPDF's built-in (WinAnsi) fonts cannot render many Unicode symbols
+  // (≤, ≥, θ, ⌈⌉, the U+2212 minus, ✓/✗, →, …) — they print as blank boxes.
+  // Wrap doc.text so every drawn string (including jspdf-autotable cells) is
+  // mapped to a font-safe equivalent. Status coloring in addTable runs on the
+  // original cell value, so it is unaffected.
+  private static readonly GLYPHS: [RegExp, string][] = [
+    [/≤/g, '<='], [/≥/g, '>='], [/[⌈⌊]/g, ''], [/[⌉⌋]/g, ''],
+    [/−/g, '-'], [/θ/g, 'theta'], [/✓/g, 'OK'], [/✗/g, 'X'],
+    [/⚠/g, '!'], [/[′]/g, "'"], [/[″]/g, '"'], [/→/g, '->'],
+    [/≈/g, '~'], [/√/g, 'sqrt'], [/…/g, '...'],
+    [/α/g, 'alpha'], [/β/g, 'beta'], [/±/g, '+/-'],
+  ];
+
+  private cleanGlyphs(s: string): string {
+    let out = s;
+    for (const [re, rep] of HVHZReportBuilder.GLYPHS) out = out.replace(re, rep);
+    return out;
+  }
+
+  private installGlyphSanitizer() {
+    const doc = this.doc as any;
+    const orig = doc.text.bind(doc);
+    const clean = (t: unknown) => this.cleanGlyphs(String(t ?? ''));
+    doc.text = (txt: unknown, ...rest: unknown[]) =>
+      orig(Array.isArray(txt) ? txt.map(clean) : clean(txt), ...rest);
+  }
+
   // ─── FIRST PAGE HEADER ───────────────────────────────────────
   private drawFirstPageHeader() {
-    // Navy banner – 32mm
-    this.doc.setFillColor(...NAVY);
-    this.doc.rect(0, 0, this.pageW, 32, 'F');
+    const cx = this.pageW / 2;
 
-    // Company name
-    this.doc.setTextColor(...WHITE);
-    this.doc.setFontSize(16);
+    // Centered company identity block (engineering-calc cover style)
+    this.doc.setTextColor(...NAVY);
+    this.doc.setFontSize(15);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.text('HVHZ ENGINEERING', this.ml, 11);
+    this.doc.text('HVHZ Engineering LLC', cx, 16, { align: 'center' });
 
-    this.doc.setFontSize(8);
+    this.doc.setTextColor(...MID_SLATE);
+    this.doc.setFontSize(8.5);
     this.doc.setFont('helvetica', 'normal');
-    this.doc.text('Roof Engineering for South Florida\'s HVHZ', this.ml, 17);
-    this.doc.text('750 E Sample Rd, Pompano Beach FL 33064', this.ml, 22);
-    this.doc.text('info@hvhzengineering.com', this.ml, 27);
+    this.doc.text('Registry #39957', cx, 21, { align: 'center' });
+    this.doc.text('750 E Sample Road', cx, 25, { align: 'center' });
+    this.doc.text('Pompano Beach, FL 33062', cx, 29, { align: 'center' });
 
-    // Right side
-    this.doc.setFontSize(8);
-    this.doc.text(this.config.address || '', this.pageW - this.mr, 11, { align: 'right' });
-    this.doc.text('WO-' + this.config.jobNumber, this.pageW - this.mr, 17, { align: 'right' });
-
-    // Teal accent bar
-    this.doc.setFillColor(...TEAL);
-    this.doc.rect(0, 32, this.pageW, 3, 'F');
-
-    // Report title centered on accent bar
-    this.doc.setTextColor(...WHITE);
+    // Centered report title
+    this.doc.setTextColor(...NAVY);
     this.doc.setFontSize(12);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.text(this.config.title.toUpperCase(), this.pageW / 2, 34.2, { align: 'center' });
+    this.doc.text(this.config.title.toUpperCase(), cx, 38, { align: 'center' });
 
-    this.yPos = 40;
+    // Thin teal rule beneath the title
+    this.doc.setDrawColor(...TEAL);
+    this.doc.setLineWidth(0.6);
+    this.doc.line(this.ml, 41, this.pageW - this.mr, 41);
+
+    this.yPos = 47;
   }
 
   // ─── DOCUMENT INFO TABLE ─────────────────────────────────────
@@ -138,14 +161,18 @@ export class HVHZReportBuilder {
 
   // ─── CONTINUATION HEADER (pages 2+) ──────────────────────────
   private drawContinuationHeader() {
-    this.doc.setFillColor(...NAVY);
-    this.doc.rect(0, 0, this.pageW, 14, 'F');
-    this.doc.setTextColor(...WHITE);
-    this.doc.setFontSize(8);
+    const cx = this.pageW / 2;
+    this.doc.setTextColor(...NAVY);
+    this.doc.setFontSize(9);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.text('HVHZ ENGINEERING', this.ml, 8);
+    this.doc.text('HVHZ Engineering LLC', cx, 9, { align: 'center' });
     this.doc.setFont('helvetica', 'normal');
-    this.doc.text(this.config.title.toUpperCase(), this.pageW / 2, 8, { align: 'center' });
+    this.doc.setFontSize(7.5);
+    this.doc.setTextColor(...MID_SLATE);
+    this.doc.text(this.config.title, cx, 13, { align: 'center' });
+    this.doc.setDrawColor(...TEAL);
+    this.doc.setLineWidth(0.4);
+    this.doc.line(this.ml, 15.5, this.pageW - this.mr, 15.5);
     // Page number placeholder — finalized later
   }
 
@@ -901,7 +928,7 @@ export class HVHZReportBuilder {
       this.doc.setFont('helvetica', 'normal');
       this.doc.setTextColor(...MID_SLATE);
 
-      this.doc.text('HVHZ Engineering · 750 E Sample Rd, Pompano Beach FL 33064', this.ml, 266);
+      this.doc.text('HVHZ Engineering LLC · Registry #39957 · 750 E Sample Road, Pompano Beach FL 33062', this.ml, 266);
       this.doc.text(`Page ${i} of ${totalPages}`, this.pageW - this.mr, 266, { align: 'right' });
 
       this.doc.text('WO-' + this.config.jobNumber, this.ml, 270);
