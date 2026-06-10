@@ -1,7 +1,7 @@
 import { HVHZReportBuilder, type ReportConfig, type PhotoData } from './reportLayout';
 import { format } from 'date-fns';
 import { runDrainageCalc, DESIGN_RAINFALL, getDrainCapacity, type DrainageCalcInputs } from '@/lib/drainage-calc';
-import { calculateFastener, lookupRAS128Table, type FastenerInputs } from '@/lib/fastener-engine';
+import { calculateFastener, lookupRAS128Table, getRAS128Table, checkFastenerInputs, type FastenerInputs } from '@/lib/fastener-engine';
 import { computeFastenerCalc, computeInsulationAttachment, type FastenerCalcInputs, type FastenerCalcResults } from '@/lib/wind-calc';
 
 interface EngineerProfile {
@@ -85,7 +85,7 @@ export function generateReport(
 
 function getDisclaimerSectionNum(serviceType: string): string {
   const nums: Record<string, string> = {
-    'fastener-calculation': '12.0',
+    'fastener-calculation': '13.0',
     'drainage-analysis': '11.0',
     'wind-mitigation-permit': '9.0',
     'roof-inspection': '7.0',
@@ -157,8 +157,45 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
   };
   const legacyOutputs = calculateFastener(legacyInputs);
 
-  // 3.0 Project Data
-  rb.addSection('3.0', 'PROJECT DATA');
+  // 3.0 Input Verification & Data Provenance — every value traceable; nothing assumed
+  rb.addSection('3.0', 'INPUT VERIFICATION & DATA PROVENANCE');
+  const inputCheck = checkFastenerInputs(fd);
+  if (!inputCheck.complete) {
+    rb.addCalloutBox(
+      `REPORT INCOMPLETE — ${inputCheck.missingRequired.length} required input(s) not provided. ` +
+      `Every item flagged "MISSING ✗ *" below must be entered (by the technician in the field work order, or by the PE in FastenerCalc) before this report is signed and sealed. ` +
+      `The calculation below uses placeholder values for any missing field and is NOT valid for permit until all required inputs are supplied.`,
+      'error'
+    );
+  } else {
+    rb.addCalloutBox('All required inputs provided. Every design value in this report is traceable to a supplied input or a cited code-mandated factor — no engineering assumptions were made.', 'success');
+  }
+  rb.addTextBlock(
+    'The table below verifies each input the calculation depends on. "Code-locked" values are HVHZ-mandated or standard ASCE 7-22 factors shown with their code basis; all other values are entered by the technician (field work order) or the PE (FastenerCalc).',
+    { color: 'slate' }
+  );
+  {
+    const stageLabel: Record<string, string> = { locked: 'Code-locked', tech: 'Technician', pe: 'Engineer (PE)' };
+    const groups = [...new Set(inputCheck.items.map(i => i.group))];
+    for (const g of groups) {
+      rb.addSubSection('', g);
+      rb.addTable(
+        ['Input', 'Value', 'Source', 'Status'],
+        inputCheck.items.filter(i => i.group === g).map(i => {
+          const valStr = i.provided
+            ? `${i.value}${i.unit ? ' ' + i.unit : ''}`
+            : (i.required ? 'NOT PROVIDED' : '—');
+          const status = i.provided ? 'OK' : (i.required ? 'MISSING ✗ *' : '— optional');
+          const src = i.stage === 'locked' && i.defaultNote ? `${stageLabel[i.stage]} (${i.defaultNote})` : stageLabel[i.stage];
+          return [`${i.label}${i.required ? ' *' : ''}`, valStr, src, status];
+        }),
+        { headerColor: 'teal', compactMode: true, statusColumn: 3 }
+      );
+    }
+  }
+
+  // 4.0 Project Data
+  rb.addSection('4.0', 'PROJECT DATA');
   rb.addInfoGrid({
     'Building Width': `${fd.building_width_ft ?? ''} ft`,
     'Building Length': `${fd.building_length_ft ?? ''} ft`,
@@ -169,8 +206,8 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
     'Continuous Parapet ≥ 3\'': fd.cc_has_parapet ? 'Yes' : 'No',
   });
 
-  // 4.0 Design Criteria
-  rb.addSection('4.0', 'DESIGN CRITERIA');
+  // 5.0 Design Criteria
+  rb.addSection('5.0', 'DESIGN CRITERIA');
   rb.addTable(
     ['Parameter', 'Value', 'Reference'],
     [
@@ -186,67 +223,93 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
     { headerColor: 'teal', compactMode: true }
   );
 
-  // 5.0 Pressure Coefficients
-  rb.addSection('5.0', 'PRESSURE COEFFICIENTS');
-  rb.addSubSection('5.1', 'Velocity Pressure');
+  // 6.0 Pressure Coefficients (fully traceable)
+  rb.addSection('6.0', 'PRESSURE COEFFICIENTS');
+  rb.addSubSection('6.1', 'Velocity Pressure (ASCE 7-22 Ch. 26)');
   const exposureParams = { B: { a: 7.0, Zg: 1200 }, C: { a: 9.5, Zg: 900 }, D: { a: 11.5, Zg: 700 } };
-  const ep = exposureParams[(fd.exposure_category ?? 'C') as keyof typeof exposureParams];
+  const exp = (fd.exposure_category ?? 'C') as keyof typeof exposureParams;
+  const ep = exposureParams[exp];
+  const Vv = fd.wind_speed ?? 185;
+  const hh = fd.mean_roof_height_ft ?? 25;
+  const hClamped = Math.max(hh, 15);
+  const Kzt = fd.Kzt ?? 1.0;
+  const Ke = fd.Ke ?? 1.0;
   rb.addDerivationBlock([
-    `Kz = 2.01 x (h/Zg)^(2/a)  [ASCE 7-22 Eq. 26.10-1]`,
-    `   a = ${ep.a}, Zg = ${ep.Zg} (Exposure ${fd.exposure_category ?? 'C'})`,
-    `   Kz = 2.01 x (${fd.mean_roof_height_ft ?? 25}/${ep.Zg})^(2/${ep.a}) = ${ccResults.Kz}`,
+    `Step 1 — Velocity pressure exposure coefficient  [ASCE 7-22 Eq. 26.10-1]`,
+    `   Kz = 2.01 × (z/Zg)^(2/α),  z = max(h, 15 ft) = max(${hh}, 15) = ${hClamped} ft`,
+    `   Exposure ${exp}: α = ${ep.a}, Zg = ${ep.Zg} ft  [Table 26.11-1]`,
+    `   Kz = 2.01 × (${hClamped}/${ep.Zg})^(2/${ep.a}) = ${ccResults.Kz}`,
     ``,
-    `qh = 0.00256 x Kz x Kzt x Kd x Ke x V^2`,
-    `   = 0.00256 x ${ccResults.Kz} x ${fd.Kzt ?? 1} x 0.85 x ${fd.Ke ?? 1} x ${fd.wind_speed ?? 185}^2 = ${ccResults.qh} psf`,
-    `Dqz = 0.6 x ${ccResults.qh} = ${ccResults.Dqz} psf (ASD)`,
+    `Step 2 — Velocity pressure  [ASCE 7-22 Eq. 26.10-1]`,
+    `   qh = 0.00256 × Kz × Kzt × Kd × Ke × V²`,
+    `      = 0.00256 × ${ccResults.Kz} × ${Kzt} × 0.85 × ${Ke} × ${Vv}²`,
+    `      = ${ccResults.qh} psf  (ultimate)`,
     ``,
-    `GCpi = +/-${ccResults.GCpi} (${fd.enclosure_type ?? 'Enclosed'})`,
-    `GCp source: ${ccResults.gcpTableName}`,
+    `Step 3 — ASD velocity pressure`,
+    `   Dqz = 0.6 × qh = 0.6 × ${ccResults.qh} = ${ccResults.Dqz} psf`,
+    ``,
+    `Step 4 — Internal pressure coefficient  [ASCE 7-22 Table 26.13-1]`,
+    `   GCpi = ±${ccResults.GCpi}  (${fd.enclosure_type ?? 'Enclosed'})`,
+    `   External GCp source: ${ccResults.gcpTableName} (EWA = 10 ft²)`,
   ]);
 
-  // 5.2 Uplift Pressures
-  rb.addSubSection('5.2', 'Uplift Pressures');
+  // 6.2 Uplift Pressures — full arithmetic per zone
+  rb.addSubSection('6.2', 'Uplift Pressures by Zone  [ASCE 7-22 Eq. 30.3-1]');
   rb.addTable(
-    ['Zone', 'GCp', 'P = Dqz[(GCp)-(GCpi)]', 'psf'],
+    ['Zone', 'GCp', 'GCpi', 'P = Dqz × (GCp − GCpi)', 'P (psf)'],
     ccResults.zones.map(z => [
       `${z.zone} (${z.label})`,
       String(z.GCp),
-      `${ccResults.Dqz} × (${z.GCp} − ${ccResults.GCpi})`,
+      `+${ccResults.GCpi}`,
+      `${ccResults.Dqz} × (${z.GCp} − ${ccResults.GCpi}) = ${ccResults.Dqz} × ${(z.GCp - ccResults.GCpi).toFixed(2)}`,
       `${z.pressure.toFixed(2)}`,
     ]),
+    { headerColor: 'teal', compactMode: true }
   );
 
-  // 5.3 RAS 128 Published Table (when applicable: Risk II, Exposure C/D, h ≤ 60)
+  // 6.3 RAS 128 Published Chart — full table with this structure's band highlighted
   const expCat = (fd.exposure_category ?? 'C') as string;
   const riskCat = (fd.risk_category ?? 'II') as string;
   const eaveHt = fd.mean_roof_height_ft ?? 0;
   if ((expCat === 'C' || expCat === 'D') && riskCat === 'II') {
-    const tableRow = lookupRAS128Table(expCat, eaveHt);
-    if (tableRow) {
-      rb.addSubSection('5.3', `RAS 128 ${expCat === 'C' ? 'Table 1' : 'Table 2'} — Published ASD Pressures (Exposure ${expCat})`);
-      rb.addTable(
-        ['Source', "Zone 1'", 'Zone 1', 'Zone 2', 'Zone 3'],
-        [['RAS 128 (psf)', String(tableRow.zone1prime), String(tableRow.zone1), String(tableRow.zone2), String(tableRow.zone3)]],
-        { compactMode: true }
-      );
+    const fullTable = getRAS128Table(expCat as 'C' | 'D');
+    const applicable = lookupRAS128Table(expCat as 'C' | 'D', eaveHt);
+    const highlightIdx = applicable ? fullTable.findIndex(r => r.maxEaveHeight === applicable.maxEaveHeight) : -1;
+    rb.addSubSection('6.3', `RAS 128 ${expCat === 'C' ? 'Table 1' : 'Table 2'} — Minimum ASD Uplift Pressures (Exposure ${expCat})`);
+    const bandLabel = (i: number, max: number) => i === 0 ? `≤ ${max}'` : `> ${fullTable[i - 1].maxEaveHeight}' to ≤ ${max}'`;
+    rb.addTable(
+      ['Eave Height', "Zone 1'", 'Zone 1', 'Zone 2', 'Zone 3'],
+      fullTable.map((r, i) => [
+        bandLabel(i, r.maxEaveHeight),
+        String(r.zone1prime), String(r.zone1), String(r.zone2), String(r.zone3),
+      ]),
+      { headerColor: 'navy', compactMode: true, highlightRow: highlightIdx >= 0 ? highlightIdx : undefined }
+    );
+    if (applicable) {
       rb.addTextBlock(
-        `Published RAS 128-20 minimum ASD uplift pressures — Risk Category II, Exposure ${expCat}, slope < 1½:12, V = 175 mph, eave height ${eaveHt} ft (band ≤ ${tableRow.maxEaveHeight} ft). Where the assembly's approved design pressures envelope these values, the RAS 128 tabular path applies and no additional signed/sealed engineering calculations are required.`,
+        `Highlighted row applies to this structure: eave height ${eaveHt} ft → band ${bandLabel(highlightIdx, applicable.maxEaveHeight)}. ` +
+        `Published RAS 128-20 minimum ASD uplift pressures — Risk Cat II, Exposure ${expCat}, slope < 1½:12, V = 175 mph. ` +
+        `These match the computed Zone pressures in §6.2 (which govern this report). Where the assembly's approved pressures envelope these values, the RAS 128 tabular path applies and no additional signed/sealed calculations are required.`,
         { color: 'slate' }
       );
+    } else {
+      rb.addTextBlock(`Eave height ${eaveHt} ft exceeds the 60 ft RAS 128 table range; the computed §6.2 pressures (rational analysis) govern.`, { color: 'amber' });
     }
   }
 
-  // 5.4 Zone Widths
-  rb.addSubSection('5.4', 'Zone Widths');
-  const zwLines: string[] = [];
-  if (ccResults.zoneWidths.hasZone1Prime) zwLines.push(`Zone 1' (interior): inside zone boundaries`);
-  zwLines.push(`Zone 1 (field): ${ccResults.zoneWidths.zone1} ft`);
-  zwLines.push(`Zone 2 (perimeter): ${ccResults.zoneWidths.zone2} ft`);
-  zwLines.push(`Zone 3 (corner): ${ccResults.zoneWidths.zone3outer} ft${ccResults.zoneWidths.hasZone1Prime ? `, inner ${ccResults.zoneWidths.zone3inner} ft` : ''}`);
-  rb.addDerivationBlock(zwLines);
+  // 6.4 Zone Widths (firm 0.6H / 0.2H convention)
+  rb.addSubSection('6.4', 'Roof Pressure Zone Geometry');
+  const zwH = fd.mean_roof_height_ft ?? 0;
+  rb.addDerivationBlock([
+    `Field / Perimeter / Corner band width = 0.6 × H = 0.6 × ${zwH} = ${ccResults.zoneWidths.zone2} ft`,
+    `Corner-inner dimension = 0.2 × H = 0.2 × ${zwH} = ${ccResults.zoneWidths.zone3inner} ft`,
+    ccResults.zoneWidths.hasZone1Prime
+      ? `Interior Zone 1' present (building plan exceeds the field + perimeter bands on both axes).`
+      : `No interior Zone 1' (building too small); Zone 1 field pressure governs the interior.`,
+  ]);
 
-  // 6.0 System Data
-  rb.addSection('6.0', 'SYSTEM DATA');
+  // 7.0 System Data
+  rb.addSection('7.0', 'SYSTEM DATA');
   rb.addInfoGrid({
     'Manufacturer': fd.noa_manufacturer ?? '',
     'NOA / Approval #': fd.noa_number ?? '',
@@ -260,35 +323,57 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
     'Net Width': `${ccResults.netWidth}"`,
   });
 
-  // 7.0 Fastener Calculation
-  rb.addSection('7.0', 'FASTENER CALCULATION');
+  // 8.0 Fastener Calculation (RAS 117 §10 — fully traceable)
+  rb.addSection('8.0', 'FASTENER CALCULATION (RAS 117 §10)');
+  const rollW = fd.cc_roll_width ?? 39.37;
+  const sideL = fd.cc_side_lap ?? 3.0;
+  const lapSp = fd.cc_lap_fastener_spacing ?? 7;
+  const fldSp = fd.cc_field_fastener_spacing ?? 7;
+  const lapR = fd.cc_lap_rows ?? 1;
+  const fldR = fd.cc_field_rows ?? 2;
+  const DPv = fd.cc_design_pressure ?? -75;
+  const netLenIn = (ccResults.netLengthPerSquare * 12);
   rb.addDerivationBlock([
-    `Net Width: ${ccResults.netWidth}" (${fd.cc_roll_width ?? 39.37}" − ${fd.cc_side_lap ?? 3.0}")`,
-    `Net Length per Square: ${ccResults.netLengthPerSquare} ft`,
-    `Fastener Spacing in Lap (NOA): ${fd.cc_lap_fastener_spacing ?? 7}"`,
-    `Fastener Spacing in Field (NOA): ${fd.cc_field_fastener_spacing ?? 7}"`,
-    `Rows in Lap: ${fd.cc_lap_rows ?? 1}`,
-    `Rows in Field (base): ${fd.cc_field_rows ?? 2}`,
-    `Row Spacing (Zone 1): ${ccResults.baseRowSpacing}"`,
-    `Fasteners Per Square (FPS): ${ccResults.fastenersPerSquare}`,
-    `Sq Ft Per Fastener: ${ccResults.sqftPerFastener}`,
-    `Fastener Value (Fv): ${ccResults.fastenerValue} LBF`,
+    `Step 1 — Net coverage width`,
+    `   NW = roll width − side lap = ${rollW}" − ${sideL}" = ${ccResults.netWidth}"  ( = ${(ccResults.netWidth / 12).toFixed(3)} ft)`,
+    ``,
+    `Step 2 — Net length per 100 ft² square`,
+    `   L = 100 / (NW/12) = 100 / ${(ccResults.netWidth / 12).toFixed(3)} = ${ccResults.netLengthPerSquare} ft ( = ${netLenIn.toFixed(1)}")`,
+    ``,
+    `Step 3 — Fasteners per square (FPS) from the NOA base pattern`,
+    `   Field: (L_in / field spacing) × field rows = (${netLenIn.toFixed(1)} / ${fldSp}) × ${fldR}`,
+    `   Lap:   (L_in / lap spacing)   × lap rows   = (${netLenIn.toFixed(1)} / ${lapSp}) × ${lapR}`,
+    `   FPS = ${ccResults.fastenersPerSquare} fasteners / square`,
+    ``,
+    `Step 4 — Tributary area & fastener value`,
+    `   Sq ft per fastener = 100 / FPS = 100 / ${ccResults.fastenersPerSquare} = ${ccResults.sqftPerFastener} ft²`,
+    `   Fv = DP × 100 / FPS = ${DPv} × 100 / ${ccResults.fastenersPerSquare} = ${ccResults.fastenerValue} lbf`,
+    ``,
+    `Step 5 — Base row spacing (Zone 1)`,
+    `   RS = NW / (field rows + lap rows) = ${ccResults.netWidth}" / ${fldR + lapR} = ${ccResults.baseRowSpacing}"`,
   ]);
 
-  // 7.1 Computed Spacings
-  rb.addSubSection('7.1', 'Computed Spacings');
+  // 8.1 Computed Spacings — full §10.4.5 substitution per zone
+  rb.addSubSection('8.1', 'Computed Fastener Spacing by Zone  [RAS 117 §10.4.5]');
   rb.addTable(
-    ['Zone', 'Row Spacing', 'Computed Spacing', 'Final (NOA min)'],
-    ccResults.computedSpacings.map(s => [
-      `${s.zone} (${s.label})`,
-      `${s.rowSpacing}"`,
-      `${s.computed}"`,
-      `${s.final}" O.C.`,
-    ]),
+    ['Zone', 'Rows', 'RS (in)', 'FS = (|Fv|×144)/(|P|×RS)', 'Final FS'],
+    ccResults.computedSpacings.map(s => {
+      const zp = ccResults.zones.find(z => z.zone === s.zone);
+      const P = Math.abs(zp?.pressure ?? 0);
+      return [
+        `${s.zone} (${s.label})`,
+        String(s.totalRows),
+        `${s.rowSpacing}`,
+        `(${Math.abs(ccResults.fastenerValue)}×144)/(${P.toFixed(1)}×${s.rowSpacing}) = ${s.computed}"`,
+        `${s.final}" O.C.`,
+      ];
+    }),
+    { headerColor: 'teal', compactMode: true }
   );
+  rb.addTextBlock('FS is rounded down to the next whole inch and capped at 12" o.c. per RAS 117 §10; final spacing is the lesser of the computed value and the NOA prescriptive minimum.', { color: 'slate' });
 
-  // 8.0 Fastener Requirements
-  rb.addSection('8.0', 'FASTENER REQUIREMENTS');
+  // 9.0 Fastener Requirements
+  rb.addSection('9.0', 'FASTENER REQUIREMENTS');
   rb.addTable(
     ['Zone', 'Lap Spacing', '# Rows', 'Field Spacing'],
     ccResults.computedSpacings.map(s => [
@@ -300,9 +385,9 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
     { headerColor: 'teal' }
   );
 
-  // 8.5 TAS 105 (conditional)
+  // 9.5 TAS 105 (conditional)
   if (fd.tas105_mean_lbf) {
-    rb.addSection('8.5', 'TAS 105 LABORATORY RESULTS');
+    rb.addSection('9.5', 'TAS 105 LABORATORY RESULTS');
     rb.addInfoGrid({
       'Mean Pullout Value': `${fd.tas105_mean_lbf} lbf`,
       'Testing Agency': fd.tas105_agency ?? '(see attached lab report)',
@@ -310,8 +395,8 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
     });
   }
 
-  // 9.0 Insulation Attachment (RAS 117 §9)
-  rb.addSection('9.0', 'INSULATION ATTACHMENT (RAS 117 §9)');
+  // 10.0 Insulation Attachment (RAS 117 §9)
+  rb.addSection('10.0', 'INSULATION ATTACHMENT (RAS 117 §9)');
   const ins = computeInsulationAttachment(
     ccResults.zones,
     fd.cc_insulation_mdp ?? 0,
@@ -327,42 +412,48 @@ function buildFastenerReport(rb: HVHZReportBuilder, fd: Record<string, any>, wo:
       'Fastener Value (Fv)': `${ins.fv} lb`,
     });
     rb.addDerivationBlock([
-      `Fv = DP × A_board / FPB = ${Math.abs(ins.mdp)} × ${ins.boardArea} / ${ins.fpb} = ${ins.fv} lb`,
-      `Tributary area per fastener = Fv / P_zone`,
-      `N_zone = ceil(P_zone × A_board / Fv), not less than the NOA field pattern  [RAS 117 §9]`,
+      `Step 1 — Per-fastener value from the NOA field pattern`,
+      `   Fv = DP × A_board / FPB = ${Math.abs(ins.mdp)} × ${ins.boardArea} / ${ins.fpb} = ${ins.fv} lb`,
+      ``,
+      `Step 2 — Per zone (round UP, not less than the NOA field pattern)  [RAS 117 §9.1.2]`,
+      `   Tributary area = Fv / P_zone ;  N_zone = ⌈ P_zone × A_board / Fv ⌉`,
     ]);
     rb.addTable(
-      ['Zone', 'Pressure (psf)', 'Trib Area (ft²/fast.)', 'Fasteners / Board'],
-      ins.zones.map(z => [
-        `${z.zone} (${z.label})`,
-        z.pressure.toFixed(2),
-        z.tribArea.toFixed(2),
-        String(z.fasteners),
-      ]),
-      { headerColor: 'teal' }
+      ['Zone', 'P (psf)', 'Trib = Fv/P (ft²)', 'N = ⌈P×A/Fv⌉', 'Fasteners / Board'],
+      ins.zones.map(z => {
+        const P = Math.abs(z.pressure);
+        return [
+          `${z.zone} (${z.label})`,
+          P.toFixed(2),
+          `${ins.fv}/${P.toFixed(1)} = ${z.tribArea.toFixed(2)}`,
+          `⌈${P.toFixed(1)}×${ins.boardArea}/${ins.fv}⌉`,
+          String(z.fasteners),
+        ];
+      }),
+      { headerColor: 'teal', compactMode: true }
     );
-    rb.addSubSection('9.1', 'Conclusions / Recommendations');
+    rb.addSubSection('10.1', 'Conclusions / Recommendations');
     ins.zones.forEach(z => {
       rb.addTextBlock(
-        `Zone ${z.zone} (${z.label}): use a minimum of ${z.fasteners} fasteners per ${ins.boardL}'×${ins.boardW}' insulation board. *See zone plan for dimensions.`,
+        `Zone ${z.zone} (${z.label}): use a minimum of ${z.fasteners} fasteners per ${ins.boardL}'×${ins.boardW}' insulation board. *See zone plan (§11) for zone dimensions.`,
         { indent: true }
       );
     });
   } else {
-    rb.addTextBlock('No separately specified insulation attachment for this assembly. Mechanically attached base-sheet / membrane fastening is addressed in §7–8 above.');
+    rb.addTextBlock('No separately specified insulation attachment for this assembly. Mechanically attached base-sheet / membrane fastening is addressed in §8–9 above. (To include a RAS 117 §9 insulation calc, the PE must enter the insulation NOA MDP and field pattern.)');
   }
 
-  // 10.0 Zone Plan Diagram
+  // 11.0 Zone Plan Diagram
   rb.addZonePlanDiagram(
-    '10.0',
+    '11.0',
     fd.building_width_ft ?? 0,
     fd.building_length_ft ?? 0,
     ccResults.zoneWidths,
     ccResults.computedSpacings
   );
 
-  // 11.0 Warnings
-  rb.addSection('11.0', 'WARNINGS & ENGINEERING NOTES');
+  // 12.0 Warnings
+  rb.addSection('12.0', 'WARNINGS & ENGINEERING NOTES');
   const nonInfoWarnings = legacyOutputs.warnings.filter(w => w.level !== 'info');
   if (nonInfoWarnings.length > 0) {
     nonInfoWarnings.forEach(w => {

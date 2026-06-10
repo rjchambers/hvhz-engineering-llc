@@ -35,6 +35,7 @@ export interface TableOptions {
   columnWidths?: number[];
   headerColor?: 'navy' | 'teal';
   highlightColumn?: number;
+  highlightRow?: number;       // body row index to emphasize (e.g., RAS 128 applicable band)
   statusColumn?: number;
   fontSize?: number;
   compactMode?: boolean;
@@ -313,6 +314,11 @@ export class HVHZReportBuilder {
           }
         }
         if (options.highlightColumn !== undefined && data.column.index === options.highlightColumn && data.section === 'body') {
+          data.cell.styles.fontStyle = 'bold';
+        }
+        if (options.highlightRow !== undefined && data.row.index === options.highlightRow && data.section === 'body') {
+          data.cell.styles.fillColor = [TEAL[0], TEAL[1], TEAL[2]];
+          data.cell.styles.textColor = [...WHITE];
           data.cell.styles.fontStyle = 'bold';
         }
       },

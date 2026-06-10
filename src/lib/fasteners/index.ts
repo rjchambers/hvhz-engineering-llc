@@ -43,6 +43,12 @@ export { calculateTAS105, isTAS105Required, getTFactor } from './tas-105';
 export { solveRowsAndFS, calculateBaseSheetZone } from './base-sheet-engine';
 export { calcInsulationZone } from './insulation-engine';
 export { validateFastenerInputs } from './validation';
+export {
+  FASTENER_INPUT_SPECS, checkFastenerInputs, techRequiredKeys, isInputProvided,
+} from './required-inputs';
+export type {
+  FastenerInputSpec, FastenerInputStatus, FastenerInputCheck, InputStage,
+} from './required-inputs';
 
 const ZONES: Zone[] = ["1'", '1', '2', '3'];
 
