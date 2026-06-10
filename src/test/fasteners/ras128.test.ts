@@ -157,9 +157,9 @@ describe('Engine reconciliation — RAS 117 / C&C / RAS 128 agree', () => {
     county: 'miami_dade', isHVHZ: true,
   };
 
-  it('zone dimension a is identical across all three paths', () => {
-    const a = zoneDimA(inputs.h, inputs.buildingWidth, inputs.buildingLength);
-    expect(getZoneWidth(inputs.h, inputs.buildingWidth, inputs.buildingLength)).toBeCloseTo(a, 6);
+  it('low-slope zone band width is 0.6H and identical across both engines', () => {
+    // Firm convention for low-slope roofs (matches the sealed reference reports).
+    expect(getZoneWidth(inputs.h)).toBeCloseTo(0.6 * inputs.h, 6);
     const cc = computeFastenerCalc({
       V: inputs.V, h: inputs.h, W: inputs.buildingWidth, L: inputs.buildingLength,
       roofType: 'Flat', slopeDeg: 0, hasParapet: false,
@@ -170,7 +170,8 @@ describe('Engine reconciliation — RAS 117 / C&C / RAS 128 agree', () => {
       rollWidth: 39.37, sideLap: 3, lapFastenerSpacing: 7, fieldFastenerSpacing: 7,
       lapRows: 1, fieldRows: 2,
     });
-    expect(cc.zoneWidths.zone2).toBeCloseTo(a, 1);
+    expect(cc.zoneWidths.zone2).toBeCloseTo(0.6 * inputs.h, 1);
+    expect(cc.zoneWidths.zone2).toBeCloseTo(getZoneWidth(inputs.h), 1);
   });
 
   it('RAS 117 zone pressures equal the RAS 128 procedure (same Kz, GCp)', () => {

@@ -574,7 +574,7 @@ function ResultsPanel({ inputs, ccFields, ccResults, outputs, tas105Outputs }: {
               </table>
             </div>
             <p className="text-[10px] text-muted-foreground mt-2">{outputs.ras128.message}</p>
-            <p className="text-[9px] text-muted-foreground mt-1">Pasd = 0.6 × Pult per RAS 128-20 · qh = {outputs.ras128.qh_ult.toFixed(1)} psf · a = {outputs.ras128.a_ft.toFixed(1)} ft</p>
+            <p className="text-[9px] text-muted-foreground mt-1">Pasd = 0.6 × Pult per RAS 128-20 · qh = {outputs.ras128.qh_ult.toFixed(1)} psf</p>
           </CardContent>
         </Card>
       )}
@@ -585,9 +585,9 @@ function ResultsPanel({ inputs, ccFields, ccResults, outputs, tas105Outputs }: {
         <CardContent>
           <div className="bg-muted/50 rounded p-3 font-mono text-[11px] space-y-1">
             {r.zoneWidths.hasZone1Prime && <p>Zone 1' (interior): inside zone boundaries</p>}
-            <p>Zone 1 (field): {r.zoneWidths.zone1} ft (a)</p>
-            <p>Zone 2 (perimeter): {r.zoneWidths.zone2} ft (a)</p>
-            <p>Zone 3 (corner): {r.zoneWidths.zone3outer} ft (a){r.zoneWidths.hasZone1Prime ? `, interior Zone 1' beyond 2a` : ''}</p>
+            <p>Zone 1 (field): {r.zoneWidths.zone1} ft (0.6H)</p>
+            <p>Zone 2 (perimeter): {r.zoneWidths.zone2} ft (0.6H)</p>
+            <p>Zone 3 (corner): {r.zoneWidths.zone3outer} ft (0.6H){r.zoneWidths.hasZone1Prime ? `, inner ${r.zoneWidths.zone3inner} ft (0.2H)` : ''}</p>
           </div>
         </CardContent>
       </Card>
@@ -827,7 +827,7 @@ function ZoneDiagram({ inputs, ccResults: r }: { inputs: any; ccResults: Fastene
           <text x={ox - 14} y={oy + sl / 2} textAnchor="middle" fontSize={10} fill="hsl(var(--muted-foreground))"
             transform={`rotate(-90, ${ox - 14}, ${oy + sl / 2})`}>{L} ft</text>
           <text x={ox + sa / 2} y={oy - 6} textAnchor="middle" fontSize={8} fill="hsl(var(--muted-foreground))">
-            a={zw.zone2} ft
+            {zw.hasZone1Prime ? `0.6H=${zw.zone2} ft` : `a=${zw.zone2} ft`}
           </text>
           {/* Legend */}
           <rect x={svgW - 130} y={6} width={124} height={has1p ? 80 : 64} rx={4} fill="hsl(var(--card))" stroke="hsl(var(--border))" />

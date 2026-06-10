@@ -74,14 +74,40 @@ There were two overlapping engines that disagreed:
 
 | Item | Before | After |
 |---|---|---|
-| Zone band width (RAS 117 engine, `zone-pressures.ts`) | `0.6·h` (not an ASCE quantity) | ASCE 7-22 §30.2 `a` via `zoneDimA` |
-| Zone band width (C&C engine, `wind-calc.ts`, flat roofs) | `0.6·h` | `a` |
-| Velocity coefficient `Kh`/`Kz` | table interpolation in one engine, analytic formula in the other | single analytic `kzASCE` everywhere |
-| Zone 1′ interior threshold | `> 2·zoneWidth` against a wrong width | `least plan dim > 4a` (Zone 2 + Zone 1 bands per Fig. 30.3-2A) |
+| Velocity coefficient `Kh`/`Kz` | table interpolation in one engine, analytic formula in the other | single analytic `kzASCE` everywhere (ASCE 7-22 Eq. 26.10-1) — **validated** against the sealed reference report (Kz = 0.85) |
+| Low-slope zone band width | `0.6·h` in both engines, but `wind-calc` flat used a slightly different floor | unified `0.6·H` (field/perimeter/corner) + `0.2·H` (corner-inner) in **both** engines |
+| Steep-slope (gable/hip) zone width | `a` | `a` (unchanged) |
 
-A reconciliation test (`ras128.test.ts`) asserts the RAS 117 engine, the C&C
-engine, and the RAS 128 module now agree on `a` and on the field/perimeter/corner
-pressures for a shared input.
+### Zone-width convention: 0.6H / 0.2H (decision)
+
+Low-slope band geometry uses the firm's **0.6·H** field/perimeter/corner band
+and **0.2·H** corner-inner, matching the signed/sealed reference reports (Coral
+Springs, Erik Nemati P.E.). This is wider/more conservative than the ASCE 7-22
+§30.2 dimension `a`, and is the convention the engineer of record seals on.
+Pressures are independent of band width — they come from RAS 128 / ASCE 7-22
+(qh, GCp, GCpi), which is the part validated to the cent against the sealed
+report. ASCE `a` is retained for the steep-slope (gable/hip > 7°) path.
+
+A reconciliation test (`ras128.test.ts`) asserts the RAS 117 engine and the C&C
+engine agree on the 0.6H band and on the field/perimeter/corner pressures.
+
+## 3a. Sealed-report back-test (`sealed-report-backtest.test.ts`)
+
+Pins the engine to a real signed & sealed RAS 117 / ASCE 7-22 insulation calc
+(1852 NW 82nd Ave, Coral Springs; GAF NOA FL11946-R26):
+
+| Quantity | Engine | Sealed report |
+|---|---|---|
+| Kz / qh / Dqz | 0.849 / 56.57 / 33.94 | 0.85 / 56.57 / 33.94 |
+| P1′ / P1 / P2 / P3 (psf) | −36.66 / −63.81 / −84.18 / −114.72 | identical |
+| Insulation N per 4×4 board | 9 / 11 / 15 / 20 | 9 / 13 / 16 / 21 |
+
+Pressures match exactly. The insulation **count** uses the standard RAS 117 §9
+proportional rule (`ceil(N_field × P/MDP)`, floored at the NOA field pattern),
+which reproduces the FBC §9 worked example exactly. The reference report
+specifies a few more fasteners (an office-specific conservative margin); the
+test asserts our counts are always ≥ the NOA field pattern and ≤ the report's
+counts.
 
 ---
 
@@ -95,8 +121,8 @@ pressures for a shared input.
 
 ## 5. Verification
 
-- `bun run test` — **46 passing** (was 26): adds the RAS 128 procedure, table,
-  prescriptive, and cross-engine reconciliation suites.
+- `bun run test` — **56 passing** (was 26): adds the RAS 128 procedure, table,
+  prescriptive, cross-engine reconciliation, and sealed-report back-test suites.
 - `tsc -p tsconfig.app.json --noEmit` — clean.
 - `bun run build` — clean.
 

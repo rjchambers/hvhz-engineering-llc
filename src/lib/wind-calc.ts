@@ -181,19 +181,21 @@ interface ZoneWidths {
 }
 
 function getZoneWidths(roofType: string, slopeDeg: number, h: number, W: number, L: number): ZoneWidths {
-  // All C&C zone bands are `a` wide per ASCE 7-22 §30.2 / Fig. 30.3-2A.
-  const a = zoneDimA(h, W, L);
   if (roofType === "Flat" || slopeDeg <= 7) {
-    // Low-slope roofs carry an interior Zone 1' when the footprint is large
-    // enough (least plan dim > 4a — see ras128.computeRAS128Pressures).
+    // Low-slope (firm convention, matching the signed/sealed reference reports):
+    // field/perimeter/corner band = 0.6·H, corner-inner = 0.2·H. Pressures are
+    // unaffected (they come from RAS 128 / ASCE 7-22 qh, GCp, GCpi).
+    const zoneWidth = Math.max(0.6 * h, 4);
     return {
-      zone1: round2(a),
-      zone2: round2(a),
-      zone3outer: round2(a),
-      zone3inner: round2(a),
-      hasZone1Prime: Math.min(W, L) > 4 * a,
+      zone1: round2(zoneWidth),
+      zone2: round2(zoneWidth),
+      zone3outer: round2(zoneWidth),
+      zone3inner: round2(Math.max(0.2 * h, 4)),
+      hasZone1Prime: true,
     };
   }
+  // Steep-slope (gable/hip > 7°): ASCE 7-22 §30.2 dimension `a`.
+  const a = zoneDimA(h, W, L);
   return {
     zone1: round2(a),
     zone2: round2(a),

@@ -5,7 +5,7 @@
 // ./ras128.ts so the fastener engine and the report/UI share one source of truth.
 
 import type { FastenerInputs, ZonePressures } from './types';
-import { zoneDimA, kzASCE } from './ras128';
+import { kzASCE } from './ras128';
 
 // Velocity pressure exposure coefficient Kh (= Kz at mean roof height).
 // Single source of truth: ASCE 7-22 Eq. 26.10-1 (see ras128.kzASCE). Previously
@@ -31,14 +31,14 @@ export function getGCpByArea(zone: string, ewa_ft2: number): number {
   return lo[1] + frac * (hi[1] - lo[1]);
 }
 
-// C&C zone band width = ASCE 7-22 §30.2 dimension `a`:
-//   a = min(0.1 × least_horiz_dim, 0.4 × h), but ≥ max(0.04 × least_horiz_dim, 3 ft).
-// (The prior 0.6 × h was not an ASCE 7-22 quantity; it ignored plan dimensions
-// and disagreed with the MWFRS engine, which already used `a`. Fixed so both
-// engines and RAS 128 agree.) When plan dimensions are unknown the caller may
-// omit them, in which case the height-governed term 0.4h is used.
-export function getZoneWidth(h: number, W = Infinity, L = Infinity): number {
-  return zoneDimA(h, W, L);
+// Low-slope (≤ 7°) C&C zone band width. This firm's HVHZ insulation / base-sheet
+// calcs use the 0.6·H field/perimeter/corner band (with 0.2·H corner-inner)
+// convention, matching the signed/sealed reference reports (e.g. Coral Springs,
+// Erik Nemati P.E.). Pressures themselves are unaffected by band width — they
+// come from RAS 128 / ASCE 7-22 (qh, GCp, GCpi). The steep-slope ASCE 7-22 §30.2
+// dimension `a` is applied in the C&C engine's gable/hip path.
+export function getZoneWidth(h: number): number {
+  return 0.6 * h;
 }
 
 export function calcQhASD(
@@ -57,19 +57,18 @@ export function calcQhASD(
 export function getZonePressures(inputs: FastenerInputs, qh_ASD: number, ewa_ft2 = 10): ZonePressures {
   const GCpi = inputs.enclosure === 'partially_enclosed' ? 0.55 : inputs.enclosure === 'enclosed' ? 0.18 : 0;
   const h_eff = inputs.h + (inputs.parapetHeight ?? 0);
-  const zoneWidth = getZoneWidth(h_eff, inputs.buildingWidth, inputs.buildingLength);
+  const zoneWidth = getZoneWidth(h_eff);
   const calcP = (zone: string) => qh_ASD * (getGCpByArea(zone, ewa_ft2) - GCpi);
-  // ASCE 7-22 Fig. 30.3-2A: an interior Zone 1' exists only when both plan
-  // dimensions extend more than 2a in from every edge (Zone 2 band + Zone 1
-  // band) → least plan dimension > 4a.
-  const has1prime = (inputs.buildingLength > 4 * zoneWidth) && (inputs.buildingWidth > 4 * zoneWidth);
+  // An interior Zone 1' exists when both plan dimensions clear the perimeter +
+  // field bands (each 0.6·H) → plan dim > 2 × zoneWidth.
+  const has1prime = (inputs.buildingLength > 2 * zoneWidth) && (inputs.buildingWidth > 2 * zoneWidth);
   return {
     zone1prime: has1prime ? calcP("1'") : calcP('1'),
     zone1: calcP('1'), zone2: calcP('2'), zone3: calcP('3'),
-    // All C&C bands (Zone 1/2/3) are `a` wide per ASCE 7-22 Fig. 30.3-2A; the
-    // corner (Zone 3) is an a×a region.
+    // Low-slope band geometry (firm convention): field/perimeter/corner = 0.6·H,
+    // corner-inner = 0.2·H.
     zoneWidth_ft: Math.round(zoneWidth * 100) / 100,
-    zone3_depth_ft: Math.round(zoneWidth * 100) / 100,
-    zone3_length_ft: Math.round(zoneWidth * 100) / 100,
+    zone3_depth_ft: Math.round(0.2 * h_eff * 100) / 100,
+    zone3_length_ft: Math.round(0.6 * h_eff * 100) / 100,
   };
 }
