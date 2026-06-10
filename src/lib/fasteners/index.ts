@@ -14,18 +14,27 @@
 
 import type {
   FastenerInputs, FastenerOutputs, FastenerWarning, FastenerDerivation,
-  FastenerZoneResult, InsulationZoneResult, NOAZoneResult, Zone,
+  FastenerZoneResult, InsulationZoneResult, NOAZoneResult, RAS128Summary, Zone,
 } from './types';
 import { calcQhASD, getZonePressures } from './zone-pressures';
 import { checkNOACompatibility } from './noa-compatibility';
 import { validateFastenerInputs } from './validation';
 import { calculateBaseSheetZone } from './base-sheet-engine';
 import { calcInsulationZone } from './insulation-engine';
+import { computeRAS128Pressures, checkRAS128Prescriptive } from './ras128';
 
 export * from './types';
 export {
   getKh, getGCpByArea, getZoneWidth, getZonePressures, calcQhASD,
 } from './zone-pressures';
+export {
+  computeRAS128Pressures, generateRAS128Table, checkRAS128Prescriptive,
+  kzASCE, zoneDimA, gcpLowSlope,
+} from './ras128';
+export type {
+  RAS128Inputs, RAS128Result, RAS128ZonePressure, RAS128TableRow,
+  RAS128TableOptions, RAS128PrescriptiveCheck,
+} from './ras128';
 export { checkNOACompatibility } from './noa-compatibility';
 export { calculateTAS105, isTAS105Required, getTFactor } from './tas-105';
 export { solveRowsAndFS, calculateBaseSheetZone } from './base-sheet-engine';
@@ -81,6 +90,9 @@ export function calculateFastener(inputs: FastenerInputs): FastenerOutputs {
 
   const derivation = buildDerivation(inputs, Kh, qh_ASD, GCpi);
 
+  // ── RAS 128 — applicable low-slope ASD pressures (Pasd = 0.6 × Pult) ────────
+  const ras128 = buildRAS128Summary(inputs, ewa_m, mdp_eff, warnings);
+
   // ── Insulation per §9 ────────────────────────────────────────────────
   const boardArea = inputs.boardLength_ft * inputs.boardWidth_ft;
   const zp_ins = getZonePressures(inputs, qh_ASD, ewa_i);
@@ -119,7 +131,7 @@ export function calculateFastener(inputs: FastenerInputs): FastenerOutputs {
     const hasWarn = warnings.some(w => w.level === 'warning');
     return {
       qh_ASD: round2(qh_ASD), Kh: round3(Kh), GCpi,
-      zonePressures: zp,
+      zonePressures: zp, ras128,
       fastenerResults: [], insulationResults, noaResults, warnings,
       maxExtrapolationFactor: round2(maxE),
       halfSheetZones: [],
@@ -147,7 +159,7 @@ export function calculateFastener(inputs: FastenerInputs): FastenerOutputs {
   const hasWarn = warnings.some(w => w.level === 'warning');
   return {
     qh_ASD: round2(qh_ASD), Kh: round3(Kh), GCpi,
-    zonePressures: zp,
+    zonePressures: zp, ras128,
     fastenerResults, insulationResults, noaResults, warnings,
     maxExtrapolationFactor: round2(maxE),
     halfSheetZones: [],
@@ -155,6 +167,48 @@ export function calculateFastener(inputs: FastenerInputs): FastenerOutputs {
     overallStatus: hasErr ? 'fail' : hasWarn ? 'warning' : 'ok',
     ewa_membrane_ft2: ewa_m, ewa_insulation_ft2: ewa_i,
     derivation,
+  };
+}
+
+function buildRAS128Summary(
+  inputs: FastenerInputs,
+  ewa_ft2: number,
+  mdp_eff_psf: number,
+  warnings: FastenerWarning[],
+): RAS128Summary {
+  const r = computeRAS128Pressures({
+    V: inputs.V,
+    exposure: inputs.exposureCategory,
+    h: inputs.h + (inputs.parapetHeight ?? 0),
+    W: inputs.buildingWidth,
+    L: inputs.buildingLength,
+    Kzt: inputs.Kzt,
+    Kd: inputs.Kd,
+    Ke: inputs.Ke,
+    enclosure: inputs.enclosure,
+    ewa_ft2,
+  });
+  const governing = r.zones.reduce((worst, z) =>
+    Math.abs(z.Pasd) > Math.abs(worst.Pasd) ? z : worst, r.zones[0]);
+  const presc = checkRAS128Prescriptive(r, mdp_eff_psf);
+
+  warnings.push({
+    level: presc.qualifies ? 'info' : 'warning',
+    message: presc.message,
+    reference: 'RAS 128-20',
+  });
+
+  return {
+    Pasd_field: r.Pasd_field,
+    Pasd_perimeter: r.Pasd_perimeter,
+    Pasd_corner: r.Pasd_corner,
+    qh_ult: r.qh_ult,
+    a_ft: r.a_ft,
+    governingZone: governing.zone,
+    governingPasd: governing.Pasd,
+    qualifiesPrescriptive: presc.qualifies,
+    message: presc.message,
+    derivation: r.derivation,
   };
 }
 

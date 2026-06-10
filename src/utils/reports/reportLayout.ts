@@ -604,10 +604,10 @@ export class HVHZReportBuilder {
       'fastener-calculation': [
         ['FBC 8th Ed. (2023)', 'Florida Building Code, Building'],
         ['ASCE 7-22 Ch. 30', 'Minimum Design Loads — Components & Cladding'],
-        ['RAS 117', 'Modified Bitumen Roofing Systems'],
-        ['RAS 128', 'Insulation Board Attachment'],
-        ['RAS 137', 'Single-Ply Membrane Systems'],
-        ['TAS 105', 'Fastener Pullout Resistance Test'],
+        ['RAS 117', 'Roof System Assemblies — Anchor/Base Sheet & Insulation Attachment'],
+        ['RAS 128', 'Applicable Wind ASD Pressures for Low-Slope Roofs (per ASCE 7)'],
+        ['RAS 137', 'Mechanical Attachment of Single-Ply Roof Coverings'],
+        ['TAS 105', 'Field Withdrawal Resistance Test'],
         ['TAS 114', 'Wind Resistance of Roof Assemblies'],
       ],
       'drainage-analysis': [

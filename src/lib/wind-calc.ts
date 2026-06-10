@@ -1,7 +1,14 @@
 /**
  * ASCE 7-22 Wind Pressure Calculation Engine
  * For HVHZ permit-submittal engineering reports
+ *
+ * The C&C fastener path (computeFastenerCalc) determines roof uplift pressures
+ * per RAS 128-20 / ASCE 7-22 Ch. 30. Zone geometry uses the shared ASCE 7-22
+ * §30.2 dimension `a` (see ./fasteners/ras128) so this engine and the RAS 117
+ * fastener engine agree on zone widths.
  */
+
+import { zoneDimA } from './fasteners/ras128';
 
 // ─── EXISTING: MWFRS (used by WindMitigationCalc) ──────────
 
@@ -174,18 +181,19 @@ interface ZoneWidths {
 }
 
 function getZoneWidths(roofType: string, slopeDeg: number, h: number, W: number, L: number): ZoneWidths {
+  // All C&C zone bands are `a` wide per ASCE 7-22 §30.2 / Fig. 30.3-2A.
+  const a = zoneDimA(h, W, L);
   if (roofType === "Flat" || slopeDeg <= 7) {
-    const zoneWidth = Math.max(0.6 * h, 4);
+    // Low-slope roofs carry an interior Zone 1' when the footprint is large
+    // enough (least plan dim > 4a — see ras128.computeRAS128Pressures).
     return {
-      zone1: round2(zoneWidth),
-      zone2: round2(zoneWidth),
-      zone3outer: round2(zoneWidth),
-      zone3inner: round2(Math.max(0.2 * h, 4)),
-      hasZone1Prime: true,
+      zone1: round2(a),
+      zone2: round2(a),
+      zone3outer: round2(a),
+      zone3inner: round2(a),
+      hasZone1Prime: Math.min(W, L) > 4 * a,
     };
   }
-  const minWL = Math.min(W, L);
-  const a = Math.max(Math.min(0.1 * minWL, 0.4 * h), Math.max(0.04 * minWL, 3));
   return {
     zone1: round2(a),
     zone2: round2(a),

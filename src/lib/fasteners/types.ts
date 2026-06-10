@@ -123,11 +123,25 @@ export interface FastenerDerivation {
   ras117_fs: string;
 }
 
+export interface RAS128Summary {
+  Pasd_field: number;        // Pasd(1), psf (negative)
+  Pasd_perimeter: number;    // Pasd(2), psf (negative)
+  Pasd_corner: number;       // Pasd(3), psf (negative)
+  qh_ult: number;            // ultimate velocity pressure, psf
+  a_ft: number;              // C&C zone dimension `a`
+  governingZone: string;     // most severe zone
+  governingPasd: number;     // most severe zone Pasd, psf (negative)
+  qualifiesPrescriptive: boolean;  // true → RAS 128 tabular path (no sealed calc)
+  message: string;
+  derivation: string[];
+}
+
 export interface FastenerOutputs {
   qh_ASD: number;
   Kh: number;
   GCpi: number;
   zonePressures: ZonePressures;
+  ras128: RAS128Summary;
   fastenerResults: FastenerZoneResult[];
   insulationResults: InsulationZoneResult[];
   noaResults: NOAZoneResult[];

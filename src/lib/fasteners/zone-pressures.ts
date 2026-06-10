@@ -1,25 +1,18 @@
-// Wind pressure calculation per ASCE 7-22 Ch. 26 & 30 (Envelope Procedure, h ≤ 60 ft).
-// Outputs are ASD-level pressures by C&C zone for low-slope (≤ 7°) roofs.
+// Wind pressure calculation per RAS 128-20 / ASCE 7-22 Ch. 26 & 30
+// (Components & Cladding, low-slope ≤ 7° roofs, h ≤ 60 ft).
+// Outputs are ASD-level pressures by C&C zone. RAS 128 is the FBC procedure that
+// governs this determination (Pasd = 0.6 × Pult); the heavy lifting lives in
+// ./ras128.ts so the fastener engine and the report/UI share one source of truth.
 
 import type { FastenerInputs, ZonePressures } from './types';
+import { zoneDimA, kzASCE } from './ras128';
 
-const KH_TABLE: { z: number; B: number; C: number; D: number }[] = [
-  { z: 0, B: 0.57, C: 0.85, D: 1.03 }, { z: 15, B: 0.57, C: 0.85, D: 1.03 },
-  { z: 20, B: 0.62, C: 0.90, D: 1.08 }, { z: 25, B: 0.66, C: 0.94, D: 1.12 },
-  { z: 30, B: 0.70, C: 0.98, D: 1.16 }, { z: 40, B: 0.76, C: 1.04, D: 1.22 },
-  { z: 50, B: 0.81, C: 1.09, D: 1.27 }, { z: 60, B: 0.85, C: 1.13, D: 1.31 },
-];
-
+// Velocity pressure exposure coefficient Kh (= Kz at mean roof height).
+// Single source of truth: ASCE 7-22 Eq. 26.10-1 (see ras128.kzASCE). Previously
+// this interpolated Table 26.10-1; the analytic form is what the code prescribes
+// and keeps this engine, the RAS 128 module, and the C&C engine in agreement.
 export function getKh(exposure: 'B' | 'C' | 'D', h: number): number {
-  const z = Math.max(0, Math.min(h, 60));
-  for (let i = 0; i < KH_TABLE.length - 1; i++) {
-    const lo = KH_TABLE[i], hi = KH_TABLE[i + 1];
-    if (z >= lo.z && z <= hi.z) {
-      const frac = hi.z === lo.z ? 0 : (z - lo.z) / (hi.z - lo.z);
-      return lo[exposure] + frac * (hi[exposure] - lo[exposure]);
-    }
-  }
-  return KH_TABLE[KH_TABLE.length - 1][exposure];
+  return kzASCE(exposure, h);
 }
 
 const GCP_AREA_TABLE: Record<string, [number, number][]> = {
@@ -38,15 +31,14 @@ export function getGCpByArea(zone: string, ewa_ft2: number): number {
   return lo[1] + frac * (hi[1] - lo[1]);
 }
 
-// NOTE: ASCE 7-22 §30.2 actually defines the C&C zone parameter `a` as
-//   a = min(0.1 × least_horiz_dim, 0.4 × h)
-// constrained by  a ≥ max(0.04 × least_horiz_dim, 3 ft).
-// The historical 0.6 × h here ignores plan dimensions and may overstate `a`
-// for tall, narrow buildings, pushing additional roof area into Zone 2/3.
-// Flagged for PE review against the actual ASCE 7-22 §30.2 figure before
-// changing — the standard's RAS 117 worked examples don't depend on this.
-export function getZoneWidth(h: number): number {
-  return 0.6 * h;
+// C&C zone band width = ASCE 7-22 §30.2 dimension `a`:
+//   a = min(0.1 × least_horiz_dim, 0.4 × h), but ≥ max(0.04 × least_horiz_dim, 3 ft).
+// (The prior 0.6 × h was not an ASCE 7-22 quantity; it ignored plan dimensions
+// and disagreed with the MWFRS engine, which already used `a`. Fixed so both
+// engines and RAS 128 agree.) When plan dimensions are unknown the caller may
+// omit them, in which case the height-governed term 0.4h is used.
+export function getZoneWidth(h: number, W = Infinity, L = Infinity): number {
+  return zoneDimA(h, W, L);
 }
 
 export function calcQhASD(
@@ -65,14 +57,19 @@ export function calcQhASD(
 export function getZonePressures(inputs: FastenerInputs, qh_ASD: number, ewa_ft2 = 10): ZonePressures {
   const GCpi = inputs.enclosure === 'partially_enclosed' ? 0.55 : inputs.enclosure === 'enclosed' ? 0.18 : 0;
   const h_eff = inputs.h + (inputs.parapetHeight ?? 0);
-  const zoneWidth = getZoneWidth(h_eff);
+  const zoneWidth = getZoneWidth(h_eff, inputs.buildingWidth, inputs.buildingLength);
   const calcP = (zone: string) => qh_ASD * (getGCpByArea(zone, ewa_ft2) - GCpi);
-  const has1prime = (inputs.buildingLength > 2 * zoneWidth) && (inputs.buildingWidth > 2 * zoneWidth);
+  // ASCE 7-22 Fig. 30.3-2A: an interior Zone 1' exists only when both plan
+  // dimensions extend more than 2a in from every edge (Zone 2 band + Zone 1
+  // band) → least plan dimension > 4a.
+  const has1prime = (inputs.buildingLength > 4 * zoneWidth) && (inputs.buildingWidth > 4 * zoneWidth);
   return {
     zone1prime: has1prime ? calcP("1'") : calcP('1'),
     zone1: calcP('1'), zone2: calcP('2'), zone3: calcP('3'),
+    // All C&C bands (Zone 1/2/3) are `a` wide per ASCE 7-22 Fig. 30.3-2A; the
+    // corner (Zone 3) is an a×a region.
     zoneWidth_ft: Math.round(zoneWidth * 100) / 100,
-    zone3_depth_ft: Math.round(0.2 * h_eff * 100) / 100,
-    zone3_length_ft: Math.round(0.6 * h_eff * 100) / 100,
+    zone3_depth_ft: Math.round(zoneWidth * 100) / 100,
+    zone3_length_ft: Math.round(zoneWidth * 100) / 100,
   };
 }
