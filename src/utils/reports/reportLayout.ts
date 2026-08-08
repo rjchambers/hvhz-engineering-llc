@@ -103,7 +103,7 @@ export class HVHZReportBuilder {
     this.doc.setFont('helvetica', 'normal');
     this.doc.text('Registry #39957', cx, 21, { align: 'center' });
     this.doc.text('750 E Sample Road', cx, 25, { align: 'center' });
-    this.doc.text('Pompano Beach, FL 33062', cx, 29, { align: 'center' });
+    this.doc.text('Pompano Beach, FL 33064', cx, 29, { align: 'center' });
 
     // Centered report title
     this.doc.setTextColor(...NAVY);
@@ -928,7 +928,7 @@ export class HVHZReportBuilder {
       this.doc.setFont('helvetica', 'normal');
       this.doc.setTextColor(...MID_SLATE);
 
-      this.doc.text('HVHZ Engineering LLC · Registry #39957 · 750 E Sample Road, Pompano Beach FL 33062', this.ml, 266);
+      this.doc.text('HVHZ Engineering LLC · Registry #39957 · 750 E Sample Road, Pompano Beach FL 33064', this.ml, 266);
       this.doc.text(`Page ${i} of ${totalPages}`, this.pageW - this.mr, 266, { align: 'right' });
 
       this.doc.text('WO-' + this.config.jobNumber, this.ml, 270);
