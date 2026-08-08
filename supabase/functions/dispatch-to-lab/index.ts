@@ -75,7 +75,7 @@ serve(async (req) => {
     // Load the work order + its order (for job details and submitted files).
     const { data: wo, error: woErr } = await supabaseAdmin
       .from("work_orders")
-      .select("id, service_type, client_id, scheduled_date, orders(job_address, job_city, job_zip, notes, noa_document_path, noa_document_name, roof_report_path, roof_report_name, roof_data)")
+      .select("id, wo_number, service_type, client_id, scheduled_date, orders(job_address, job_city, job_zip, notes, noa_document_path, noa_document_name, roof_report_path, roof_report_name, roof_data)")
       .eq("id", workOrderId)
       .single();
     if (woErr || !wo) return json({ error: "Work order not found" }, 404);
@@ -119,7 +119,7 @@ serve(async (req) => {
       "{{job_city}}": order.job_city ?? "",
       "{{job_zip}}": order.job_zip ?? "",
       "{{client_company}}": clientProfile?.company_name ?? "",
-      "{{work_order_id}}": String(wo.id).slice(0, 8).toUpperCase(),
+      "{{work_order_id}}": wo.wo_number ? String(wo.wo_number) : String(wo.id).slice(0, 8).toUpperCase(),
       "{{scheduled_date}}": wo.scheduled_date ?? "TBD",
     };
     const rawTemplate = partner.email_template?.trim() || DEFAULT_TEMPLATE;

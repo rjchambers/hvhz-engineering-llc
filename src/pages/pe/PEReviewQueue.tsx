@@ -63,12 +63,17 @@ export default function PEReviewQueue() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Realtime
+  // Realtime — filtered to this engineer's assignments so the queue doesn't
+  // refetch on every unrelated mutation in the system.
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel("pe-queue")
-      .on("postgres_changes", { event: "*", schema: "public", table: "work_orders" }, () => fetchData())
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "work_orders", filter: `assigned_engineer_id=eq.${user.id}` },
+        () => fetchData()
+      )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchData]);

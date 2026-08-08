@@ -272,6 +272,9 @@ export default function Dashboard() {
                           }
                         </TableCell>
                         <TableCell className="text-sm tabular-nums">
+                          {order.order_number && (
+                            <span className="font-mono text-xs text-muted-foreground mr-2">#{order.order_number}</span>
+                          )}
                           {new Date(order.created_at).toLocaleDateString()}
                         </TableCell>
                         <TableCell className="text-sm max-w-[300px]">

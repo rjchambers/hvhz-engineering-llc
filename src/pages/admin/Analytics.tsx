@@ -117,24 +117,21 @@ export default function Analytics() {
           );
         }),
 
-      // Status summary
-      supabase
-        .from("work_orders")
-        .select("status, created_at")
-        .then(({ data }) => {
-          const groups: Record<string, { count: number; oldest: string }> = {};
-          (data ?? []).forEach((wo) => {
-            if (!groups[wo.status]) groups[wo.status] = { count: 0, oldest: wo.created_at };
-            groups[wo.status].count++;
-            if (wo.created_at < groups[wo.status].oldest) groups[wo.status].oldest = wo.created_at;
-          });
-          setStatusSummary(
-            Object.entries(groups)
-              .filter(([, v]) => v.count > 0)
-              .map(([status, v]) => ({ status, count: v.count, oldestDays: daysSince(v.oldest) }))
-              .sort((a, b) => b.count - a.count)
-          );
-        }),
+      // Status summary — per-status head counts + oldest row, instead of
+      // shipping the entire work_orders table to the browser to group in JS
+      // (which also silently truncates at PostgREST's max-rows).
+      Promise.all(
+        Object.keys(STATUS_LABELS).map(async (status) => {
+          const [{ count }, { data: oldest }] = await Promise.all([
+            supabase.from("work_orders").select("id", { count: "exact", head: true }).eq("status", status),
+            supabase.from("work_orders").select("created_at").eq("status", status)
+              .order("created_at", { ascending: true }).limit(1).maybeSingle(),
+          ]);
+          return { status, count: count ?? 0, oldestDays: oldest ? daysSince(oldest.created_at) : 0 };
+        })
+      ).then((rows) => {
+        setStatusSummary(rows.filter((r) => r.count > 0).sort((a, b) => b.count - a.count));
+      }),
     ]).finally(() => setLoading(false));
   }, []);
 

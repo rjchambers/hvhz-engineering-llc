@@ -12,9 +12,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { STATUS_LABELS, STATUS_BADGE_CLASSES, isOutsourced, daysSince } from "@/lib/work-order-helpers";
 import { SERVICES, getServiceName } from "@/lib/services";
-import { CalendarIcon, ChevronLeft, ChevronRight, Upload, ChevronDown, AlertTriangle, ExternalLink, FlaskConical, Zap } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, Upload, ChevronDown, AlertTriangle, ExternalLink, FlaskConical, Zap, Search } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -25,6 +27,7 @@ const PAGE_SIZE = 25;
 
 interface WO {
   id: string;
+  wo_number: number | null;
   service_type: string;
   status: string;
   created_at: string;
@@ -90,6 +93,22 @@ export default function WorkOrders() {
   const [seeding, setSeeding] = useState(false);
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
 
+  // Search + bulk dispatch state
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkTech, setBulkTech] = useState("");
+  const [bulkEngineer, setBulkEngineer] = useState("");
+  const [bulkDate, setBulkDate] = useState<Date | undefined>(new Date());
+  const [bulkDispatching, setBulkDispatching] = useState(false);
+
+  // Debounce the search box so we don't query per keystroke
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(0); }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const fetchWOs = useCallback(async () => {
     let query = supabase
       .from("work_orders")
@@ -99,6 +118,31 @@ export default function WorkOrders() {
 
     if (filterStatus !== "all") query = query.eq("status", filterStatus);
     if (filterService !== "all") query = query.eq("service_type", filterService);
+
+    // Text search: WO#, order address, or client company (trigram-indexed).
+    if (search) {
+      const escaped = search.replace(/[%,()]/g, " ").trim();
+      const conditions: string[] = [];
+
+      if (/^\d+$/.test(escaped)) {
+        conditions.push(`wo_number.eq.${escaped}`);
+      }
+      if (escaped) {
+        const [{ data: orderHits }, { data: companyHits }] = await Promise.all([
+          supabase.from("orders").select("id").ilike("job_address", `%${escaped}%`).limit(100),
+          supabase.from("client_profiles").select("user_id").ilike("company_name", `%${escaped}%`).limit(100),
+        ]);
+        if (orderHits?.length) conditions.push(`order_id.in.(${orderHits.map((o) => o.id).join(",")})`);
+        if (companyHits?.length) conditions.push(`client_id.in.(${companyHits.map((c) => c.user_id).join(",")})`);
+      }
+
+      if (conditions.length === 0) {
+        setWorkOrders([]);
+        setTotal(0);
+        return;
+      }
+      query = query.or(conditions.join(","));
+    }
 
     const { data, count } = await query;
     if (!data) return;
@@ -118,7 +162,49 @@ export default function WorkOrders() {
       }))
     );
     setTotal(count ?? 0);
-  }, [page, filterStatus, filterService]);
+  }, [page, filterStatus, filterService, search]);
+
+  // Bulk-dispatchable = in-house work orders awaiting dispatch
+  const isBulkEligible = (wo: WO) => wo.status === "pending_dispatch" && !isOutsourced(wo.service_type);
+  const eligibleOnPage = workOrders.filter(isBulkEligible);
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const openBulkDialog = (ids: Set<string>) => {
+    if (ids.size === 0) { toast.info("Select pending in-house work orders first"); return; }
+    setSelectedIds(ids);
+    if (!bulkTech && techs[0]) setBulkTech(techs[0].user_id);
+    if (!bulkEngineer && engineers[0]) setBulkEngineer(engineers[0].user_id);
+    setBulkOpen(true);
+  };
+
+  const handleBulkDispatch = async () => {
+    if (!bulkTech) { toast.error("Pick a technician"); return; }
+    setBulkDispatching(true);
+    // Single set-based update — not a per-row loop
+    const { error } = await supabase
+      .from("work_orders")
+      .update({
+        status: "dispatched",
+        assigned_technician_id: bulkTech,
+        assigned_engineer_id: bulkEngineer || null,
+        scheduled_date: bulkDate ? format(bulkDate, "yyyy-MM-dd") : null,
+      })
+      .in("id", [...selectedIds])
+      .eq("status", "pending_dispatch"); // guard against races
+    setBulkDispatching(false);
+    if (error) { toast.error("Bulk dispatch failed: " + error.message); return; }
+    toast.success(`Dispatched ${selectedIds.size} work order${selectedIds.size !== 1 ? "s" : ""}`);
+    setSelectedIds(new Set());
+    setBulkOpen(false);
+    fetchWOs();
+  };
 
   // Fix 4: Better name resolution for techs and engineers
   const fetchRoles = useCallback(async () => {
@@ -282,7 +368,7 @@ export default function WorkOrders() {
       .replace(/\{\{job_city\}\}/g, selected.orders?.job_city ?? "")
       .replace(/\{\{job_zip\}\}/g, selected.orders?.job_zip ?? "")
       .replace(/\{\{client_company\}\}/g, selected.client_profiles?.company_name ?? "")
-      .replace(/\{\{work_order_id\}\}/g, selected.id.slice(0, 8).toUpperCase())
+      .replace(/\{\{work_order_id\}\}/g, selected.wo_number ? String(selected.wo_number) : selected.id.slice(0, 8).toUpperCase())
       .replace(/\{\{scheduled_date\}\}/g, dispatchDate ? format(dispatchDate, "MMMM d, yyyy") : "TBD");
   };
 
@@ -454,6 +540,15 @@ export default function WorkOrders() {
 
         {/* Filters */}
         <div className="flex flex-wrap gap-3 mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search WO#, address, or company…"
+              className="pl-9 w-[260px]"
+            />
+          </div>
           <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(0); }}>
             <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
@@ -487,25 +582,14 @@ export default function WorkOrders() {
             variant="outline"
             size="sm"
             className="gap-1.5 text-hvhz-teal border-hvhz-teal/30 hover:bg-hvhz-teal/5"
-            onClick={async () => {
-              const pending = workOrders.filter((wo) => wo.status === "pending_dispatch" && !isOutsourced(wo.service_type));
-              if (pending.length === 0) { toast.info("No pending work orders to dispatch"); return; }
-              const defaultTech = techs[0]?.id;
-              const defaultPE = engineers[0]?.id;
-              if (!defaultTech) { toast.error("No technician available"); return; }
-              for (const wo of pending) {
-                await supabase.from("work_orders").update({
-                  status: "dispatched",
-                  assigned_technician_id: defaultTech,
-                  assigned_engineer_id: defaultPE || null,
-                  scheduled_date: format(new Date(), "yyyy-MM-dd"),
-                }).eq("id", wo.id);
-              }
-              toast.success(`Dispatched ${pending.length} work order${pending.length !== 1 ? "s" : ""}`);
-              fetchWOs();
-            }}
+            onClick={() => openBulkDialog(
+              selectedIds.size > 0 ? selectedIds : new Set(eligibleOnPage.map((wo) => wo.id))
+            )}
           >
-            <Zap className="h-4 w-4" /> Dispatch All Pending ({workOrders.filter(wo => wo.status === "pending_dispatch" && !isOutsourced(wo.service_type)).length})
+            <Zap className="h-4 w-4" />
+            {selectedIds.size > 0
+              ? `Bulk Dispatch (${selectedIds.size} selected)`
+              : `Bulk Dispatch Pending (${eligibleOnPage.length})`}
           </Button>
         </div>
 
@@ -514,6 +598,16 @@ export default function WorkOrders() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={eligibleOnPage.length > 0 && eligibleOnPage.every((wo) => selectedIds.has(wo.id))}
+                    onCheckedChange={(v) => {
+                      setSelectedIds(v === true ? new Set(eligibleOnPage.map((wo) => wo.id)) : new Set());
+                    }}
+                    aria-label="Select all pending on page"
+                  />
+                </TableHead>
+                <TableHead>WO #</TableHead>
                 <TableHead>Service</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Address</TableHead>
@@ -525,6 +619,18 @@ export default function WorkOrders() {
             <TableBody>
               {workOrders.map((wo) => (
                 <TableRow key={wo.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openSheet(wo)}>
+                  <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                    {isBulkEligible(wo) && (
+                      <Checkbox
+                        checked={selectedIds.has(wo.id)}
+                        onCheckedChange={() => toggleSelected(wo.id)}
+                        aria-label={`Select WO ${wo.wo_number ?? wo.id.slice(0, 8)}`}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {wo.wo_number ? `#${wo.wo_number}` : wo.id.slice(0, 8).toUpperCase()}
+                  </TableCell>
                   <TableCell className="font-medium text-sm">{getServiceName(wo.service_type)}</TableCell>
                   <TableCell className="text-sm">{wo.client_profiles?.company_name ?? "—"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{wo.orders?.job_address ?? "—"}</TableCell>
@@ -538,7 +644,7 @@ export default function WorkOrders() {
                 </TableRow>
               ))}
               {workOrders.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No work orders found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No work orders found</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -561,13 +667,75 @@ export default function WorkOrders() {
         )}
       </div>
 
+      {/* Bulk dispatch dialog */}
+      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Bulk dispatch {selectedIds.size} work order{selectedIds.size !== 1 ? "s" : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Technician *</Label>
+              <Select value={bulkTech} onValueChange={setBulkTech}>
+                <SelectTrigger><SelectValue placeholder="Select technician" /></SelectTrigger>
+                <SelectContent>
+                  {techs.map((t) => (
+                    <SelectItem key={t.user_id} value={t.user_id}>{t.displayName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Engineer / PE</Label>
+              <Select value={bulkEngineer} onValueChange={setBulkEngineer}>
+                <SelectTrigger><SelectValue placeholder="Select engineer" /></SelectTrigger>
+                <SelectContent>
+                  {engineers.map((e) => (
+                    <SelectItem key={e.user_id} value={e.user_id}>{e.displayName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Scheduled Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !bulkDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {bulkDate ? format(bulkDate, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={bulkDate} onSelect={setBulkDate} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleBulkDispatch}
+              disabled={bulkDispatching || !bulkTech}
+              className="bg-hvhz-navy hover:bg-hvhz-navy/90"
+            >
+              {bulkDispatching ? "Dispatching…" : `Dispatch ${selectedIds.size}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Side Sheet */}
       <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <SheetContent className="sm:max-w-lg overflow-y-auto">
           {selected && (
             <>
               <SheetHeader>
-                <SheetTitle className="text-primary">{getServiceName(selected.service_type)}</SheetTitle>
+                <SheetTitle className="text-primary">
+                  {getServiceName(selected.service_type)}
+                  <span className="ml-2 font-mono text-sm text-muted-foreground font-normal">
+                    {selected.wo_number ? `#${selected.wo_number}` : `#${selected.id.slice(0, 8).toUpperCase()}`}
+                  </span>
+                </SheetTitle>
               </SheetHeader>
 
               <div className="mt-6 space-y-6">

@@ -196,6 +196,7 @@ export type Database = {
           noa_document_name: string | null
           noa_document_path: string | null
           notes: string | null
+          order_number: number | null
           roof_area_sqft: number | null
           roof_data: Json | null
           roof_report_name: string | null
@@ -222,6 +223,7 @@ export type Database = {
           noa_document_name?: string | null
           noa_document_path?: string | null
           notes?: string | null
+          order_number?: number | null
           roof_area_sqft?: number | null
           roof_data?: Json | null
           roof_report_name?: string | null
@@ -248,6 +250,7 @@ export type Database = {
           noa_document_name?: string | null
           noa_document_path?: string | null
           notes?: string | null
+          order_number?: number | null
           roof_area_sqft?: number | null
           roof_data?: Json | null
           roof_report_name?: string | null
@@ -447,6 +450,7 @@ export type Database = {
           submitted_at: string | null
           unsigned_report_url: string | null
           updated_at: string
+          wo_number: number | null
         }
         Insert: {
           assigned_engineer_id?: string | null
@@ -469,6 +473,7 @@ export type Database = {
           submitted_at?: string | null
           unsigned_report_url?: string | null
           updated_at?: string
+          wo_number?: number | null
         }
         Update: {
           assigned_engineer_id?: string | null
@@ -491,6 +496,7 @@ export type Database = {
           submitted_at?: string | null
           unsigned_report_url?: string | null
           updated_at?: string
+          wo_number?: number | null
         }
         Relationships: [
           {

@@ -35,10 +35,13 @@ export default function Pipeline() {
   const navigate = useNavigate();
 
   const fetchWOs = useCallback(async () => {
+    // Cap the board at the most recent 300 — an unbounded fetch renders the
+    // whole table into the DOM and re-downloads it on every realtime event.
     const { data } = await supabase
       .from("work_orders")
       .select("id, service_type, status, created_at, client_id, order_id, orders(job_address, job_city)")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(300);
 
     if (!data) return;
 
@@ -62,16 +65,37 @@ export default function Pipeline() {
   useEffect(() => {
     fetchWOs();
 
+    // Throttle realtime refetches: bursts of mutations (bulk dispatch, a busy
+    // day) collapse into at most one reload every 4s instead of one per event.
+    let lastFetch = Date.now();
+    let trailing: ReturnType<typeof setTimeout> | null = null;
+    const throttledFetch = () => {
+      const since = Date.now() - lastFetch;
+      if (since >= 4000) {
+        lastFetch = Date.now();
+        fetchWOs();
+      } else if (!trailing) {
+        trailing = setTimeout(() => {
+          trailing = null;
+          lastFetch = Date.now();
+          fetchWOs();
+        }, 4000 - since);
+      }
+    };
+
     const channel = supabase
       .channel("admin-pipeline")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "work_orders" },
-        () => fetchWOs()
+        throttledFetch
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (trailing) clearTimeout(trailing);
+      supabase.removeChannel(channel);
+    };
   }, [fetchWOs]);
 
   const handleDragStart = (id: string) => setDragging(id);
