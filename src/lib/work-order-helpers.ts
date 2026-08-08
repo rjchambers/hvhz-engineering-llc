@@ -35,10 +35,17 @@ export const STATUS_BADGE_CLASSES: Record<string, string> = {
 };
 
 
+// Services that are physically TAS lab tests — used for TAS-specific UI and
+// reporting (distinct from whether a service is outsourced).
 export const TAS_SERVICES = ["tas-105", "tas-106", "tas-124", "tas-126"];
 
+// Services still handled in-house rather than dispatched to a third-party
+// partner. Every other service is outsourced. "Other / Custom Request" has no
+// defined scope to hand off, so it stays on the internal tech/PE flow.
+export const IN_HOUSE_SERVICES = ["other"];
+
 export function isOutsourced(serviceType: string) {
-  return TAS_SERVICES.includes(serviceType);
+  return !IN_HOUSE_SERVICES.includes(serviceType);
 }
 
 export function daysSince(dateStr: string) {
