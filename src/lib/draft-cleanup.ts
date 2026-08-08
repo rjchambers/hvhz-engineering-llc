@@ -4,6 +4,8 @@ const DRAFT_PREFIXES = [
   "pe-profile-",
   "client-profile-",
   "admin-partner-",
+  "hvhz-public-order-draft",
+  "hvhz-new-order-wizard",
 ];
 
 const MAX_DRAFT_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days

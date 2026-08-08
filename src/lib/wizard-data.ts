@@ -71,7 +71,8 @@ export function loadWizardData(): WizardData {
 }
 
 export function saveWizardData(data: WizardData) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  // _savedAt lets draft-cleanup expire stale drafts (contains gate codes)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, _savedAt: Date.now() }));
 }
 
 export function clearWizardData() {

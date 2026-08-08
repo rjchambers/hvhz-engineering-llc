@@ -12,12 +12,14 @@ const NAV_LINKS = [
   { label: "Contact", href: "#contact" },
 ];
 
-export function HeroNav() {
-  const [scrolled, setScrolled] = useState(false);
+export function HeroNav({ solid = false }: { solid?: boolean }) {
+  const [atTop, setAtTop] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  // On pages without a dark hero behind the nav, force the solid style.
+  const scrolled = solid || !atTop;
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 50);
+    const onScroll = () => setAtTop(window.scrollY <= 50);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);

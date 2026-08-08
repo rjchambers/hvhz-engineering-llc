@@ -11,6 +11,8 @@ interface RoofReportUploaderProps {
   roofReportType: string;
   onRoofReportTypeChange: (type: string) => void;
   onRoofAreaExtracted?: (area: number) => void;
+  /** Fired with the storage path once the report is uploaded (null on remove). */
+  onUploaded?: (path: string | null, name: string | null) => void;
 }
 
 export function RoofReportUploader({
@@ -19,6 +21,7 @@ export function RoofReportUploader({
   roofReportType,
   onRoofReportTypeChange,
   onRoofAreaExtracted,
+  onUploaded,
 }: RoofReportUploaderProps) {
   const reportInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -74,6 +77,7 @@ export function RoofReportUploader({
       }
 
       setStoragePath(result.storagePath || null);
+      onUploaded?.(result.storagePath || null, file.name);
 
       if (result.data?.roofArea && onRoofAreaExtracted) {
         onRoofAreaExtracted(result.data.roofArea);
@@ -92,6 +96,7 @@ export function RoofReportUploader({
   const handleRemove = () => {
     onRoofReportChange(null);
     setStoragePath(null);
+    onUploaded?.(null, null);
   };
 
   return (

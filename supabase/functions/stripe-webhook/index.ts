@@ -66,6 +66,105 @@ serve(async (req) => {
     }
 
     const session = event.data.object;
+
+    // ── New flow: the order row was created at checkout time and the session
+    // carries its id. Complete it: flip status, stamp session id, create WOs.
+    const preCreatedOrderId = session.metadata?.orderId;
+    if (preCreatedOrderId) {
+      const supabaseUrl0 = Deno.env.get("SUPABASE_URL")!;
+      const serviceRoleKey0 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const admin = createClient(supabaseUrl0, serviceRoleKey0);
+
+      const { data: existingOrder, error: fetchErr } = await admin
+        .from("orders")
+        .select("id, client_id, services, status")
+        .eq("id", preCreatedOrderId)
+        .maybeSingle();
+
+      if (fetchErr || !existingOrder) {
+        console.error("stripe-webhook: pre-created order not found", { orderId: preCreatedOrderId, fetchErr });
+        // Acknowledge — retrying won't make the order appear.
+        return new Response(JSON.stringify({ received: true, orphaned: true }), { status: 200 });
+      }
+
+      // Duplicate delivery or already-processed → idempotent success.
+      if (existingOrder.status !== "pending_payment") {
+        return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200 });
+      }
+
+      await admin
+        .from("orders")
+        .update({
+          status: "pending_dispatch",
+          stripe_session_id: session.id,
+          total_amount: (session.amount_total || 0) / 100,
+        })
+        .eq("id", existingOrder.id);
+
+      if (session.customer && existingOrder.client_id) {
+        await admin
+          .from("client_profiles")
+          .update({ stripe_customer_id: session.customer })
+          .eq("user_id", existingOrder.client_id)
+          .is("stripe_customer_id", null);
+      }
+
+      // Create work orders only if none exist yet (idempotency guard)
+      const { count: woCount } = await admin
+        .from("work_orders")
+        .select("id", { count: "exact", head: true })
+        .eq("order_id", existingOrder.id);
+
+      if (!woCount) {
+        const { data: techConfig } = await admin
+          .from("app_config").select("value").eq("key", "default_technician_id").maybeSingle();
+        const { data: engConfig } = await admin
+          .from("app_config").select("value").eq("key", "default_engineer_id").maybeSingle();
+        const defaultTechId = techConfig?.value || null;
+        const defaultEngId = engConfig?.value || null;
+
+        const { error: woErr } = await admin.from("work_orders").insert(
+          (existingOrder.services as string[]).map((svc) => ({
+            order_id: existingOrder.id,
+            client_id: existingOrder.client_id,
+            service_type: svc,
+            status: defaultTechId ? "dispatched" : "pending_dispatch",
+            assigned_technician_id: defaultTechId || null,
+            assigned_engineer_id: defaultEngId || null,
+            scheduled_date: defaultTechId ? new Date().toISOString().split("T")[0] : null,
+          }))
+        );
+        if (woErr) console.error("stripe-webhook: work_orders insert failed", { orderId: existingOrder.id, woErr });
+      }
+
+      // Confirmation email
+      const { data: clientProfile } = await admin
+        .from("client_profiles")
+        .select("contact_email, contact_name")
+        .eq("user_id", existingOrder.client_id)
+        .maybeSingle();
+      if (clientProfile?.contact_email) {
+        try {
+          await fetch(`${supabaseUrl0}/functions/v1/send-notification-email`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceRoleKey0}` },
+            body: JSON.stringify({
+              type: "order_confirmed",
+              recipientEmail: clientProfile.contact_email,
+              recipientName: clientProfile.contact_name,
+              extraData: { services: (existingOrder.services as string[]).join(", ") },
+            }),
+          });
+        } catch (emailErr) {
+          console.error("Email send failed:", emailErr);
+        }
+      }
+
+      return new Response(JSON.stringify({ received: true }), { status: 200 });
+    }
+
+    // ── Legacy flow: order data lives in session metadata. Kept for
+    // in-flight checkouts created before the pre-created-order change.
     // Fall back to legacy `userId` metadata key for in-flight checkouts created
     // before guest checkout was switched to `clientId`.
     const clientId = session.metadata?.clientId || session.metadata?.userId;
@@ -143,6 +242,11 @@ serve(async (req) => {
       .single();
 
     if (orderErr) {
+      // Unique violation on stripe_session_id = duplicate webhook delivery.
+      // Acknowledge it so Stripe stops retrying.
+      if ((orderErr as { code?: string }).code === "23505") {
+        return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200 });
+      }
       console.error("Order insert error:", {
         error: orderErr,
         session_id: session.id,

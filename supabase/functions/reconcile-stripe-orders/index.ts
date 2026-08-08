@@ -12,7 +12,7 @@ const DESIGN_RAINFALL: Record<string, number> = {
 
 interface ReconcileResult {
   session_id: string;
-  status: "created" | "skipped_existing" | "skipped_unpaid" | "skipped_no_client" | "error";
+  status: "created" | "completed_pending" | "skipped_existing" | "skipped_unpaid" | "skipped_no_client" | "error";
   order_id?: string;
   error?: string;
 }
@@ -89,13 +89,16 @@ Deno.serve(async (req) => {
       starting_after = json.data[json.data.length - 1]?.id;
     }
 
-    // ---- Existing session IDs ----
+    // ---- Existing orders for these sessions (id + status so we can finish
+    // pre-created pending_payment orders whose webhook never landed) ----
     const sessionIds = sessions.map((s) => s.id);
     const { data: existing } = await admin
       .from("orders")
-      .select("stripe_session_id")
+      .select("id, stripe_session_id, status, client_id, services")
       .in("stripe_session_id", sessionIds);
-    const existingSet = new Set((existing || []).map((r) => r.stripe_session_id));
+    const existingBySession = new Map(
+      (existing || []).map((r) => [r.stripe_session_id as string, r])
+    );
 
     // ---- Default assignments ----
     const { data: techConfig } = await admin
@@ -107,15 +110,93 @@ Deno.serve(async (req) => {
 
     const results: ReconcileResult[] = [];
 
+    // Finish a pre-created order that paid but never got its webhook:
+    // flip the status and create work orders if none exist.
+    const completePendingOrder = async (
+      order: { id: string; client_id: string; services: string[] },
+      session: { id: string; amount_total?: number; customer?: string }
+    ) => {
+      await admin.from("orders").update({
+        status: "pending_dispatch",
+        stripe_session_id: session.id,
+        total_amount: (session.amount_total || 0) / 100,
+      }).eq("id", order.id);
+
+      if (session.customer) {
+        await admin.from("client_profiles")
+          .update({ stripe_customer_id: session.customer })
+          .eq("user_id", order.client_id).is("stripe_customer_id", null);
+      }
+
+      const { count: woCount } = await admin
+        .from("work_orders")
+        .select("id", { count: "exact", head: true })
+        .eq("order_id", order.id);
+      if (!woCount) {
+        const { error: woErr } = await admin.from("work_orders").insert(
+          order.services.map((svc) => ({
+            order_id: order.id,
+            client_id: order.client_id,
+            service_type: svc,
+            status: defaultTechId ? "dispatched" : "pending_dispatch",
+            assigned_technician_id: defaultTechId,
+            assigned_engineer_id: defaultEngId,
+            scheduled_date: defaultTechId ? new Date().toISOString().split("T")[0] : null,
+          }))
+        );
+        if (woErr) throw woErr;
+      }
+    };
+
     for (const session of sessions) {
       if (session.payment_status !== "paid") {
         results.push({ session_id: session.id, status: "skipped_unpaid" });
         continue;
       }
-      if (existingSet.has(session.id)) {
-        results.push({ session_id: session.id, status: "skipped_existing" });
+
+      const existingOrder = existingBySession.get(session.id);
+      if (existingOrder) {
+        if (existingOrder.status === "pending_payment") {
+          if (dryRun) {
+            results.push({ session_id: session.id, status: "completed_pending", order_id: "(dry-run)" });
+          } else {
+            try {
+              await completePendingOrder(existingOrder, session);
+              results.push({ session_id: session.id, status: "completed_pending", order_id: existingOrder.id });
+            } catch (e: any) {
+              results.push({ session_id: session.id, status: "error", error: String(e?.message || e) });
+            }
+          }
+        } else {
+          results.push({ session_id: session.id, status: "skipped_existing" });
+        }
         continue;
       }
+
+      // Pre-created order whose stripe_session_id update failed — find by id.
+      if (session.metadata?.orderId) {
+        const { data: byId } = await admin
+          .from("orders")
+          .select("id, status, client_id, services")
+          .eq("id", session.metadata.orderId)
+          .maybeSingle();
+        if (byId?.status === "pending_payment") {
+          if (dryRun) {
+            results.push({ session_id: session.id, status: "completed_pending", order_id: "(dry-run)" });
+          } else {
+            try {
+              await completePendingOrder(byId, session);
+              results.push({ session_id: session.id, status: "completed_pending", order_id: byId.id });
+            } catch (e: any) {
+              results.push({ session_id: session.id, status: "error", error: String(e?.message || e) });
+            }
+          }
+        } else {
+          results.push({ session_id: session.id, status: byId ? "skipped_existing" : "skipped_no_client" });
+        }
+        continue;
+      }
+
       const clientId = session.metadata?.clientId || session.metadata?.userId;
       if (!clientId) {
         results.push({ session_id: session.id, status: "skipped_no_client" });
@@ -196,6 +277,7 @@ Deno.serve(async (req) => {
       days, dryRun,
       scanned: sessions.length,
       created: results.filter((r) => r.status === "created").length,
+      completed_pending: results.filter((r) => r.status === "completed_pending").length,
       skipped_existing: results.filter((r) => r.status === "skipped_existing").length,
       skipped_unpaid: results.filter((r) => r.status === "skipped_unpaid").length,
       skipped_no_client: results.filter((r) => r.status === "skipped_no_client").length,

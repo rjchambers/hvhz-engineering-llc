@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   ShoppingCart, User, MapPin, Settings2, Upload, DollarSign, FileCheck, LogIn,
+  CheckCircle2, ArrowRight,
 } from "lucide-react";
+import { AuthGateDialog } from "@/components/order/AuthGateDialog";
 import { HeroNav } from "@/components/HeroNav";
 import { OrderHero } from "@/components/order/OrderHero";
 import { FormSection } from "@/components/order/FormSection";
@@ -35,8 +37,11 @@ const initialJobInfo: JobInfo = {
   roofArea: "", parapetHeight: "", roofHeight: "", roofLength: "", roofWidth: "",
   roofSlope: "", newOrExisting: "new", newLWIC: "no", insideAccessName: "",
   insideAccessPhone: "", deckType: "", deckTypeOther: "", componentSecured: "",
-  fastenerManufacturer: "",
+  fastenerManufacturer: "", jobCounty: "", jobLat: null, jobLng: null,
 };
+
+/** localStorage key for the public order draft (cleaned by draft-cleanup TTL). */
+const DRAFT_KEY = "hvhz-public-order-draft";
 
 const initialServiceData: ServiceSpecificData = {
   fastenerManufacturer: "", insertingFastenersInto: "", fastenersNewExisting: "",
@@ -49,6 +54,8 @@ const initialServiceData: ServiceSpecificData = {
 
 export default function PublicOrder() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isSuccess = searchParams.get("status") === "success";
 
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [specialInspectionTypes, setSpecialInspectionTypes] = useState<string[]>([]);
@@ -58,6 +65,8 @@ export default function PublicOrder() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [roofReport, setRoofReport] = useState<File | null>(null);
   const [roofReportType, setRoofReportType] = useState("Roofr");
+  const [roofReportPath, setRoofReportPath] = useState<string | null>(null);
+  const [roofReportName, setRoofReportName] = useState<string | null>(null);
   const [orderReport, setOrderReport] = useState(false);
   const [sameDayDispatch, setSameDayDispatch] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -66,10 +75,59 @@ export default function PublicOrder() {
   const [distanceFee, setDistanceFee] = useState(0);
   const [distanceMiles, setDistanceMiles] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [authGateOpen, setAuthGateOpen] = useState(false);
+  const draftLoaded = useRef(false);
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     services: true,
   });
+
+  // ── Draft persistence ────────────────────────────────────────────────
+  // Restore once on mount so a refresh, failed submit, or the sign-up email
+  // round-trip never loses the visitor's work.
+  useEffect(() => {
+    if (isSuccess) return;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d.selectedServices?.length || d.clientInfo?.companyName || d.jobInfo?.jobAddress) {
+          setSelectedServices(d.selectedServices ?? []);
+          setSpecialInspectionTypes(d.specialInspectionTypes ?? []);
+          setClientInfo({ ...initialClientInfo, ...d.clientInfo });
+          setJobInfo({ ...initialJobInfo, ...d.jobInfo });
+          setServiceData({ ...initialServiceData, ...d.serviceData });
+          setRoofReportType(d.roofReportType ?? "Roofr");
+          setRoofReportPath(d.roofReportPath ?? null);
+          setRoofReportName(d.roofReportName ?? null);
+          setOrderReport(d.orderReport ?? false);
+          setSameDayDispatch(d.sameDayDispatch ?? false);
+          toast.info("Welcome back — your order draft was restored.");
+        }
+      }
+    } catch { /* corrupted draft — start fresh */ }
+    draftLoaded.current = true;
+  }, [isSuccess]);
+
+  // Save (debounced) whenever the form changes.
+  useEffect(() => {
+    if (!draftLoaded.current || isSuccess) return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          selectedServices, specialInspectionTypes, clientInfo, jobInfo,
+          serviceData, roofReportType, roofReportPath, roofReportName,
+          orderReport, sameDayDispatch, _savedAt: Date.now(),
+        }));
+      } catch { /* storage full/unavailable */ }
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [selectedServices, specialInspectionTypes, clientInfo, jobInfo, serviceData,
+      roofReportType, roofReportPath, roofReportName, orderReport, sameDayDispatch, isSuccess]);
+
+  const clearDraft = () => {
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
+  };
 
   const toggleSection = (key: string) =>
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -180,7 +238,7 @@ export default function PublicOrder() {
     return errs;
   }, [selectedServices, clientInfo, jobInfo, requireRoofDetails, previouslyAccepted, termsAccepted]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (authedUserId?: string) => {
     const errs = validate();
     setErrors(errs);
 
@@ -201,41 +259,53 @@ export default function PublicOrder() {
       return;
     }
 
+    // Signed out? Save the draft and open the inline auth gate — the order
+    // survives the sign-in or the sign-up email round-trip either way.
+    const uid = authedUserId ?? user?.id;
+    if (!uid) {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          selectedServices, specialInspectionTypes, clientInfo, jobInfo,
+          serviceData, roofReportType, roofReportPath, roofReportName,
+          orderReport, sameDayDispatch, _savedAt: Date.now(),
+        }));
+      } catch { /* noop */ }
+      setAuthGateOpen(true);
+      return;
+    }
+
     setSubmitting(true);
     try {
-      // Upsert profile if logged in
-      if (user) {
-        await supabase.from("client_profiles").upsert({
-          user_id: user.id,
-          company_name: clientInfo.companyName,
-          company_address: clientInfo.companyAddress,
-          company_city: clientInfo.city,
-          company_state: clientInfo.state,
-          company_zip: clientInfo.zipCode,
-          contact_name: clientInfo.contactName,
-          contact_email: clientInfo.email,
-          contact_phone: clientInfo.phone,
-          terms_accepted_at: new Date().toISOString(),
-        }, { onConflict: "user_id" });
+      // Keep the profile in sync with what was entered on the form
+      await supabase.from("client_profiles").upsert({
+        user_id: uid,
+        company_name: clientInfo.companyName,
+        company_address: clientInfo.companyAddress,
+        company_city: clientInfo.city,
+        company_state: clientInfo.state,
+        company_zip: clientInfo.zipCode,
+        contact_name: clientInfo.contactName,
+        contact_email: clientInfo.email,
+        contact_phone: clientInfo.phone,
+        terms_accepted_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+
+      // Upload any additional documents now that we have an authenticated user
+      const additionalDocs: { path: string; name: string }[] = [];
+      for (const file of uploadedFiles) {
+        const safeName = file.name.replace(/[^\w.\-]/g, "_");
+        const path = `${uid}/order-docs/${Date.now()}-${safeName}`;
+        const { error: upErr } = await supabase.storage.from("reports").upload(path, file);
+        if (upErr) {
+          toast.warning(`Couldn't attach ${file.name} — continuing without it`);
+        } else {
+          additionalDocs.push({ path, name: file.name });
+        }
       }
 
       const serviceNames = selectedServices.map(
         (id) => ORDER_SERVICES.find((s) => s.id === id)?.name ?? id
       );
-
-      const metadata = {
-        clientInfo,
-        jobInfo,
-        serviceData,
-        specialInspectionTypes,
-        sameDayDispatch,
-        orderReport,
-        roofReportType,
-        distanceFee,
-        distanceMiles,
-        discountPct,
-        total,
-      };
 
       const { data, error } = await supabase.functions.invoke("create-guest-checkout", {
         body: {
@@ -243,40 +313,55 @@ export default function PublicOrder() {
           serviceNames,
           customerEmail: clientInfo.email,
           customerName: clientInfo.companyName,
-          amount: Math.round(total * 100),
-          clientId: user?.id || null,
+          clientId: uid,
           jobAddress: jobInfo.jobAddress,
           jobCity: jobInfo.jobCity,
           jobZip: jobInfo.jobZipCode,
-          jobCounty: "",
+          jobCounty: jobInfo.jobCounty,
+          jobLat: jobInfo.jobLat,
+          jobLng: jobInfo.jobLng,
           gatedCommunity: clientInfo.gatedCommunity === "yes",
           gateCode: clientInfo.gateCode,
           insideAccessName: jobInfo.insideAccessName,
           insideAccessPhone: jobInfo.insideAccessPhone,
-          metadata: JSON.stringify(metadata),
-          isGuestOrder: !user,
+          // Pricing inputs — the server recomputes the total from its own
+          // catalog; the client amount is sent only as a cross-check.
+          roofAreaSqft: roofArea,
+          roofHeightFt: roofHeight,
+          sameDayDispatch,
+          orderReport,
+          distanceFee,
+          clientAmount: Math.round(total * 100),
+          // Rich order details, persisted onto the order row (not Stripe metadata)
+          roofReportPath,
+          roofReportName: roofReportName ?? roofReport?.name ?? null,
+          roofReportType,
+          additionalDocs,
+          orderDetails: {
+            client_info: clientInfo,
+            job_info: jobInfo,
+            service_data: serviceData,
+            special_inspection_types: specialInspectionTypes,
+            distance_miles: distanceMiles,
+          },
         },
       });
 
       if (error) throw error;
+      sessionStorage.setItem("orderDetails", JSON.stringify({
+        projectName: jobInfo.projectName,
+        jobAddress: jobInfo.jobAddress,
+        serviceCount: selectedServices.length,
+        total,
+        email: clientInfo.email,
+      }));
       if (data?.skipPayment) {
-        sessionStorage.setItem("orderDetails", JSON.stringify({
-          projectName: jobInfo.projectName,
-          serviceCount: selectedServices.length,
-          total,
-          email: clientInfo.email,
-        }));
         toast.success("Order submitted successfully!");
+        clearDraft();
         window.location.href = "/order?status=success";
         return;
       }
       if (data?.checkoutUrl) {
-        sessionStorage.setItem("orderDetails", JSON.stringify({
-          projectName: jobInfo.projectName,
-          serviceCount: selectedServices.length,
-          total,
-          email: clientInfo.email,
-        }));
         window.location.href = data.checkoutUrl;
       }
     } catch (err: any) {
@@ -294,6 +379,62 @@ export default function PublicOrder() {
   const isJobComplete = !!(jobInfo.jobAddress && jobInfo.jobCity && jobInfo.jobZipCode.length === 5);
   const isUploadComplete = uploadedFiles.length > 0 || !!roofReport;
   const isTermsComplete = previouslyAccepted || termsAccepted;
+
+  // The draft is done once payment succeeded
+  useEffect(() => {
+    if (isSuccess) clearDraft();
+  }, [isSuccess]);
+
+  // ── Success screen ──────────────────────────────────────────────────
+  if (isSuccess) {
+    let details: { projectName?: string; jobAddress?: string; serviceCount?: number; total?: number; email?: string } | null = null;
+    try { details = JSON.parse(sessionStorage.getItem("orderDetails") || "null"); } catch { /* noop */ }
+    return (
+      <div className="min-h-screen bg-background">
+        <HeroNav solid />
+        <div className="mx-auto max-w-lg px-4 pt-32 pb-20">
+          <div className="rounded-2xl border bg-card shadow-elevated p-8 text-center">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-hvhz-green-light">
+              <CheckCircle2 className="h-8 w-8 text-hvhz-green" />
+            </div>
+            <h1 className="font-display text-2xl font-bold text-primary">Order received</h1>
+            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+              {details?.jobAddress
+                ? <>Your order for <span className="font-medium text-primary">{details.jobAddress}</span> is in.</>
+                : "Your order is in."}{" "}
+              {details?.email && <>A confirmation is on its way to <span className="font-medium text-primary">{details.email}</span>.</>}
+            </p>
+
+            <div className="mt-6 rounded-lg bg-muted/60 p-4 text-left space-y-2.5">
+              {[
+                "We review and dispatch your order — same day when possible",
+                "Field testing and engineering calculations run",
+                "A licensed PE signs and seals your report",
+                "Download the sealed PDF from your portal",
+              ].map((step, i) => (
+                <div key={step} className="flex items-start gap-2.5 text-[13px] text-muted-foreground">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-hvhz-teal/10 text-hvhz-teal text-[10px] font-bold">{i + 1}</span>
+                  {step}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-7 flex flex-col gap-2.5">
+              <Button className="w-full h-11 bg-hvhz-teal text-white hover:bg-hvhz-teal/90" asChild>
+                <Link to={user ? "/portal/dashboard" : "/auth"}>
+                  {user ? "Track it in your dashboard" : "Sign in to track your order"}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button variant="outline" className="w-full h-11" onClick={() => { sessionStorage.removeItem("orderDetails"); setSearchParams({}); }}>
+                Place another order
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -405,6 +546,10 @@ export default function PublicOrder() {
             onRoofAreaExtracted={(area) =>
               setJobInfo((prev) => ({ ...prev, roofArea: String(area) }))
             }
+            onRoofReportUploaded={(path, name) => {
+              setRoofReportPath(path);
+              setRoofReportName(name);
+            }}
           />
         </FormSection>
 
@@ -444,12 +589,24 @@ export default function PublicOrder() {
             onTermsChange={setTermsAccepted}
             previouslyAccepted={previouslyAccepted}
             total={total}
-            onSubmit={handleSubmit}
+            onSubmit={() => handleSubmit()}
             submitting={submitting}
             errors={errors}
           />
         </FormSection>
       </div>
+
+      <AuthGateDialog
+        open={authGateOpen}
+        onOpenChange={setAuthGateOpen}
+        defaultEmail={clientInfo.email}
+        companyName={clientInfo.companyName}
+        contactName={clientInfo.contactName}
+        onAuthed={(userId) => {
+          setAuthGateOpen(false);
+          handleSubmit(userId);
+        }}
+      />
 
       <footer className="hero-gradient text-primary-foreground px-6 py-10 mt-12 border-t border-white/5">
         <div className="mx-auto max-w-3xl flex flex-col sm:flex-row items-center justify-between gap-4">

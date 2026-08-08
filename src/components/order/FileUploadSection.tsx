@@ -15,6 +15,7 @@ interface FileUploadSectionProps {
   orderReport: boolean;
   onOrderReportChange: (v: boolean) => void;
   onRoofAreaExtracted?: (area: number) => void;
+  onRoofReportUploaded?: (path: string | null, name: string | null) => void;
 }
 
 export function FileUploadSection({
@@ -27,6 +28,7 @@ export function FileUploadSection({
   orderReport,
   onOrderReportChange,
   onRoofAreaExtracted,
+  onRoofReportUploaded,
 }: FileUploadSectionProps) {
   const filesInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -60,6 +62,7 @@ export function FileUploadSection({
         roofReportType={roofReportType}
         onRoofReportTypeChange={onRoofReportTypeChange}
         onRoofAreaExtracted={onRoofAreaExtracted}
+        onUploaded={onRoofReportUploaded}
       />
 
       {/* Part B: Additional Files */}
