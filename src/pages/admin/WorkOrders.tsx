@@ -331,7 +331,17 @@ export default function WorkOrders() {
         body: { workOrderId: selected.id, partnerId },
       });
       if (error || data?.error) {
-        toast.error("Dispatch failed: " + (data?.error ?? error?.message ?? "unknown error"));
+        // On a non-2xx the server's JSON body lives on error.context (a Response);
+        // pull the real message out of it so failures aren't opaque.
+        let message = data?.error ?? error?.message ?? "unknown error";
+        const ctx = (error as { context?: Response } | null)?.context;
+        if (ctx && typeof ctx.json === "function") {
+          try { message = (await ctx.json())?.error ?? message; } catch { /* keep message */ }
+        }
+        if (/failed to send|fetch/i.test(message)) {
+          message = "the dispatch-to-lab function isn’t deployed on Supabase yet. Deploy it, then retry.";
+        }
+        toast.error("Dispatch failed: " + message);
       } else {
         const missing: string[] = data?.missing ?? [];
         toast.success(
