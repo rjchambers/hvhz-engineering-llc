@@ -127,13 +127,18 @@
     background-size: 24px 24px;
   }
 
-  /* Scroll-triggered animation classes */
-  .animate-in {
+  /* Scroll-triggered reveal classes.
+     NOTE: deliberately NOT named "animate-in" — that class belongs to
+     tailwindcss-animate and is applied by every shadcn overlay
+     (data-[state=open]:animate-in). Shadowing it with a fill-mode:both
+     animation permanently overrides the overlay's translate(-50%,-50%)
+     centering transform, throwing dialogs off-screen. */
+  .reveal {
     animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  .animate-in-delay-1 { animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both; }
-  .animate-in-delay-2 { animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both; }
-  .animate-in-delay-3 { animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
+  .reveal-delay-1 { animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both; }
+  .reveal-delay-2 { animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both; }
+  .reveal-delay-3 { animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
 
   /* Shimmer loading effect */
   .shimmer {

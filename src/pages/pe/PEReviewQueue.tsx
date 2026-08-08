@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { STATUS_BADGE_CLASSES, STATUS_LABELS, daysSince } from "@/lib/work-order-helpers";
+import { getServiceName } from "@/lib/services";
 import { cn } from "@/lib/utils";
 import { Clock, MapPin, CheckCircle2 } from "lucide-react";
 
@@ -83,7 +84,7 @@ export default function PEReviewQueue() {
     return (
       <div onClick={() => navigate(`/pe/review/${wo.id}`)} className="bg-card border rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98]">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-primary">{wo.service_type}</p>
+          <p className="text-sm font-semibold text-primary">{getServiceName(wo.service_type)}</p>
           <Badge className={cn("text-[11px]", STATUS_BADGE_CLASSES[wo.status])}>{STATUS_LABELS[wo.status] ?? wo.status}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">{wo.client_profiles?.company_name ?? "—"}</p>

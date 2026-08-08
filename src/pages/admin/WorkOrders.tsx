@@ -669,7 +669,7 @@ export default function WorkOrders() {
 
       {/* Bulk dispatch dialog */}
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Bulk dispatch {selectedIds.size} work order{selectedIds.size !== 1 ? "s" : ""}</DialogTitle>
           </DialogHeader>

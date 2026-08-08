@@ -1,6 +1,6 @@
 export function PageSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="space-y-6 animate-in">
+    <div className="space-y-6 reveal">
       {/* Header skeleton */}
       <div className="space-y-2">
         <div className="h-7 w-48 rounded-lg bg-muted shimmer" />

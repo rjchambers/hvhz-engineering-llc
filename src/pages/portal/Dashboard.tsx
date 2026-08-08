@@ -214,7 +214,7 @@ export default function Dashboard() {
 
   return (
     <PortalLayout>
-      <div className="px-6 py-8 max-w-5xl mx-auto min-h-[calc(100vh-3.5rem)] animate-in">
+      <div className="px-6 py-8 max-w-5xl mx-auto min-h-[calc(100vh-3.5rem)] reveal">
         {/* Welcome banner */}
         <div className="rounded-2xl bg-gradient-to-r from-primary to-hvhz-navy-mid p-8 text-white mb-8">
           <h1 className="text-2xl font-bold">Welcome back</h1>

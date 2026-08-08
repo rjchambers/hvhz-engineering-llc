@@ -4,7 +4,7 @@ import type { AutosaveStatus } from "@/hooks/useAutosave";
 export function AutosaveIndicator({ status }: { status: AutosaveStatus }) {
   if (status === "idle") return null;
   return (
-    <div className="flex items-center gap-1.5 text-[11px] select-none animate-in">
+    <div className="flex items-center gap-1.5 text-[11px] select-none reveal">
       {status === "saving" && (
         <><Loader2 className="h-3 w-3 animate-spin text-muted-foreground" /><span className="text-muted-foreground">Saving…</span></>
       )}
