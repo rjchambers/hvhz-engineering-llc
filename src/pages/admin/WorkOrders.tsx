@@ -266,6 +266,13 @@ export default function WorkOrders() {
     ? partners.filter((p) => p.services.includes(selected.service_type))
     : [];
 
+  // Auto-select the partner when exactly one active lab covers the service.
+  useEffect(() => {
+    if (selected && isOutsourced(selected.service_type) && availablePartners.length === 1) {
+      setSelectedPartnerId((prev) => prev || availablePartners[0].id);
+    }
+  }, [selected, partners]);
+
   const resolveTemplate = (template: string): string => {
     if (!selected || !selectedPartner) return template;
     return template
@@ -273,7 +280,7 @@ export default function WorkOrders() {
       .replace(/\{\{service_name\}\}/g, getServiceName(selected.service_type))
       .replace(/\{\{job_address\}\}/g, selected.orders?.job_address ?? "")
       .replace(/\{\{job_city\}\}/g, selected.orders?.job_city ?? "")
-      .replace(/\{\{job_zip\}\}/g, "")
+      .replace(/\{\{job_zip\}\}/g, selected.orders?.job_zip ?? "")
       .replace(/\{\{client_company\}\}/g, selected.client_profiles?.company_name ?? "")
       .replace(/\{\{work_order_id\}\}/g, selected.id.slice(0, 8).toUpperCase())
       .replace(/\{\{scheduled_date\}\}/g, dispatchDate ? format(dispatchDate, "MMMM d, yyyy") : "TBD");
@@ -313,17 +320,28 @@ export default function WorkOrders() {
     setDispatching(true);
 
     if (isOutsourced(selected.service_type)) {
-      if (!selectedPartner) { toast.error("Select a lab partner"); setDispatching(false); return; }
-      const { error } = await supabase
-        .from("work_orders")
-        .update({
-          status: "dispatched",
-          outsource_company: selectedPartner.name,
-          outsource_email_sent_at: new Date().toISOString(),
-        })
-        .eq("id", selected.id);
-      if (error) toast.error("Failed to dispatch");
-      else { toast.success(`Work order dispatched to ${selectedPartner.name}`); setSelected(null); fetchWOs(); }
+      // Auto-select the partner when exactly one active lab covers this service.
+      const partnerId = selectedPartnerId || (availablePartners.length === 1 ? availablePartners[0].id : "");
+      if (!partnerId) { toast.error("Select a lab partner"); setDispatching(false); return; }
+
+      // The dispatch-to-lab edge function emails the partner (CC admin) with the
+      // submitted files attached, then stamps the work order — server-side, so
+      // outsource_email_sent_at only ever reflects a confirmed send.
+      const { data, error } = await supabase.functions.invoke("dispatch-to-lab", {
+        body: { workOrderId: selected.id, partnerId },
+      });
+      if (error || data?.error) {
+        toast.error("Dispatch failed: " + (data?.error ?? error?.message ?? "unknown error"));
+      } else {
+        const missing: string[] = data?.missing ?? [];
+        toast.success(
+          `Emailed ${data?.partner ?? "lab"}` +
+            (data?.attached?.length ? ` with ${data.attached.length} file(s)` : "") +
+            (missing.length ? ` (couldn't attach: ${missing.join(", ")})` : "")
+        );
+        setSelected(null);
+        fetchWOs();
+      }
     } else {
       const { error } = await supabase
         .from("work_orders")
@@ -601,7 +619,22 @@ export default function WorkOrders() {
                                 <div className="rounded-md bg-muted/50 p-3 text-sm space-y-0.5">
                                   <p><span className="text-muted-foreground">Contact:</span> {selectedPartner.contact_name ?? "—"}</p>
                                   <p><span className="text-muted-foreground">Email:</span> {selectedPartner.contact_email}</p>
+                                  <p><span className="text-muted-foreground">CC:</span> admin@hvhzengineering.com</p>
                                 </div>
+
+                                {(() => {
+                                  const files = [
+                                    selected.orders?.noa_document_name && "NOA document",
+                                    selected.orders?.roof_report_name && "Roof report",
+                                  ].filter(Boolean);
+                                  return (
+                                    <p className="text-xs text-muted-foreground">
+                                      {files.length
+                                        ? `Attachments: ${files.join(", ")}`
+                                        : "No submitted files to attach for this order."}
+                                    </p>
+                                  );
+                                })()}
 
                                 {selectedPartner.email_template && (
                                   <Collapsible open={emailPreviewOpen} onOpenChange={setEmailPreviewOpen}>
@@ -622,7 +655,7 @@ export default function WorkOrders() {
                             )}
 
                             <Button onClick={handleDispatch} disabled={dispatching || !selectedPartnerId} className="w-full bg-hvhz-navy hover:bg-hvhz-navy/90">
-                              {dispatching ? "Dispatching…" : "Dispatch to Lab"}
+                              {dispatching ? "Emailing lab…" : "Email Lab & Dispatch"}
                             </Button>
                           </>
                         )}
