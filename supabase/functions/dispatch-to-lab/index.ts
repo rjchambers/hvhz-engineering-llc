@@ -29,7 +29,7 @@ Reference WO#: {{work_order_id}}
 Requested date: {{scheduled_date}}
 
 The associated documents are attached. Please perform the test and email
-results to admin@hvhzengineering.com referencing the WO# above.
+results to admin@hvhz.us referencing the WO# above.
 
 Thank you,
 HVHZ Engineering`;
@@ -157,7 +157,7 @@ serve(async (req) => {
       method: "POST",
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: "HVHZ Engineering <noreply@hvhzengineering.com>",
+        from: "HVHZ Engineering <noreply@workorder.hvhz.us>",
         to: partner.contact_name
           ? `${partner.contact_name} <${partner.contact_email}>`
           : partner.contact_email,
