@@ -92,7 +92,7 @@ export function HeroNav({ solid = false }: { solid?: boolean }) {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="md:hidden bg-background/95 backdrop-blur-lg border-b px-6 py-4 space-y-1 animate-in">
+        <div className="md:hidden bg-background/95 backdrop-blur-lg border-b px-6 py-4 space-y-1 reveal">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}

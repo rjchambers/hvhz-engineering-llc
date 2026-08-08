@@ -73,7 +73,7 @@ function AnimatedSection({ children, className, delay = 0 }: { children: React.R
   return (
     <div
       ref={ref}
-      className={cn(isInView ? "animate-in" : "opacity-0", className)}
+      className={cn(isInView ? "reveal" : "opacity-0", className)}
       style={delay ? { animationDelay: `${delay}ms` } : undefined}
     >
       {children}
@@ -90,7 +90,7 @@ function ServiceCard({ service, index }: { service: (typeof landingServices)[num
       ref={ref}
       className={cn(
         "group relative rounded-xl border bg-card overflow-hidden transition-all duration-300 hover:shadow-elevated-hover hover:-translate-y-1 hover:border-hvhz-teal/30",
-        isInView ? "animate-in" : "opacity-0"
+        isInView ? "reveal" : "opacity-0"
       )}
       style={{ animationDelay: `${(index % 3) * 80}ms` }}
     >

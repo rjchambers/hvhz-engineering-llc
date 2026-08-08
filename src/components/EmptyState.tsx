@@ -5,7 +5,7 @@ export function EmptyState({ icon: Icon, title, description, action }: {
   icon: LucideIcon; title: string; description: string; action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-6 text-center animate-in">
+    <div className="flex flex-col items-center justify-center py-16 px-6 text-center reveal">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-hvhz-teal/5 border border-hvhz-teal/10 mb-5">
         <Icon className="h-7 w-7 text-hvhz-teal/60" />
       </div>

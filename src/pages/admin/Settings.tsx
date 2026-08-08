@@ -136,10 +136,10 @@ function PartnerDialog({
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Services this partner handles</Label>
-            <div className="space-y-2 mt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2 mt-1">
               {PARTNER_SERVICE_OPTIONS.map((svc) => (
-                <label key={svc.key} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Checkbox checked={services.includes(svc.key)} onCheckedChange={() => toggleService(svc.key)} />
+                <label key={svc.key} className="flex items-center gap-2 text-[13px] leading-tight cursor-pointer">
+                  <Checkbox checked={services.includes(svc.key)} onCheckedChange={() => toggleService(svc.key)} className="shrink-0" />
                   {svc.label}
                 </label>
               ))}
@@ -147,7 +147,7 @@ function PartnerDialog({
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Email Template</Label>
-            <Textarea rows={10} value={template} onChange={(e) => setTemplate(e.target.value)} className="font-mono text-xs" />
+            <Textarea rows={6} value={template} onChange={(e) => setTemplate(e.target.value)} className="font-mono text-xs" />
             <p className="text-[11px] text-muted-foreground">
               Available variables: {"{{contact_name}}"}, {"{{service_name}}"}, {"{{job_address}}"}, {"{{job_city}}"}, {"{{job_zip}}"}, {"{{client_company}}"}, {"{{work_order_id}}"}, {"{{scheduled_date}}"}
             </p>

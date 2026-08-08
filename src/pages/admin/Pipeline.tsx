@@ -10,6 +10,7 @@ import {
   TAS_SERVICES,
   daysSince,
 } from "@/lib/work-order-helpers";
+import { getServiceName } from "@/lib/services";
 import { toast } from "sonner";
 
 interface WO {
@@ -144,7 +145,7 @@ export default function Pipeline() {
                 return (
                   <div
                     key={col}
-                    className={`min-w-[220px] w-[220px] flex-shrink-0 rounded-lg transition-colors ${
+                    className={`min-w-[230px] flex-1 rounded-lg transition-colors ${
                       dragOver === col
                         ? "bg-hvhz-teal/10 ring-2 ring-hvhz-teal/30"
                         : "bg-muted/50"
@@ -184,7 +185,7 @@ export default function Pipeline() {
                               {wo.client_profiles?.company_name || "—"}
                             </p>
                             <p className="text-[11px] text-muted-foreground mt-0.5">
-                              {wo.service_type}
+                              {getServiceName(wo.service_type)}
                             </p>
                             <p className="text-[11px] text-muted-foreground truncate">
                               {wo.orders?.job_address || "—"}{wo.orders?.job_city ? `, ${wo.orders.job_city}` : ""}
@@ -229,7 +230,7 @@ export default function Pipeline() {
                               <p className="text-xs font-semibold text-primary truncate">{wo.client_profiles?.company_name || "—"}</p>
                               <p className="text-[10px] text-muted-foreground/70">{daysSince(wo.created_at)}d</p>
                             </div>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">{wo.service_type}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{getServiceName(wo.service_type)}</p>
                             <p className="text-[11px] text-muted-foreground truncate">{wo.orders?.job_address || "—"}</p>
                           </div>
                         );
