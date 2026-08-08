@@ -75,7 +75,7 @@ serve(async (req) => {
     // Load the work order + its order (for job details and submitted files).
     const { data: wo, error: woErr } = await supabaseAdmin
       .from("work_orders")
-      .select("id, service_type, client_id, scheduled_date, orders(job_address, job_city, job_zip, notes, noa_document_path, noa_document_name, roof_report_path, roof_report_name)")
+      .select("id, service_type, client_id, scheduled_date, orders(job_address, job_city, job_zip, notes, noa_document_path, noa_document_name, roof_report_path, roof_report_name, roof_data)")
       .eq("id", workOrderId)
       .single();
     if (woErr || !wo) return json({ error: "Work order not found" }, 404);
@@ -129,10 +129,14 @@ serve(async (req) => {
     );
     const html = escapeHtml(resolved).replace(/\n/g, "<br>");
 
-    // Download the submitted files and attach them.
+    // Download the submitted files and attach them — including any
+    // additional documents the client uploaded with the order.
+    const additionalDocs: { path?: string; name?: string }[] =
+      Array.isArray(order.roof_data?.additional_documents) ? order.roof_data.additional_documents : [];
     const fileSpecs = [
       { path: order.noa_document_path, name: order.noa_document_name },
       { path: order.roof_report_path, name: order.roof_report_name },
+      ...additionalDocs.map((d) => ({ path: d.path, name: d.name })),
     ].filter((f) => f.path);
 
     const attachments: { filename: string; content: string }[] = [];

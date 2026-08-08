@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getDefaultRouteForRoles, getUserRoles } from "@/lib/authz";
 import { toast } from "sonner";
-import { Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2, User, Building2 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
+import { AUTH_RETURN_TO_KEY } from "@/components/order/AuthGateDialog";
 
 const VALUE_POINTS = [
   "Order any service in minutes",
@@ -20,9 +21,23 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+
+  /** Honor a saved return path (e.g. the order form) before the role default. */
+  const postAuthNavigate = async (userId: string) => {
+    const returnTo = localStorage.getItem(AUTH_RETURN_TO_KEY);
+    if (returnTo) {
+      localStorage.removeItem(AUTH_RETURN_TO_KEY);
+      navigate(returnTo, { replace: true });
+      return;
+    }
+    const roles = await getUserRoles(userId);
+    navigate(getDefaultRouteForRoles(roles), { replace: true });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -48,19 +63,29 @@ export default function Auth() {
         if (error) throw error;
         toast.success("Signed in successfully");
         if (signInData.user) {
-          const roles = await getUserRoles(signInData.user.id);
-          navigate(getDefaultRouteForRoles(roles), { replace: true });
+          await postAuthNavigate(signInData.user.id);
         } else {
           navigate("/portal/dashboard", { replace: true });
         }
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            data: {
+              full_name: fullName.trim(),
+              company_name: companyName.trim(),
+            },
+          },
         });
         if (error) throw error;
-        toast.success("Check your email to confirm your account");
+        if (signUpData.session && signUpData.user) {
+          // Email confirmation disabled — signed in immediately
+          await postAuthNavigate(signUpData.user.id);
+        } else {
+          toast.success("Check your email to confirm your account");
+        }
       }
     } catch (error: any) {
       toast.error(error.message);
@@ -127,6 +152,40 @@ export default function Auth() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Your name</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="fullName"
+                      type="text"
+                      placeholder="Jordan Rivera"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="pl-10 h-11"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="companyName">Company</Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="companyName"
+                      type="text"
+                      placeholder="Your roofing company"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      className="pl-10 h-11"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Work email</Label>
               <div className="relative">

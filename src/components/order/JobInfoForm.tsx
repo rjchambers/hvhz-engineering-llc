@@ -28,6 +28,10 @@ export interface JobInfo {
   deckTypeOther: string;
   componentSecured: string;
   fastenerManufacturer: string;
+  // Captured from address autocomplete — drives county rainfall data downstream
+  jobCounty: string;
+  jobLat: number | null;
+  jobLng: number | null;
 }
 
 const formatPhone = (value: string) => {
@@ -57,6 +61,9 @@ export function JobInfoForm({ data, onChange, errors, requireRoofDetails }: JobI
       jobCity: parsed.city,
       jobState: parsed.state || "FL",
       jobZipCode: parsed.zip,
+      jobCounty: parsed.county || "",
+      jobLat: parsed.lat ?? null,
+      jobLng: parsed.lng ?? null,
     });
   };
 
