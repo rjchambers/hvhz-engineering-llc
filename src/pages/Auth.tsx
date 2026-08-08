@@ -7,15 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getDefaultRouteForRoles, getUserRoles } from "@/lib/authz";
 import { toast } from "sonner";
-import { Mail, Lock, ArrowRight } from "lucide-react";
+import { Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 
-const SERVICE_TAGLINES = [
-  "TAS-105 Testing",
-  "Drainage Analysis",
-  "Wind Mitigation",
-  "Fastener Calculations",
-  "Roof Certifications",
+const VALUE_POINTS = [
+  "Order any service in minutes",
+  "Track every job in real time",
+  "Download PE-sealed reports",
 ];
 
 export default function Auth() {
@@ -23,16 +21,8 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [taglineIdx, setTaglineIdx] = useState(0);
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTaglineIdx((prev) => (prev + 1) % SERVICE_TAGLINES.length);
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,66 +74,61 @@ export default function Auth() {
       {/* Left panel — desktop only */}
       <div className="hidden md:flex md:w-1/2 hero-gradient relative items-center justify-center px-12 overflow-hidden">
         <div className="absolute inset-0 grid-pattern opacity-40" />
-        {/* Ambient glow */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-hvhz-teal/5 rounded-full blur-[100px]" />
 
-        <div className="relative text-center max-w-sm z-10">
-          <div className="flex justify-center mb-8">
-            <BrandMark size="lg" variant="light" />
-          </div>
+        <div className="relative max-w-sm z-10">
+          <BrandMark size="lg" variant="light" />
 
-          <p className="text-lg font-medium text-hvhz-teal mt-4">
-            Serving Palm Beach, Broward &amp; Miami-Dade
+          <h2 className="mt-10 font-display text-2xl font-bold text-white leading-snug">
+            Roof engineering for hurricane country.
+          </h2>
+          <p className="mt-3 text-sm text-white/50 leading-relaxed">
+            Serving Miami-Dade, Broward &amp; Palm Beach counties.
           </p>
 
-          {/* Rotating tagline */}
-          <div className="mt-6 h-8 overflow-hidden relative">
-            {SERVICE_TAGLINES.map((tagline, i) => (
-              <p
-                key={tagline}
-                className="absolute inset-0 flex items-center justify-center text-sm text-white/40 font-mono transition-all duration-500"
-                style={{
-                  opacity: i === taglineIdx ? 1 : 0,
-                  transform: i === taglineIdx ? "translateY(0)" : "translateY(8px)",
-                }}
-              >
-                {tagline}
-              </p>
+          <ul className="mt-8 space-y-3.5">
+            {VALUE_POINTS.map((point) => (
+              <li key={point} className="flex items-center gap-3 text-sm text-white/75">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-hvhz-teal" />
+                {point}
+              </li>
             ))}
-          </div>
+          </ul>
 
-          <p className="mt-12 text-[11px] text-white/15 font-mono tracking-wider">
-            FBC 8th Edition · ASCE 7-22 · TAS 105
+          <p className="mt-14 text-[11px] text-white/30 font-mono tracking-wider">
+            FBC 8TH EDITION · ASCE 7-22 · TAS 105
           </p>
         </div>
       </div>
 
       {/* Right panel — form */}
-      <div className="flex flex-1 items-center justify-center bg-background px-6">
+      <div className="flex flex-1 items-center justify-center bg-background px-6 py-12">
         <div className="w-full max-w-sm">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors mb-8"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to home
+          </Link>
+
           {/* Mobile brand */}
-          <div className="mb-8 text-center md:hidden">
-            <div className="flex justify-center mb-4">
-              <BrandMark size="lg" />
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isLogin ? "Sign in to your account" : "Create a new account"}
-            </p>
+          <div className="mb-8 md:hidden">
+            <BrandMark size="md" />
           </div>
 
-          {/* Desktop heading */}
-          <div className="hidden md:block mb-8">
-            <h2 className="text-xl font-bold text-primary">
-              {isLogin ? "Sign in to your account" : "Create a new account"}
+          <div className="mb-8">
+            <h2 className="font-display text-2xl font-bold text-primary tracking-tight">
+              {isLogin ? "Welcome back" : "Create your account"}
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isLogin ? "Enter your credentials to continue" : "Fill in the details below to get started"}
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {isLogin
+                ? "Sign in to your portal to manage orders and reports."
+                : "Set up your login — you can place your first order right after."}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Work email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -152,7 +137,7 @@ export default function Auth() {
                   placeholder="you@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 h-11"
                   required
                 />
               </div>
@@ -165,10 +150,10 @@ export default function Auth() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder={isLogin ? "••••••••" : "At least 6 characters"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 h-11"
                   required
                   minLength={6}
                 />
@@ -185,21 +170,21 @@ export default function Auth() {
 
             <Button
               type="submit"
-              className="w-full bg-hvhz-teal text-white hover:bg-hvhz-teal/90 shadow-lg shadow-hvhz-teal/20 active:scale-[0.98] transition-all"
+              className="w-full h-11 bg-hvhz-teal text-white hover:bg-hvhz-teal/90 shadow-lg shadow-hvhz-teal/20 active:scale-[0.98] transition-all"
               disabled={loading}
             >
-              {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
-              <ArrowRight className="ml-2 h-4 w-4" />
+              {loading ? "Please wait…" : isLogin ? "Sign in" : "Create account"}
+              {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+            {isLogin ? "New to HVHZ Engineering?" : "Already have an account?"}{" "}
             <button
               onClick={() => setIsLogin(!isLogin)}
               className="font-medium text-hvhz-teal hover:underline"
             >
-              {isLogin ? "Sign up" : "Sign in"}
+              {isLogin ? "Create an account" : "Sign in"}
             </button>
           </p>
         </div>

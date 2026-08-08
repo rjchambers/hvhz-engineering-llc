@@ -629,7 +629,7 @@ export default function WorkOrders() {
                                 <div className="rounded-md bg-muted/50 p-3 text-sm space-y-0.5">
                                   <p><span className="text-muted-foreground">Contact:</span> {selectedPartner.contact_name ?? "—"}</p>
                                   <p><span className="text-muted-foreground">Email:</span> {selectedPartner.contact_email}</p>
-                                  <p><span className="text-muted-foreground">CC:</span> admin@hvhzengineering.com</p>
+                                  <p><span className="text-muted-foreground">CC:</span> admin@hvhz.us</p>
                                 </div>
 
                                 {(() => {
