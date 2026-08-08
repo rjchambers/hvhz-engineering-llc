@@ -150,7 +150,7 @@ serve(async (req) => {
       attachments.push({ filename, content: encodeBase64(bytes) });
     }
 
-    const adminEmail = Deno.env.get("ADMIN_EMAIL") || "admin@hvhzengineering.com";
+    const adminEmail = Deno.env.get("ADMIN_EMAIL") || "admin@hvhz.us";
     const subject = `Test Request — ${vars["{{service_name}}"]} — WO#${vars["{{work_order_id}}"]}`;
 
     const res = await fetch("https://api.resend.com/emails", {
