@@ -604,7 +604,7 @@ export default function WorkOrders() {
                           <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
                             <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                             <div className="text-sm">
-                              <p className="font-medium text-amber-800">No active lab partners configured for {selected.service_type}.</p>
+                              <p className="font-medium text-amber-800">No active partners configured for {getServiceName(selected.service_type)}.</p>
                               <Link to="/admin/settings" className="text-amber-700 underline text-xs mt-1 inline-flex items-center gap-1">
                                 Go to Settings → Outsource Partners <ExternalLink className="h-3 w-3" />
                               </Link>

@@ -17,11 +17,11 @@ import { SERVICES } from "@/lib/services";
 import { Plus, Pencil } from "lucide-react";
 import { useAutosave } from "@/hooks/useAutosave";
 
-const TAS_SERVICE_OPTIONS = [
-  { key: "tas-105", label: "TAS-105 Fastener Withdrawal Test" },
-  { key: "tas-106", label: "TAS-106 Tile Bonding Verification" },
-  { key: "tas-126", label: "TAS-126 Moisture Survey" },
-];
+// A partner can be attached to any service we offer except the catch-all
+// "Other / Custom Request", which has no defined scope to dispatch.
+const PARTNER_SERVICE_OPTIONS = SERVICES
+  .filter((s) => s.key !== "other")
+  .map((s) => ({ key: s.key, label: s.name }));
 
 interface Partner {
   id: string;
@@ -137,7 +137,7 @@ function PartnerDialog({
           <div className="space-y-1.5">
             <Label className="text-xs">Services this partner handles</Label>
             <div className="space-y-2 mt-1">
-              {TAS_SERVICE_OPTIONS.map((svc) => (
+              {PARTNER_SERVICE_OPTIONS.map((svc) => (
                 <label key={svc.key} className="flex items-center gap-2 text-sm cursor-pointer">
                   <Checkbox checked={services.includes(svc.key)} onCheckedChange={() => toggleService(svc.key)} />
                   {svc.label}
