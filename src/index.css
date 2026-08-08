@@ -1,43 +1,48 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+  HVHZ Engineering — design tokens.
+
+  Identity: deep "ink" blue-black + ultramarine accent on neutral paper.
+  Note: the --hvhz-teal token name is kept for compatibility (it's referenced
+  across the app) but now carries the ultramarine accent value.
+*/
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 222 47% 11%;
+    --background: 216 24% 98%;
+    --foreground: 224 47% 8%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 224 47% 8%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 222 47% 11%;
+    --popover-foreground: 224 47% 8%;
+    --primary: 224 47% 8%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 174 84% 32%;
+    --secondary: 216 18% 95%;
+    --secondary-foreground: 224 47% 8%;
+    --muted: 216 18% 95%;
+    --muted-foreground: 220 12% 42%;
+    --accent: 224 76% 48%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 174 84% 32%;
-    --radius: 0.5rem;
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 213 31% 91%;
-    --sidebar-primary: 174 84% 32%;
+    --border: 216 16% 89%;
+    --input: 216 16% 89%;
+    --ring: 224 76% 48%;
+    --radius: 0.625rem;
+    --sidebar-background: 224 47% 8%;
+    --sidebar-foreground: 216 28% 92%;
+    --sidebar-primary: 224 76% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 16%;
+    --sidebar-accent: 224 40% 14%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 30% 18%;
-    --sidebar-ring: 174 84% 32%;
-    --hvhz-navy: 222 47% 11%;
-    --hvhz-navy-mid: 221 45% 20%;
-    --hvhz-teal: 174 84% 32%;
-    --hvhz-teal-light: 174 55% 93%;
+    --sidebar-border: 224 32% 16%;
+    --sidebar-ring: 224 76% 55%;
+    --hvhz-navy: 224 47% 8%;
+    --hvhz-navy-mid: 224 40% 16%;
+    --hvhz-teal: 224 76% 48%;
+    --hvhz-teal-light: 224 100% 96%;
     --hvhz-amber: 32 90% 44%;
     --hvhz-amber-light: 45 93% 94%;
     --hvhz-red: 0 72% 51%;
@@ -55,15 +60,20 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
+    font-feature-settings: "cv02", "cv11";
   }
 }
 
 @layer utilities {
   /* Typography */
   .text-display {
-    font-weight: 900;
-    letter-spacing: -0.03em;
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     line-height: 1.05;
+  }
+  .font-display {
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
   }
   .text-label-upper {
     font-size: 0.6875rem;
@@ -72,54 +82,48 @@
     text-transform: uppercase;
   }
 
-  /* Gradient text */
+  /* Gradient text — accent sweep */
   .text-gradient-teal {
-    background: linear-gradient(135deg, hsl(174 84% 32%) 0%, hsl(174 84% 45%) 100%);
+    background: linear-gradient(120deg, hsl(224 90% 62%) 0%, hsl(202 95% 60%) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  /* Glass card effect */
-  .glass {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-  }
-
-  /* Glow effects */
+  /* Glow effects (accent) */
   .glow-teal {
-    box-shadow: 0 0 20px hsl(174 84% 32% / 0.15), 0 0 60px hsl(174 84% 32% / 0.05);
+    box-shadow: 0 0 20px hsl(224 76% 48% / 0.18), 0 0 60px hsl(224 76% 48% / 0.06);
   }
   .glow-teal-strong {
-    box-shadow: 0 0 30px hsl(174 84% 32% / 0.3), 0 0 80px hsl(174 84% 32% / 0.1);
+    box-shadow: 0 0 30px hsl(224 76% 48% / 0.3), 0 0 80px hsl(224 76% 48% / 0.1);
   }
 
   /* Elevated card shadows */
   .shadow-elevated {
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.06), 0 12px 32px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 2px rgba(10,15,30,0.04), 0 4px 12px rgba(10,15,30,0.06), 0 12px 32px rgba(10,15,30,0.04);
   }
   .shadow-elevated-hover {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.04), 0 8px 20px rgba(0,0,0,0.08), 0 20px 48px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 4px rgba(10,15,30,0.04), 0 8px 20px rgba(10,15,30,0.08), 0 20px 48px rgba(10,15,30,0.06);
   }
 
-  /* Hero gradient */
+  /* Ink hero gradient */
   .hero-gradient {
-    background: linear-gradient(180deg, hsl(222 47% 8%) 0%, hsl(222 47% 13%) 60%, hsl(222 47% 11%) 100%);
+    background:
+      radial-gradient(1200px 600px at 80% -10%, hsl(224 76% 48% / 0.12) 0%, transparent 55%),
+      linear-gradient(180deg, hsl(224 50% 5%) 0%, hsl(224 45% 9%) 100%);
   }
 
   /* Grid background pattern */
   .grid-pattern {
     background-image:
-      linear-gradient(rgba(13,148,136,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(13,148,136,0.04) 1px, transparent 1px);
+      linear-gradient(hsl(224 76% 60% / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(224 76% 60% / 0.05) 1px, transparent 1px);
     background-size: 40px 40px;
   }
 
   /* Dot pattern */
   .dot-pattern {
-    background-image: radial-gradient(circle, rgba(13,148,136,0.06) 1px, transparent 1px);
+    background-image: radial-gradient(circle, hsl(224 76% 48% / 0.07) 1px, transparent 1px);
     background-size: 24px 24px;
   }
 
@@ -133,7 +137,7 @@
 
   /* Shimmer loading effect */
   .shimmer {
-    background: linear-gradient(90deg, transparent 0%, rgba(13,148,136,0.05) 50%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, hsl(224 76% 48% / 0.05) 50%, transparent 100%);
     background-size: 200% 100%;
     animation: shimmer 2s ease-in-out infinite;
   }
@@ -161,8 +165,8 @@
 
 /* Global input focus enhancement */
 input:focus, textarea:focus, select:focus, [role="combobox"]:focus {
-  box-shadow: 0 0 0 3px hsl(174 84% 32% / 0.08) !important;
-  border-color: hsl(174 84% 32%) !important;
+  box-shadow: 0 0 0 3px hsl(224 76% 48% / 0.1) !important;
+  border-color: hsl(224 76% 48%) !important;
 }
 
 /* Smooth scrollbar */

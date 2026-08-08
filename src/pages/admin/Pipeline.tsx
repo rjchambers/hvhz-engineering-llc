@@ -109,7 +109,7 @@ export default function Pipeline() {
           <div className="rounded-lg border bg-card p-16 text-center">
             <PackageOpen className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3" />
             <p className="text-sm font-medium text-primary">No orders yet</p>
-            <p className="text-xs text-muted-foreground mt-1">Share hvhzengineering.com to get started.</p>
+            <p className="text-xs text-muted-foreground mt-1">Share hvhz.us to get started.</p>
           </div>
         ) : (
           <>
