@@ -12,7 +12,7 @@ const SERVICE_CATALOG: Record<string, { name: string; base: number; perSquare: n
   "tas-126": { name: "TAS-126 Moisture Survey", base: 450, perSquare: 2.5 },
   "drainage-analysis": { name: "Roof Drainage Calculations", base: 400, perSquare: 0 },
   "fastener-calculation": { name: "Enhanced Fastener Pattern", base: 250, perSquare: 0 },
-  "special-inspection": { name: "Special Inspections", base: 250, perSquare: 0 },
+  "special-inspection": { name: "Special Inspections", base: 350, perSquare: 0 },
   "wind-mitigation-permit": { name: "Wind Mitigation (Roofing Permit)", base: 250, perSquare: 0 },
   "asbestos-survey": { name: "Asbestos Survey", base: 425, perSquare: 2.5 },
 };
