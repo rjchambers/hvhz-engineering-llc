@@ -25,7 +25,7 @@ const SERVICE_CATALOG: Record<string, { base: number; perSquare: number }> = {
   "tas-126": { base: 450, perSquare: 2.5 },
   "drainage-analysis": { base: 400, perSquare: 0 },
   "fastener-calculation": { base: 250, perSquare: 0 },
-  "special-inspection": { base: 250, perSquare: 0 },
+  "special-inspection": { base: 350, perSquare: 0 },
   "wind-mitigation-permit": { base: 250, perSquare: 0 },
   "asbestos-survey": { base: 425, perSquare: 2.5 },
   "other": { base: 0, perSquare: 0 },
