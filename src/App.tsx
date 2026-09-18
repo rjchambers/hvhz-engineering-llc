@@ -19,7 +19,7 @@ import OrderConfirmed from "./pages/portal/OrderConfirmed";
 import Dashboard from "./pages/portal/Dashboard";
 import MyProfile from "./pages/portal/MyProfile";
 import Pipeline from "./pages/admin/Pipeline";
-import WorkOrders from "./pages/admin/WorkOrders";
+import WorkOrderDetail from "./pages/admin/WorkOrderDetail";
 import AdminUsers from "./pages/admin/Users";
 import AdminAnalytics from "./pages/admin/Analytics";
 import AdminSettings from "./pages/admin/Settings";
@@ -54,7 +54,8 @@ const App = () => (
           <Route path="/portal/orders" element={<ProtectedRoute requiredRole="client"><Dashboard /></ProtectedRoute>} />
           <Route path="/portal/profile" element={<ProtectedRoute requiredRole="client"><MyProfile /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><Pipeline /></ProtectedRoute>} />
-          <Route path="/admin/work-orders" element={<ProtectedRoute requiredRole="admin"><WorkOrders /></ProtectedRoute>} />
+          <Route path="/admin/work-orders" element={<ProtectedRoute requiredRole="admin"><Pipeline /></ProtectedRoute>} />
+          <Route path="/admin/work-orders/:id" element={<ProtectedRoute requiredRole="admin"><WorkOrderDetail /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} />
           <Route path="/admin/analytics" element={<ProtectedRoute requiredRole="admin"><AdminAnalytics /></ProtectedRoute>} />
           <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />

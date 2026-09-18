@@ -1,55 +1,25 @@
-export const KANBAN_COLUMNS = [
-  "pending_dispatch",
-  "dispatched",
-  "in_progress",
-  "submitted",
-  "pe_review",
-  "signed",
-  "rejected",
-] as const;
+// Legacy shim — the canonical status model now lives in work-order-status.ts.
+// Kept so tech/PE/portal pages importing the old names keep working.
+import {
+  BOARD_COLUMNS,
+  STATUS_META,
+  WORK_ORDER_STATUSES,
+  type WorkOrderStatus,
+} from "@/lib/work-order-status";
 
-export const STATUS_LABELS: Record<string, string> = {
-  pending_payment: "Pending Payment",
-  pending_dispatch: "Pending Dispatch",
-  dispatched: "Dispatched",
-  in_progress: "In Progress",
-  submitted: "Submitted",
-  pe_review: "PE Review",
-  signed: "Signed & Complete",
-  complete: "Complete",
-  rejected: "Rejected",
-  archived: "Archived",
-};
+export {
+  TAS_SERVICES,
+  IN_HOUSE_SERVICES,
+  isOutsourced,
+  daysSince,
+} from "@/lib/work-order-status";
 
-export const STATUS_BADGE_CLASSES: Record<string, string> = {
-  pending_payment: "bg-muted text-muted-foreground",
-  pending_dispatch: "bg-muted text-muted-foreground",
-  dispatched: "bg-blue-50 text-blue-700 border border-blue-200",
-  in_progress: "bg-hvhz-teal-light text-hvhz-teal border border-hvhz-teal/20",
-  submitted: "bg-hvhz-amber-light text-hvhz-amber border border-hvhz-amber/20",
-  pe_review: "bg-purple-50 text-purple-700 border border-purple-200",
-  signed: "bg-hvhz-green-light text-hvhz-green border border-hvhz-green/20",
-  complete: "bg-hvhz-green-light text-hvhz-green border border-hvhz-green/20",
-  rejected: "bg-hvhz-red-light text-hvhz-red border border-hvhz-red/20",
-  archived: "bg-slate-100 text-slate-600 border border-slate-200",
-};
+export const KANBAN_COLUMNS = BOARD_COLUMNS;
 
+export const STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  WORK_ORDER_STATUSES.map((s: WorkOrderStatus) => [s, STATUS_META[s].label])
+);
 
-// Services that are physically TAS lab tests — used for TAS-specific UI and
-// reporting (distinct from whether a service is outsourced).
-export const TAS_SERVICES = ["tas-105", "tas-106", "tas-124", "tas-126"];
-
-// Services still handled in-house rather than dispatched to a third-party
-// partner. Every other service is outsourced. "Other / Custom Request" has no
-// defined scope to hand off, so it stays on the internal tech/PE flow.
-export const IN_HOUSE_SERVICES = ["other"];
-
-export function isOutsourced(serviceType: string) {
-  return !IN_HOUSE_SERVICES.includes(serviceType);
-}
-
-export function daysSince(dateStr: string) {
-  return Math.floor(
-    (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24)
-  );
-}
+export const STATUS_BADGE_CLASSES: Record<string, string> = Object.fromEntries(
+  WORK_ORDER_STATUSES.map((s: WorkOrderStatus) => [s, STATUS_META[s].badgeClass])
+);
